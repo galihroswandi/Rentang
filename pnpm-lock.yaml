@@ -22,9 +22,6 @@ importers:
       fast-xml-parser:
         specifier: ^5.11.2
         version: 5.11.2
-      fast-xml-validator:
-        specifier: ^1.4.2
-        version: 1.4.2
       svelte:
         specifier: ^5.57.2
         version: 5.57.2(@typescript-eslint/types@8.71.2)
@@ -438,34 +435,10 @@ packages:
         integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==,
       }
 
-  '@nodable/base-output-builder@2.0.0':
-    resolution:
-      {
-        integrity: sha512-DECrOg3zZuhOx2Iesj1mkINjFvasP3HV3pjGBs3A104V4zJIZJOeqOzF5qNWRl17oGheNsfnqINwUBVu6n7wrQ==,
-      }
-
-  '@nodable/compact-builder@2.0.0':
-    resolution:
-      {
-        integrity: sha512-TLyrdyV+KIh9n7waO45m9LsbxpoNXkHfXmQ4tWgXJynsJwCCZm2qT5NFvcjzWq3AN+tsA7XpmQOwAC5vbqzjkg==,
-      }
-
-  '@nodable/entities@2.2.0':
-    resolution:
-      {
-        integrity: sha512-9uGyhaQavEUMC8AIddIjau4NsnsXhou+j5sBAGojCM1oxmQpVKTWR/9JxABD6UAv12vpIms55fPZKFQEhG6uBg==,
-      }
-
   '@nodable/entities@3.1.0':
     resolution:
       {
         integrity: sha512-LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ==,
-      }
-
-  '@nodable/flexible-xml-parser@1.11.3':
-    resolution:
-      {
-        integrity: sha512-fNX6VI3qlgTogvjnE80OWoGrFJ05oeq3lTr13mCtl64zbOEW+cqAKnxTxE+n6S4dGXcBzDVuCK9K7UvcWZPniA==,
       }
 
   '@oxc-project/types@0.154.0':
@@ -1290,12 +1263,6 @@ packages:
       }
     engines: { node: '>=6' }
 
-  detailed-xml-validator@2.2.0:
-    resolution:
-      {
-        integrity: sha512-dffr/kTqIqq2BpybOEddhQRF1KBQcLdKHww9/urAKwZC1+epDnPnbT5IOb0ffCT4QTioAvKYEsojXeOYk030UQ==,
-      }
-
   detect-libc@2.1.2:
     resolution:
       {
@@ -1567,12 +1534,6 @@ packages:
       }
     hasBin: true
 
-  fast-xml-validator@1.4.2:
-    resolution:
-      {
-        integrity: sha512-dN1Z5tBDxhJ1e8ccerKI+MWdwZ8oUWhWTSYISFeHKUOzlaZrwnwxcHKN3d7R9IOqtCtk6ynbEiZhjo/8RtDwIA==,
-      }
-
   fdir@6.5.0:
     resolution:
       {
@@ -1761,12 +1722,6 @@ packages:
     resolution:
       {
         integrity: sha512-ixkJoqQvAP88E6wLydLGGqCJsrFUnqoH6HnaczB8XmDH1oaWU+xxdptvikTgaEhtZ53Ky6YXiBuUI2WXLMCwjw==,
-      }
-
-  is-unsafe@1.0.1:
-    resolution:
-      {
-        integrity: sha512-CLK2+VdgERgD96EYm5lUQssZYlRg2tkZnbsxZoacmSiRxiFJ4Nk4SzjCl+Ur+v3kXIY9dTIdb3IH22y1mZ56LA==,
       }
 
   is-unsafe@2.0.2:
@@ -3147,28 +3102,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@nodable/base-output-builder@2.0.0':
-    dependencies:
-      '@nodable/entities': 2.2.0
-      is-unsafe: 1.0.1
-      path-expression-matcher: 1.6.2
-      strnum: 2.5.1
-
-  '@nodable/compact-builder@2.0.0':
-    dependencies:
-      '@nodable/base-output-builder': 2.0.0
-      path-expression-matcher: 1.6.2
-
-  '@nodable/entities@2.2.0': {}
-
   '@nodable/entities@3.1.0': {}
-
-  '@nodable/flexible-xml-parser@1.11.3':
-    dependencies:
-      '@nodable/base-output-builder': 2.0.0
-      '@nodable/compact-builder': 2.0.0
-      path-expression-matcher: 1.6.2
-      xml-naming: 0.3.0
 
   '@oxc-project/types@0.154.0': {}
 
@@ -3617,12 +3551,6 @@ snapshots:
 
   dequal@2.0.3: {}
 
-  detailed-xml-validator@2.2.0:
-    dependencies:
-      '@nodable/base-output-builder': 2.0.0
-      '@nodable/compact-builder': 2.0.0
-      '@nodable/flexible-xml-parser': 1.11.3
-
   detect-libc@2.1.2: {}
 
   devalue@5.9.4: {}
@@ -3806,12 +3734,6 @@ snapshots:
       strnum: 2.5.1
       xml-naming: 0.3.0
 
-  fast-xml-validator@1.4.2:
-    dependencies:
-      detailed-xml-validator: 2.2.0
-      path-expression-matcher: 1.6.2
-      xml-naming: 0.3.0
-
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
       picomatch: 4.0.7
@@ -3900,8 +3822,6 @@ snapshots:
   is-reference@3.0.3:
     dependencies:
       '@types/estree': 1.0.9
-
-  is-unsafe@1.0.1: {}
 
   is-unsafe@2.0.2: {}
 

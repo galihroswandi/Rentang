@@ -17,7 +17,7 @@ Rentang adalah SPA tanpa server yang sangat interaktif (Gantt yang bisa diseret,
 | Bahasa            | TypeScript strict penuh (lihat CLAUDE.md)                                                                                                                          |
 | State aplikasi    | Zustand (`zustand/vanilla`) dan Immer; undo/redo dari patch Immer (Tahap 2)                                                                                        |
 | Validasi          | Zod; tipe diturunkan dari skema                                                                                                                                    |
-| Parser .gan       | fast-xml-parser, dengan fast-xml-validator untuk memeriksa sintaks XML                                                                                             |
+| Parser .gan       | fast-xml-parser, dengan `XMLValidator` bawaannya untuk memeriksa sintaks XML                                                                                       |
 | Penyimpanan       | File System Access API; Dexie untuk penyangga IndexedDB (Tahap 1 ke atas)                                                                                          |
 | Editor dokumen    | TipTap (Tahap 3)                                                                                                                                                   |
 | Gaya dan primitif | Tailwind CSS, Bits UI sebagai primitif aksesibel, token di `docs/design/tokens.css`                                                                                |
@@ -30,7 +30,9 @@ Padanan untuk pustaka khusus React di prompt asli:
 - **jsx-a11y → a11y kompiler Svelte.** Kompiler Svelte memberi peringatan a11y yang dilaporkan sebagai galat oleh `svelte/valid-compile`. Pemeriksaan saat berjalan ditangani axe di Playwright.
 - **Zustand tetap.** `zustand/vanilla` tidak bergantung pada React. Lapisan `app` jadi tidak bergantung pada kerangka UI dan bisa diuji di Node. `ui` berlangganan store lewat adaptor kecil.
 
-Dependensi baru di luar daftar prompt: `fast-xml-validator` (pengganti `XMLValidator` yang usang di fast-xml-parser), `@vitest/coverage-v8` (syarat coverage 90%), serta `svelte-check`, `eslint-plugin-svelte`, `prettier-plugin-svelte`, dan `@testing-library/svelte` sebagai alat Svelte.
+Dependensi baru di luar daftar prompt: `@vitest/coverage-v8` (syarat coverage 90%), serta `svelte-check`, `eslint-plugin-svelte`, `prettier-plugin-svelte`, dan `@testing-library/svelte` sebagai alat Svelte.
+
+Catatan: `XMLValidator` di fast-xml-parser ditandai usang. Penggantinya, paket `fast-xml-validator`, sempat dipakai tetapi dicabut karena dependensinya memanggil `Buffer` saat dimuat, sehingga halaman kosong di server dev Vite (build produksi lolos karena kodenya dibuang tree-shaking). Smoke test e2e untuk server dev menjaga hal serupa.
 
 ## Konsekuensi
 

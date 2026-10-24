@@ -2,8 +2,7 @@
  * Reads GanttProject XML (.gan) into a validated, still GanttProject-shaped structure.
  * Attribute values stay strings here; turning them into the Rentang model is map.ts's job.
  */
-import { XMLParser } from 'fast-xml-parser'
-import { SyntaxValidator } from 'fast-xml-validator'
+import { XMLParser, XMLValidator } from 'fast-xml-parser'
 import { z } from 'zod'
 import { err, ok, type Result } from '../result.ts'
 
@@ -143,13 +142,13 @@ export type GanParseError =
   | { readonly type: 'invalid-structure'; readonly issues: readonly string[] }
 
 export function parseGan(xml: string): Result<GanDocument, GanParseError> {
-  try {
-    // .gan files have no DOCTYPE; the limits stop entity-expansion tricks in hostile files.
-    SyntaxValidator.validate(xml, { docType: { maxEntityCount: 10, maxEntitySize: 1000 } })
-  } catch (error) {
-    const line = error instanceof Error && 'line' in error ? Number(error.line) : 0
-    const message = error instanceof Error ? error.message : String(error)
-    return err({ type: 'malformed-xml', message, line })
+  // XMLValidator is marked deprecated in favour of the fast-xml-validator package, but that
+  // package pulls in a dependency that calls Buffer at load time and blanks the page in the
+  // browser (Vite dev server). The deprecated validator works everywhere.
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
+  const validation = XMLValidator.validate(xml)
+  if (validation !== true) {
+    return err({ type: 'malformed-xml', message: validation.err.msg, line: validation.err.line })
   }
 
   const raw: unknown = parser.parse(xml)
