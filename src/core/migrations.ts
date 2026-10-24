@@ -16,8 +16,17 @@ export type Migration = (file: JsonObject) => JsonObject
 
 export type MigrationRegistry = Readonly<Record<number, Migration>>
 
-/** Version 1 is the first released format, so there is nothing to migrate yet. */
-export const migrations: MigrationRegistry = {}
+function isObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export const migrations: MigrationRegistry = {
+  /** v2 adds project roles (resources may point at one) and optional task types. */
+  1: (file) => ({
+    ...file,
+    project: isObject(file['project']) ? { ...file['project'], roles: [] } : file['project'],
+  }),
+}
 
 export type LoadError =
   | { readonly type: 'not-an-object' }
@@ -26,16 +35,12 @@ export type LoadError =
   | { readonly type: 'missing-migration'; readonly fromVersion: number }
   | { readonly type: 'invalid-project'; readonly issues: readonly string[] }
 
-function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 export function migrateToCurrent(
   raw: unknown,
   registry: MigrationRegistry = migrations,
   currentVersion: number = CURRENT_SCHEMA_VERSION,
 ): Result<JsonObject, LoadError> {
-  if (!isJsonObject(raw)) return err({ type: 'not-an-object' })
+  if (!isObject(raw)) return err({ type: 'not-an-object' })
   const version = raw['schemaVersion']
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
     return err({ type: 'missing-schema-version' })

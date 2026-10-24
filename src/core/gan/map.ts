@@ -11,8 +11,11 @@ import {
   type Calendar,
   type Dependency,
   type Project,
+  TASK_TYPES,
   type Resource,
+  type Role,
   type Task,
+  type TaskType,
 } from '../model.ts'
 import { err, ok, type Result } from '../result.ts'
 import { rollUpProgress } from '../summary.ts'
@@ -61,7 +64,7 @@ export function mapGanToProject(
   const tasks = mapTasks(gan.tasks.task, changed, skipped)
   const taskIds = new Set(tasks.map((task) => task.id))
   const dependencies = mapDependencies(gan.tasks.task, taskIds, changed, skipped)
-  const resources: Resource[] = gan.resources.resource.map(({ id, name }) => ({ id, name }))
+  const { roles, resources } = mapPeople(gan)
   const assignments = mapAssignments(gan, taskIds, new Set(resources.map((r) => r.id)), skipped)
 
   for (const property of gan.tasks.taskproperties.taskproperty) {
@@ -78,6 +81,7 @@ export function mapGanToProject(
     calendar,
     tasks,
     dependencies,
+    roles,
     resources,
     assignments,
     documents: [],
@@ -192,9 +196,11 @@ function mapTasks(
         duration = 1
       }
 
+      const { type, name } = splitTypePrefix(gan.name)
       const task: Task = {
         id: gan.id,
-        name: gan.name,
+        name,
+        ...(type === undefined ? {} : { type }),
         start,
         duration,
         progress: mapProgress(gan, changed),
@@ -327,4 +333,49 @@ function mapAssignments(
     }
   }
   return assignments
+}
+
+/** "[IMP] Login" is how GanttProject users often tag work; Rentang keeps the tag as a type. */
+function splitTypePrefix(text: string): { type?: TaskType; name: string } {
+  const match = /^\s*\[([A-Za-z]{3})\]\s*(.*)$/.exec(text)
+  const tag = match?.[1]?.toUpperCase()
+  const type = TASK_TYPES.find((candidate) => candidate === tag)
+  return type === undefined || match?.[2] === undefined ? { name: text } : { type, name: match[2] }
+}
+
+/** GanttProject's built-in role set, by number, in Indonesian. 0 and 10 mean "no role". */
+const DEFAULT_ROLES: Readonly<Record<string, string>> = {
+  '1': 'Manajer proyek',
+  '2': 'Programmer',
+  '3': 'Penulis dokumentasi',
+  '4': 'Penguji',
+  '5': 'Desainer grafis',
+  '6': 'Penerjemah dokumentasi',
+  '7': 'Pemaket rilis',
+  '8': 'Analis',
+  '9': 'Desainer web',
+}
+
+function mapPeople(gan: GanDocument): { roles: Role[]; resources: Resource[] } {
+  const roles = new Map<string, Role>()
+  for (const set of gan.roles) {
+    for (const role of set.role) roles.set(role.id, { id: `custom-${role.id}`, name: role.name })
+  }
+  const used = new Map<string, Role>()
+  const resources = gan.resources.resource.map(({ id, name, function: role }): Resource => {
+    const builtIn = role?.startsWith('Default:') ? role.slice('Default:'.length) : undefined
+    const found =
+      builtIn === undefined
+        ? role === undefined
+          ? undefined
+          : roles.get(role)
+        : DEFAULT_ROLES[builtIn] === undefined
+          ? undefined
+          : { id: `default-${builtIn}`, name: DEFAULT_ROLES[builtIn] }
+    if (found) used.set(found.id, found)
+    return found ? { id, name, roleId: found.id } : { id, name }
+  })
+  // Every custom role is kept; built-in roles only when someone has them.
+  const all = new Map([...[...roles.values()].map((role) => [role.id, role] as const), ...used])
+  return { roles: [...all.values()], resources }
 }

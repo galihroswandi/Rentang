@@ -70,7 +70,7 @@ Catat lalu lintas pejalan kaki pagi dan sore.]]></notes>
     </task>
   </tasks>
   <resources>
-    <resource id="0" name="Rina (fiktif)" function="Default:0" contacts="" phone=""/>
+    <resource id="0" name="Rina (fiktif)" function="1" contacts="" phone=""/>
   </resources>
   <allocations>
     <allocation task-id="10" resource-id="0" function="Default:0" responsible="true" load="100.0"/>
@@ -83,4 +83,7 @@ Catat lalu lintas pejalan kaki pagi dan sore.]]></notes>
     </previous-tasks>
   </previous>
   <roles roleset-name="Default"/>
+  <roles>
+    <role id="1" name="Barista"/>
+  </roles>
 </project>

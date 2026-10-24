@@ -63,6 +63,7 @@ export function coffeeShopProject(holidays: string[] = []): Project {
     },
     tasks,
     dependencies,
+    roles: [],
     resources: [],
     assignments: [],
     documents: [],

@@ -6,7 +6,7 @@
 import { z } from 'zod'
 import { isIsoDate, type IsoDate } from './dates.ts'
 
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 export const isoDateSchema = z.custom<IsoDate>(
   (value) => typeof value === 'string' && isIsoDate(value),
@@ -26,10 +26,15 @@ export const calendarSchema = z.object({
   holidays: z.array(z.object({ date: isoDateSchema, name: z.string().optional() })),
 })
 
+/** Work type shown as a chip before the task name. */
+export const TASK_TYPES = ['IMP', 'DOC', 'DSG', 'BUG', 'FIX', 'REV'] as const
+export const taskTypeSchema = z.enum(TASK_TYPES)
+
 export const taskSchema = z
   .object({
     id: idSchema,
     name: z.string(),
+    type: taskTypeSchema.optional(),
     /** Requested start. The scheduled start may be later because of dependencies or days off. */
     start: isoDateSchema,
     /** Length in workdays; 0 only for milestones. Ignored for summary tasks. */
@@ -59,7 +64,13 @@ export const dependencySchema = z.object({
   lag: z.int(),
 })
 
-export const resourceSchema = z.object({ id: idSchema, name: z.string() })
+export const roleSchema = z.object({ id: idSchema, name: z.string().min(1) })
+
+export const resourceSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  roleId: idSchema.optional(),
+})
 
 export const assignmentSchema = z.object({ id: idSchema, taskId: idSchema, resourceId: idSchema })
 
@@ -78,6 +89,7 @@ export const projectSchema = z
     calendar: calendarSchema,
     tasks: z.array(taskSchema),
     dependencies: z.array(dependencySchema),
+    roles: z.array(roleSchema),
     resources: z.array(resourceSchema),
     assignments: z.array(assignmentSchema),
     documents: z.array(documentSchema),
@@ -95,8 +107,10 @@ export const projectFileSchema = z.object({
 
 export type Area = z.infer<typeof areaSchema>
 export type Calendar = z.infer<typeof calendarSchema>
+export type TaskType = z.infer<typeof taskTypeSchema>
 export type Task = z.infer<typeof taskSchema>
 export type Dependency = z.infer<typeof dependencySchema>
+export type Role = z.infer<typeof roleSchema>
 export type Resource = z.infer<typeof resourceSchema>
 export type Assignment = z.infer<typeof assignmentSchema>
 export type ProjectDocument = z.infer<typeof documentSchema>
@@ -119,12 +133,20 @@ function findDuplicates(ids: readonly string[]): string[] {
 function findReferenceIssues(project: {
   tasks: readonly Task[]
   dependencies: readonly Dependency[]
+  roles: readonly Role[]
   resources: readonly Resource[]
   assignments: readonly Assignment[]
   documents: readonly ProjectDocument[]
 }): ReferenceIssue[] {
   const issues: ReferenceIssue[] = []
-  const collections = ['tasks', 'dependencies', 'resources', 'assignments', 'documents'] as const
+  const collections = [
+    'tasks',
+    'dependencies',
+    'roles',
+    'resources',
+    'assignments',
+    'documents',
+  ] as const
   for (const collection of collections) {
     for (const id of findDuplicates(project[collection].map((item) => item.id))) {
       issues.push({ message: `Duplicate id "${id}"`, path: [collection] })
@@ -168,6 +190,16 @@ function findReferenceIssues(project: {
           path: ['dependencies', index, end],
         })
       }
+    }
+  })
+
+  const roleIds = new Set(project.roles.map((role) => role.id))
+  project.resources.forEach((resource, index) => {
+    if (resource.roleId !== undefined && !roleIds.has(resource.roleId)) {
+      issues.push({
+        message: `Unknown role "${resource.roleId}"`,
+        path: ['resources', index, 'roleId'],
+      })
     }
   })
 

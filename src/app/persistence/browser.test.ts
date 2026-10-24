@@ -36,9 +36,9 @@ describe('browser storage', () => {
   it('lists the most recently saved first and overwrites by id', async () => {
     const store = storage(['2026-10-24T08:00:00Z', '2026-10-24T09:00:00Z', '2026-10-24T10:00:00Z'])
     const project = coffeeShopProject()
-    await store.save({ schemaVersion: 1, project }, meta)
-    await store.save({ schemaVersion: 1, project: { ...project, id: 'b', name: 'B' } }, meta)
-    await store.save({ schemaVersion: 1, project: { ...project, name: 'Diganti' } }, meta)
+    await store.save({ schemaVersion: CURRENT_SCHEMA_VERSION, project }, meta)
+    await store.save({ schemaVersion: CURRENT_SCHEMA_VERSION, project: { ...project, id: 'b', name: 'B' } }, meta)
+    await store.save({ schemaVersion: CURRENT_SCHEMA_VERSION, project: { ...project, name: 'Diganti' } }, meta)
 
     const list = await store.list()
     expect(list.map((item) => [item.id, item.name])).toEqual([
@@ -49,7 +49,7 @@ describe('browser storage', () => {
 
   it('reports a missing project and removes projects', async () => {
     const store = storage()
-    await store.save({ schemaVersion: 1, project: coffeeShopProject() }, meta)
+    await store.save({ schemaVersion: CURRENT_SCHEMA_VERSION, project: coffeeShopProject() }, meta)
     await store.remove('kedai-kopi')
     expect(await store.list()).toEqual([])
     expect(await store.load('kedai-kopi')).toEqual({ ok: false, error: { type: 'not-found' } })

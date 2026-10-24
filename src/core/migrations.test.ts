@@ -69,8 +69,23 @@ describe('migrateToCurrent', () => {
 describe('loadProjectFile', () => {
   it('loads a current file', () => {
     const project = coffeeShopProject()
-    const result = loadProjectFile(JSON.parse(JSON.stringify({ schemaVersion: 1, project })))
-    expect(result).toEqual({ ok: true, value: { schemaVersion: 1, project } })
+    const result = loadProjectFile(JSON.parse(JSON.stringify({ schemaVersion: 2, project })))
+    expect(result).toEqual({ ok: true, value: { schemaVersion: 2, project } })
+  })
+
+  it('migrates a version 1 file, which had no roles', () => {
+    const { roles: _roles, ...v1Project } = coffeeShopProject()
+    const result = loadProjectFile(
+      JSON.parse(JSON.stringify({ schemaVersion: 1, project: v1Project })),
+    )
+    expect(result).toEqual({ ok: true, value: { schemaVersion: 2, project: coffeeShopProject() } })
+  })
+
+  it('leaves a version 1 file without a project for validation to reject', () => {
+    expect(migrations[1]?.({ schemaVersion: 1, project: 'x' })).toEqual({
+      schemaVersion: 1,
+      project: 'x',
+    })
   })
 
   it('validates after migrating', () => {

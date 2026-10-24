@@ -90,7 +90,8 @@ describe('importGan with the demo fixture', () => {
     expect(byId.get('4')?.link).toBe('https://example.com/kontrak-sewa')
     expect(byId.get('13')).toMatchObject({ isMilestone: true, duration: 0 })
     expect(byId.get('14')).toMatchObject({ name: 'Cetak menu & papan harga', order: 4 })
-    expect(project.resources).toEqual([{ id: '0', name: 'Rina (fiktif)' }])
+    expect(project.roles).toEqual([{ id: 'custom-1', name: 'Barista' }])
+    expect(project.resources).toEqual([{ id: '0', name: 'Rina (fiktif)', roleId: 'custom-1' }])
     expect(project.assignments).toEqual([{ id: '10:0', taskId: '10', resourceId: '0' }])
   })
 
@@ -323,6 +324,43 @@ describe('dependencies', () => {
       { code: 'self-dependency', taskId: '1' },
       { code: 'dangling-dependency', from: '1', to: '99' },
       { code: 'duplicate-dependency', from: '1', to: '2' },
+    ])
+  })
+})
+
+describe('task types and roles', () => {
+  it('turns a known [TAG] prefix into the task type', () => {
+    const tasks =
+      t('1', 'name="[imp] Login"') + t('2', 'name="[XYZ] Lain"') + t('3', 'name="[BUG]"')
+    const { project } = imported(gan({ tasks }))
+    expect(project.tasks.map(({ name, type }) => [name, type])).toEqual([
+      ['Login', 'IMP'],
+      ['[XYZ] Lain', undefined],
+      ['', 'BUG'],
+    ])
+  })
+
+  it('maps built-in roles that are in use and every custom role', () => {
+    const rest = `<roles roleset-name="Default"/><roles><role id="1" name="Barista"/><role id="2" name="Kasir"/></roles>
+      <resources>
+        <resource id="a" name="A" function="Default:4"/>
+        <resource id="b" name="B" function="Default:0"/>
+        <resource id="c" name="C" function="2"/>
+        <resource id="d" name="D" function="9"/>
+        <resource id="e" name="E"/>
+      </resources>`
+    const { project } = imported(gan({ tasks: t('1'), rest }))
+    expect(project.roles).toEqual([
+      { id: 'custom-1', name: 'Barista' },
+      { id: 'custom-2', name: 'Kasir' },
+      { id: 'default-4', name: 'Penguji' },
+    ])
+    expect(project.resources.map((resource) => resource.roleId)).toEqual([
+      'default-4',
+      undefined,
+      'custom-2',
+      undefined,
+      undefined,
     ])
   })
 })

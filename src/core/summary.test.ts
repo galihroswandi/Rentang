@@ -81,6 +81,20 @@ describe('summarizeProject', () => {
       lateCount: 2,
       start: '2026-11-02',
       end: '2026-12-09',
+      nextMilestone: { name: 'Soft opening', date: '2026-12-09' },
+      isComplete: false,
+    })
+  })
+
+  it('skips done milestones and marks a finished project complete', () => {
+    const all = Object.fromEntries(coffeeShopProject().tasks.map((task) => [task.id, 100]))
+    const project = withProgress(all)
+    const summary = summarizeProject(project, scheduled(project), d('2026-12-20'))
+    expect(summary).toMatchObject({
+      progress: 100,
+      nextMilestone: null,
+      isComplete: true,
+      lateCount: 0,
     })
   })
 
@@ -92,6 +106,8 @@ describe('summarizeProject', () => {
       lateCount: 0,
       start: null,
       end: null,
+      nextMilestone: null,
+      isComplete: false,
     })
   })
 })

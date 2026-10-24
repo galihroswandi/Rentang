@@ -98,6 +98,19 @@ describe('projectSchema', () => {
     )
   })
 
+  it('accepts roles and rejects resources pointing at an unknown role', () => {
+    const withRole = withChanges((p) => {
+      p.roles.push({ id: 'barista', name: 'Barista' })
+      p.resources.push({ id: 'r1', name: 'Dimas', roleId: 'barista' })
+      taskAt(p, 1).type = 'DOC'
+    })
+    expect(issuesOf(withRole)).toEqual([])
+    expect(
+      issuesOf(withChanges((p) => p.resources.push({ id: 'r1', name: 'Dimas', roleId: 'kasir' }))),
+    ).toContain('Unknown role "kasir"')
+    expect(issuesOf(withChanges((p) => p.roles.push({ id: 'x', name: '' })))).not.toEqual([])
+  })
+
   it('accepts only finish-to-start dependencies', () => {
     const project = withChanges((p) => {
       ;(p.dependencies[0] as { type: string }).type = 'start-to-start'

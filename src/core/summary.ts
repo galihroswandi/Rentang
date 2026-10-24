@@ -16,6 +16,10 @@ export type ProjectSummary = {
   readonly lateCount: number
   readonly start: IsoDate | null
   readonly end: IsoDate | null
+  /** The earliest milestone that is not done yet. */
+  readonly nextMilestone: { readonly name: string; readonly date: IsoDate } | null
+  /** Every leaf task is at 100%. */
+  readonly isComplete: boolean
 }
 
 export function taskStatus(progress: number, end: IsoDate, today: IsoDate): TaskStatus {
@@ -65,11 +69,20 @@ export function summarizeProject(
     const dates = schedule.tasks.get(task.id)
     return dates !== undefined && taskStatus(task.progress, dates.end, today) === 'late'
   }).length
+  let nextMilestone: ProjectSummary['nextMilestone'] = null
+  for (const task of project.tasks) {
+    const date = schedule.tasks.get(task.id)?.start
+    if (!task.isMilestone || task.progress >= 100 || date === undefined) continue
+    if (nextMilestone === null || date < nextMilestone.date)
+      nextMilestone = { name: task.name, date }
+  }
   return {
     taskCount: project.tasks.length,
     progress: weightedProgress(leaves),
     lateCount,
     start: schedule.projectStart,
     end: schedule.projectEnd,
+    nextMilestone,
+    isComplete: leaves.length > 0 && leaves.every((task) => task.progress >= 100),
   }
 }

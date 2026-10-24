@@ -15,6 +15,8 @@ const ARRAY_ELEMENTS = new Set([
   'resource',
   'allocation',
   'previous-tasks',
+  'roles',
+  'role',
 ])
 
 const parser = new XMLParser({
@@ -119,8 +121,16 @@ const ganSchema = z.object({
       }),
     ),
     resources: element(
-      z.looseObject({ resource: list(z.looseObject({ id: z.string(), name: z.string() })) }),
+      z.looseObject({
+        resource: list(
+          z.looseObject({ id: z.string(), name: z.string(), function: z.string().optional() }),
+        ),
+      }),
     ).default({ resource: [] }),
+    /** Custom roles; the built-in "Default" role set is referenced as "Default:<n>". */
+    roles: list(
+      element(z.looseObject({ role: list(z.looseObject({ id: z.string(), name: z.string() })) })),
+    ),
     allocations: element(
       z.looseObject({
         allocation: list(z.looseObject({ 'task-id': z.string(), 'resource-id': z.string() })),

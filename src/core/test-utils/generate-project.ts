@@ -71,6 +71,7 @@ export function generateProject(taskCount = 200, seed = 42): Project {
     },
     tasks,
     dependencies,
+    roles: [],
     resources: [],
     assignments: [],
     documents: [],
