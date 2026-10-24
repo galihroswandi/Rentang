@@ -16,6 +16,7 @@
   import ResourceView from '../resource/ResourceView.svelte'
   import { useApp } from '../shell/context.ts'
   import Segmented from '../shell/Segmented.svelte'
+  import CalendarDialog from './CalendarDialog.svelte'
   import ColumnMenu from './ColumnMenu.svelte'
   import GanttView from './GanttView.svelte'
   import TaskDialog from './TaskDialog.svelte'
@@ -33,6 +34,7 @@
   let peopleQuery = $state('')
   let addPersonRequest = $state(0)
   let rolesOpen = $state(false)
+  let calendarOpen = $state(false)
   let dialog: { readonly kind: 'new' } | { readonly kind: 'edit'; readonly id: string } | null =
     $state(null)
 
@@ -158,6 +160,10 @@
         <span class="sr-only" aria-live="polite"
           >Skala: {zoom === 'day' ? 'hari' : zoom === 'week' ? 'minggu' : 'bulan'}</span
         >
+        <button type="button" class="btn" onclick={() => (calendarOpen = true)}>
+          <Icon name="calendar-days" />
+          <span class="max-sm:sr-only">Kalender</span>
+        </button>
         <ColumnMenu
           {columns}
           onChange={(next: Columns) => {
@@ -264,6 +270,13 @@
     </div>
   {/key}
 </div>
+
+<CalendarDialog
+  open={calendarOpen}
+  {project}
+  defaultDate={analysis?.schedule.projectStart ?? today()}
+  onClose={() => (calendarOpen = false)}
+/>
 
 <TaskDialog
   open={dialog !== null}

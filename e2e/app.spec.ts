@@ -241,6 +241,52 @@ test('bars can be dragged to move or resize a task, and the drag undone', async 
   expect(await dates()).toEqual(afterResize)
 })
 
+test('the calendar sets working days and holidays, and the schedule follows', async ({ page }) => {
+  await openDemo(page)
+  const grid = page.getByRole('treegrid')
+  const row = grid.getByRole('row', { name: /Pengerjaan ruang/ })
+  const dates = async () => (await row.getByRole('gridcell').allInnerTexts()).slice(1, 3)
+  const before = await dates()
+  const tapDay = async (day: string) => {
+    await page
+      .getByRole('dialog', { name: 'Kalender kerja' })
+      .locator('label', { has: page.getByRole('checkbox', { name: day }) })
+      .click()
+  }
+
+  await page.getByRole('button', { name: 'Kalender' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Kalender kerja' })
+  await expect(dialog.getByText('Hari kerja: Senin sampai Jumat')).toBeVisible()
+  await expect(dialog.getByRole('checkbox', { name: 'Sabtu' })).not.toBeChecked()
+  await expectNoSeriousViolations(page)
+
+  // Working Saturdays shortens the same eight workdays.
+  await tapDay('Sabtu')
+  await expect(dialog.getByText('Hari kerja: Senin sampai Sabtu')).toBeVisible()
+  await expect.poll(async () => (await dates())[1]).not.toBe(before[1])
+  await tapDay('Sabtu')
+  await expect.poll(dates).toEqual(before)
+
+  // The last working day cannot be switched off.
+  for (const day of ['Senin', 'Selasa', 'Rabu', 'Kamis']) {
+    await tapDay(day)
+  }
+  await expect(dialog.getByRole('checkbox', { name: 'Jumat' })).toBeDisabled()
+  for (const day of ['Senin', 'Selasa', 'Rabu', 'Kamis']) {
+    await tapDay(day)
+  }
+
+  // A holiday inside the task pushes its end later.
+  await dialog.getByLabel('Tanggal libur').fill('2026-12-24')
+  await dialog.getByLabel('Nama hari libur (opsional)').fill('Cuti bersama')
+  await dialog.getByRole('button', { name: 'Tambah', exact: true }).click()
+  await expect(dialog.getByText('Cuti bersama')).toBeVisible()
+  await dialog.getByRole('button', { name: /Hapus hari libur/ }).click()
+  await expect(dialog.getByText('Cuti bersama')).toBeHidden()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+})
+
 test('people can be added, given a role, assigned and removed', async ({ page }) => {
   await openDemo(page)
   await page.getByRole('button', { name: 'Resource', exact: true }).click()

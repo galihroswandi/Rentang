@@ -2,6 +2,7 @@
   // The Lucide icons the design canvas uses, under the names the components ask for.
   import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right'
   import CalendarCheck from '@lucide/svelte/icons/calendar-check'
+  import CalendarDays from '@lucide/svelte/icons/calendar-days'
   import ChartGantt from '@lucide/svelte/icons/chart-gantt'
   import Check from '@lucide/svelte/icons/check'
   import ChevronDown from '@lucide/svelte/icons/chevron-down'
@@ -41,6 +42,7 @@
   const ICONS = {
     'arrow-up-right': ArrowUpRight,
     'calendar-check': CalendarCheck,
+    'calendar-days': CalendarDays,
     gantt: ChartGantt,
     check: Check,
     'chevron-down': ChevronDown,

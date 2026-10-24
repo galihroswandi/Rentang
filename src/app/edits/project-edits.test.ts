@@ -4,13 +4,16 @@ import { toIsoDate } from '../../core/dates.ts'
 import { projectSchema, type Project } from '../../core/model.ts'
 import { coffeeShopProject } from '../../core/test-utils/coffee-shop.ts'
 import {
+  addHoliday,
   addResource,
   addRole,
   addTask,
   assign,
   createProject,
   deleteTask,
+  removeHoliday,
   removeResource,
+  setWorkingDays,
   removeRole,
   reschedule,
   renameRole,
@@ -129,6 +132,42 @@ describe('tasks', () => {
 
   it('finds a subtree', () => {
     expect([...subtreeOf(coffeeShopProject(), '9')].sort()).toEqual(['10', '11', '12', '13', '9'])
+  })
+})
+
+describe('calendar', () => {
+  it('sets the working weekdays, sorted and without repeats, and keeps at least one', () => {
+    const project = apply(coffeeShopProject(), setWorkingDays([6, 1, 1, 0]))
+    expect(project.calendar.workingDays).toEqual([0, 1, 6])
+    const kept = apply(project, setWorkingDays([]))
+    expect(kept.calendar.workingDays).toEqual([0, 1, 6])
+  })
+
+  it('adds holidays in date order, renames a repeated date and removes them', () => {
+    let project = apply(
+      coffeeShopProject(),
+      addHoliday(toIsoDate('2026-12-25'), ' Natal '),
+      addHoliday(toIsoDate('2026-11-18'), ''),
+    )
+    expect(project.calendar.holidays).toEqual([
+      { date: '2026-11-18' },
+      { date: '2026-12-25', name: 'Natal' },
+    ])
+    project = apply(
+      project,
+      addHoliday(toIsoDate('2026-11-18'), 'Cuti bersama'),
+      addHoliday(toIsoDate('2026-12-25'), ''),
+    )
+    expect(project.calendar.holidays).toEqual([
+      { date: '2026-11-18', name: 'Cuti bersama' },
+      { date: '2026-12-25' },
+    ])
+    project = apply(
+      project,
+      removeHoliday(toIsoDate('2026-11-18')),
+      removeHoliday(toIsoDate('2027-01-01')),
+    )
+    expect(project.calendar.holidays).toEqual([{ date: '2026-12-25' }])
   })
 })
 

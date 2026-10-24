@@ -2,7 +2,7 @@
 
 Aplikasi web satu halaman untuk memantau jadwal dan kemajuan semua proyek di satu tempat, dengan **Gantt** sebagai inti dan dokumen tulisan di sampingnya. Membuka berkas GanttProject (`.gan`), menyimpan ke berkas `.rentang` di komputer Anda. Tanpa akun dan tanpa server.
 
-> **Status:** desain baru diterapkan. Anda bisa mengimpor `.gan` atau membuka `.rentang`, membaca laporan impor, mengelola proyek dari Daftar proyek (tabel atau kartu), membuka beberapa proyek dalam tab, menambah dan mengubah tugas, mengelola orang dan role, serta mengurungkan setiap suntingan. Proyek tersimpan di browser. Batang Gantt bisa diseret untuk memindah atau mengubah durasi. Belum ada: menyunting dependensi, dokumen proyek, dan simpan ke berkas. Rencana lengkap ada di [ruang lingkup](docs/ruang-lingkup.md).
+> **Status:** desain baru diterapkan. Anda bisa mengimpor `.gan` atau membuka `.rentang`, membaca laporan impor, mengelola proyek dari Daftar proyek (tabel atau kartu), membuka beberapa proyek dalam tab, menambah dan mengubah tugas, mengelola orang dan role, serta mengurungkan setiap suntingan. Proyek tersimpan di browser. Hari kerja dan hari libur diatur lewat tombol Kalender (bawaan Sabtu dan Minggu libur). Batang Gantt bisa diseret untuk memindah atau mengubah durasi. Belum ada: menyunting dependensi, dokumen proyek, dan simpan ke berkas. Rencana lengkap ada di [ruang lingkup](docs/ruang-lingkup.md).
 
 ## Menjalankan
 

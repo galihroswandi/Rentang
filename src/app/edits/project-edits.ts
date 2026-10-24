@@ -92,6 +92,36 @@ export function reschedule(id: string, start: IsoDate, duration: number): Recipe
   }
 }
 
+/** Which weekdays are worked; 0 = Sunday ... 6 = Saturday. At least one must stay. */
+export function setWorkingDays(days: readonly number[]): Recipe {
+  return (draft) => {
+    const next = [...new Set(days)].sort((a, b) => a - b)
+    if (next.length === 0) return
+    draft.calendar.workingDays = next
+  }
+}
+
+/** Adds a day off on a date; adding the same date again only updates its name. */
+export function addHoliday(date: IsoDate, name: string): Recipe {
+  return (draft) => {
+    const label = name.trim()
+    const existing = draft.calendar.holidays.find((holiday) => holiday.date === date)
+    if (existing) {
+      if (label === '') delete existing.name
+      else existing.name = label
+      return
+    }
+    draft.calendar.holidays.push(label === '' ? { date } : { date, name: label })
+    draft.calendar.holidays.sort((a, b) => a.date.localeCompare(b.date))
+  }
+}
+
+export function removeHoliday(date: IsoDate): Recipe {
+  return (draft) => {
+    draft.calendar.holidays = draft.calendar.holidays.filter((holiday) => holiday.date !== date)
+  }
+}
+
 /** Ids of a task and everything below it. */
 export function subtreeOf(project: Pick<Project, 'tasks'>, id: string): Set<string> {
   const ids = new Set([id])
