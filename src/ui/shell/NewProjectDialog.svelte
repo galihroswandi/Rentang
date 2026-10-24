@@ -1,28 +1,24 @@
 <script lang="ts">
-  import type { Area } from '../../core/model.ts'
   import Dialog from '../dialog/Dialog.svelte'
-  import { AREA_LABELS, AREA_ORDER } from '../labels.ts'
   import { useApp } from './context.ts'
 
   const { store, ui } = useApp()
 
   let name = $state('')
-  let area: Area = $state('work')
   let nameInput: HTMLInputElement | undefined = $state()
   const valid = $derived(name.trim().length > 0)
 
   function close(): void {
     ui.newProjectOpen = false
     name = ''
-    area = 'work'
   }
 
   async function create(event: SubmitEvent): Promise<void> {
     event.preventDefault()
     if (!valid) return
-    const chosen = { name, area }
+    const projectName = name
     close()
-    await store.getState().createProject(chosen.name, chosen.area)
+    await store.getState().createProject(projectName, 'work')
   }
 </script>
 
@@ -50,24 +46,6 @@
         placeholder="Misalnya: Peluncuran Toko Roti"
       />
     </div>
-    <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
-      <legend class="label mb-1.5">Bidang</legend>
-      <div class="grid grid-cols-3 gap-2">
-        {#each AREA_ORDER as option (option)}
-          <label
-            class={[
-              'press flex h-10 items-center justify-center gap-2 rounded-md border text-[13px]',
-              area === option
-                ? 'border-accent-border bg-accent-soft font-semibold text-text'
-                : 'border-line-strong text-text-2 hover:border-text-3',
-            ]}
-          >
-            <input type="radio" name="area" value={option} bind:group={area} class="sr-only" />
-            {AREA_LABELS[option]}
-          </label>
-        {/each}
-      </div>
-    </fieldset>
   </form>
 
   {#snippet footer()}
