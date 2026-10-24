@@ -23,6 +23,13 @@
   --color-weekend: #f1efea;
   --color-late: #b91c1c;
   --color-focus: #b45309;
+  /* From the Proyek › Gantt artboard */
+  --color-sidebar: #f3f1ec;
+  --color-selected: #fef3c7;
+  --color-selected-row: rgb(245 158 11 / 12%);
+  --color-today: #d97706;
+  --color-summary-bar: #1c1b19;
+  --color-on-amber: #1c1b19;
 
   /* Typography */
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
@@ -64,6 +71,11 @@
     --color-weekend: #22201d;
     --color-late: #f87171;
     --color-focus: #fbbf24;
+    --color-sidebar: #171614;
+    --color-selected: #2b2417;
+    --color-selected-row: rgb(251 191 36 / 10%);
+    --color-today: #fbbf24;
+    --color-summary-bar: #e7e2d9;
   }
 }
 
@@ -82,4 +94,9 @@
   --color-weekend: #22201d;
   --color-late: #f87171;
   --color-focus: #fbbf24;
+  --color-sidebar: #171614;
+  --color-selected: #2b2417;
+  --color-selected-row: rgb(251 191 36 / 10%);
+  --color-today: #fbbf24;
+  --color-summary-bar: #e7e2d9;
 }
