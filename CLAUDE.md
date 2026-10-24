@@ -58,5 +58,18 @@ Sumber kebenaran ruang lingkup: [docs/ruang-lingkup.md](docs/ruang-lingkup.md). 
 - `src/core/graph.ts`, `schedule.ts`, `critical-path.ts`: graf dependensi antartugas daun, penjadwalan maju, jalur kritis.
 - `src/core/migrations.ts`: migrasi `.rentang` per versi.
 - `src/core/gan/`: `parse.ts` (XML ke struktur tervalidasi), `map.ts` (ke model + laporan), `report.ts` (tipe laporan).
-- `src/core/test-utils/`: proyek emas Kedai Kopi dan generator proyek deterministik (hanya untuk test).
+- `src/core/summary.ts`: rollup persen, status tugas, ringkasan proyek.
+- `src/core/test-utils/`: proyek emas Kedai Kopi, generator proyek deterministik, dan `toGan` untuk membuat `.gan` besar di test (hanya untuk test; Rentang tidak menulis `.gan`).
+- `src/app/persistence/`: `StorageProvider`, `browser.ts` (Dexie), `memory.ts`.
+- `src/app/store/app-store.ts`: state aplikasi (Zustand vanilla): layar, proyek terbuka, impor yang menunggu konfirmasi.
+- `src/app/demo/`: proyek demo fiktif, tanggalnya digeser relatif ke hari ini.
+- `src/ui/shell/`: App, Sidebar, tema, konteks store (`$app`), `global.css` (Tailwind dipetakan ke token).
+- `src/ui/table/`: `rows.ts` (baris pohon tugas), `treegrid-keys.ts`, `TaskTable.svelte`.
+- `src/ui/gantt/`: `layout.ts` (geometri murni), `GanttChart.svelte`.
+- `src/ui/import/`: dialog dan teks Laporan impor, teks galat.
+
+## Catatan UI
+
+- Warna hanya lewat utilitas Tailwind yang dipetakan ke token (`bg-surface`, `stroke-critical`, ...). Jangan menulis hex di komponen.
+- Logika UI yang bisa diuji tanpa browser ditaruh di modul `.ts` murni dan diuji; komponen `.svelte` diuji hanya bila punya logika.
 - `fixtures/kedai-kopi-demo.gan`: satu-satunya tempat berkas `.gan` boleh ada.

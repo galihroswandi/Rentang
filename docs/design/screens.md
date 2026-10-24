@@ -2,17 +2,17 @@
 
 Acuan: kanvas desain "Contoh Desain Pelacak Gantt" milik pemilik proyek. Rincian tiap layar dibaca dari kanvas saat tahap yang membangunnya dimulai.
 
-| No. | Layar                        | Tahap | Catatan                                                     |
-| --- | ---------------------------- | ----- | ----------------------------------------------------------- |
-| 1a  | Mulai (pertama kali dibuka)  | 1     | Impor `.gan`, buka `.rentang`, atau buat baru; pilih lokasi |
-| 1b  | Laporan impor `.gan`         | 1     | Diimpor, diubah, dilewati                                   |
-| 2   | Beranda (dibuka setiap hari) | 3     | Apa yang harus dikerjakan, lintas proyek                    |
-| 3a  | Proyek › Gantt               | 1-2   | Tabel dan Gantt dalam satu kontainer scroll                 |
-| 3b  | Gantt saat menyeret          | 2     | Pratinjau seret dan ubah durasi                             |
-| 3c  | Proyek › Dokumen             | 3     | Halaman datar, editor TipTap                                |
-| 4a  | Proyek › Resource            | 3     | Penugasan nama saja; pertama dipotong bila jadwal meleset   |
-| 4b  | Proyek › Kalender            | 3     | Hari kerja dan hari libur                                   |
-| 5   | Token dan komponen           | 0     | Diterapkan di [tokens.css](tokens.css)                      |
+| No. | Layar                        | Tahap  | Catatan                                                           |
+| --- | ---------------------------- | ------ | ----------------------------------------------------------------- |
+| 1a  | Mulai (pertama kali dibuka)  | 1 ✓    | Kartu Proyek kosong menyusul di Tahap 2                           |
+| 1b  | Laporan impor `.gan`         | 1 ✓    | Diimpor, diubah, dilewati                                         |
+| 2   | Beranda (dibuka setiap hari) | 3      | Apa yang harus dikerjakan, lintas proyek                          |
+| 3a  | Proyek › Gantt               | 1 ✓, 2 | Hanya baca di Tahap 1; panel detail dan tombol sunting di Tahap 2 |
+| 3b  | Gantt saat menyeret          | 2      | Pratinjau seret dan ubah durasi                                   |
+| 3c  | Proyek › Dokumen             | 3      | Halaman datar, editor TipTap                                      |
+| 4a  | Proyek › Resource            | 3      | Penugasan nama saja; pertama dipotong bila jadwal meleset         |
+| 4b  | Proyek › Kalender            | 3      | Hari kerja dan hari libur                                         |
+| 5   | Token dan komponen           | 0      | Diterapkan di [tokens.css](tokens.css)                            |
 
 Prinsip UX dari kanvas:
 
