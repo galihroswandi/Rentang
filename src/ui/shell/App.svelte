@@ -75,7 +75,12 @@
   }}
 />
 
-<div class="flex min-h-dvh flex-col bg-bg text-text">
+<!--
+  The shell is exactly one screen tall, so it is the project's own area that scrolls, not the
+  whole page: the header, tabs, toolbar and column headings stay in view however many tasks
+  there are. The project list is the exception and scrolls as a page of its own.
+-->
+<div class="flex h-dvh flex-col overflow-hidden bg-bg text-text">
   <AppHeader />
   <TabBar />
 
@@ -101,7 +106,10 @@
     <p role="status" class="m-auto text-text-2">Memuat proyek…</p>
   {:else}
     {#key $app.active}
-      <div in:fly={{ y: 8, duration: 260 }} class="flex min-h-0 flex-1 flex-col">
+      <div
+        in:fly={{ y: 8, duration: 260 }}
+        class={['flex min-h-0 flex-1 flex-col', session ? 'overflow-hidden' : 'overflow-y-auto']}
+      >
         {#if session}
           <ProjectView {session} />
         {:else}

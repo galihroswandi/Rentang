@@ -367,6 +367,59 @@ test('the chart never runs out of dates: scrolling to the end adds another year'
   expect(widths.scrollWidth).toBeGreaterThanOrEqual(widths.charts[0] ?? Infinity)
 })
 
+test('with many tasks only the task area scrolls, so headers stay in view', async ({ page }) => {
+  await page.setViewportSize({ width: 1300, height: 700 })
+  await page.goto('/')
+  await page.locator('input[accept=".gan"]').setInputFiles({
+    name: 'proyek-besar.gan',
+    mimeType: 'application/xml',
+    buffer: Buffer.from(toGan(generateProject(200))),
+  })
+  await page.getByRole('button', { name: 'Simpan dan buka proyek' }).click()
+  const grid = page.getByRole('treegrid')
+  await expect(grid.getByRole('row')).toHaveCount(1 + 200)
+  await page.waitForTimeout(600)
+
+  const geometry = () =>
+    page.evaluate(() => {
+      const scroller = document.querySelector('[data-gantt-scroller]')
+      const top = (element: Element | null | undefined) =>
+        element?.getBoundingClientRect().top ?? NaN
+      return {
+        pageScrolls: document.documentElement.scrollHeight > innerHeight,
+        scrollerHeight: scroller?.getBoundingClientRect().height ?? 0,
+        scrollTop: scroller?.scrollTop ?? 0,
+        header: top(document.querySelector('header')),
+        tabs: top(document.querySelector('nav[aria-label="Tab proyek"]')),
+        toolbar: top(document.querySelector('[aria-label="Filter tugas"]')?.closest('.sticky')),
+        columns: top(document.querySelector('thead')),
+      }
+    })
+
+  const before = await geometry()
+  // The task area is shorter than the screen, and the page itself never scrolls.
+  expect(before.pageScrolls).toBe(false)
+  expect(before.scrollerHeight).toBeLessThan(700)
+
+  await page.mouse.move(900, 450)
+  await page.mouse.wheel(0, 2500)
+  await expect.poll(async () => (await geometry()).scrollTop).toBeGreaterThan(2000)
+
+  // Everything above the list stays where it was, and so do the column headings.
+  const after = await geometry()
+  expect(after.pageScrolls).toBe(false)
+  expect(after.header).toBe(before.header)
+  expect(after.tabs).toBe(before.tabs)
+  expect(after.toolbar).toBe(before.toolbar)
+  expect(after.columns).toBe(before.columns)
+
+  // The same task rows and chart rows line up after scrolling a long way.
+  const row = grid.getByRole('row').nth(120)
+  await row.scrollIntoViewIfNeeded()
+  await row.click()
+  await expect(row).toHaveAttribute('aria-selected', 'true')
+})
+
 test('the table toolbar filters tasks, reorders them and sets columns', async ({ page }) => {
   await openDemo(page)
   const grid = page.getByRole('treegrid')
