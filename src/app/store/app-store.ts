@@ -83,6 +83,8 @@ export type AppActions = {
   openDemo(): Promise<void>
   createProject(name: string, area: Area): Promise<void>
   closeTab(id: string): void
+  /** Removes a project from storage and closes its tab. */
+  deleteProject(id: string): Promise<void>
   showList(): void
   /** Applies an edit to the active project, with undo, and saves it. */
   edit(label: string, recipe: Recipe): EditOutcome
@@ -100,6 +102,15 @@ export type AppDependencies = {
   readonly storage: StorageProvider
   readonly today: () => IsoDate
   readonly newId: () => string
+  /** Remembers which projects are open across a page reload. Optional. */
+  readonly workspace?: WorkspaceMemory
+}
+
+export type Workspace = { readonly tabs: readonly string[]; readonly active: string | null }
+
+export type WorkspaceMemory = {
+  read(): Workspace | null
+  write(workspace: Workspace): void
 }
 
 function extensionOf(name: string): string {
@@ -128,12 +139,22 @@ function sessionOf(
   }
 }
 
-export function createAppStore({ storage, today, newId }: AppDependencies): AppStore {
+export function createAppStore({ storage, today, newId, workspace }: AppDependencies): AppStore {
   let toastCounter = 0
   // Saves for one project run one after another, so an older save never lands last.
   const saving = new Map<string, Promise<void>>()
 
-  return createStore<AppState & AppActions>()((set, get) => {
+  // Until the remembered tabs are back, the workspace must not be overwritten with an empty one.
+  let restoring = workspace !== undefined
+  let remember = (): void => undefined
+
+  const store = createStore<AppState & AppActions>()((set, get) => {
+    remember = () => {
+      if (restoring) return
+      const { tabs, active } = get()
+      workspace?.write({ tabs, active })
+    }
+
     const toast = (message: string, action: Toast['action']): void => {
       set({ toast: { id: (toastCounter += 1), message, action } })
     }
@@ -198,6 +219,26 @@ export function createAppStore({ storage, today, newId }: AppDependencies): AppS
       void persist(next)
     }
 
+    const stopRestoring = (): void => {
+      restoring = false
+      remember()
+    }
+    const restoreTab = async (id: string, activate = false): Promise<void> => {
+      const loaded = await storage.load(id).catch(() => null)
+      if (!loaded?.ok) return
+      const summary = get().projects.find((candidate) => candidate.id === id)
+      const session = sessionOf(
+        loaded.value.project,
+        summary?.origin ?? 'rentang',
+        summary?.fileName ?? null,
+      )
+      const { tabs, sessions, active } = get()
+      set({
+        sessions: { ...sessions, [id]: session },
+        tabs: tabs.includes(id) ? tabs : [...tabs, id],
+        active: activate ? id : active,
+      })
+    }
     return {
       ready: false,
       projects: [],
@@ -214,7 +255,23 @@ export function createAppStore({ storage, today, newId }: AppDependencies): AppS
           set({ projects: await storage.list(), ready: true })
         } catch {
           set({ ready: true, notice: { kind: 'storage-failed' } })
+          stopRestoring()
+          return
         }
+        const remembered = workspace?.read()
+        if (!remembered) {
+          stopRestoring()
+          return
+        }
+        const known = new Set(get().projects.map((summary) => summary.id))
+        const ids = remembered.tabs.filter((id) => known.has(id))
+        for (const id of ids) {
+          if (id !== remembered.active) await restoreTab(id)
+        }
+        if (remembered.active !== null && ids.includes(remembered.active)) {
+          await restoreTab(remembered.active, true)
+        }
+        stopRestoring()
       },
 
       async openFile({ name, text }) {
@@ -312,6 +369,21 @@ export function createAppStore({ storage, today, newId }: AppDependencies): AppS
         })
       },
 
+      async deleteProject(id) {
+        // Wait for a save still in flight, or it could bring the project back.
+        await saving.get(id)
+        try {
+          await storage.remove(id)
+        } catch {
+          set({ notice: { kind: 'storage-failed' } })
+          return
+        }
+        saving.delete(id)
+        get().closeTab(id)
+        set({ projects: await storage.list().catch(() => get().projects) })
+        toast('Proyek dihapus', null)
+      },
+
       showList() {
         set({ active: null })
       },
@@ -363,4 +435,8 @@ export function createAppStore({ storage, today, newId }: AppDependencies): AppS
       },
     }
   })
+  store.subscribe(() => {
+    remember()
+  })
+  return store
 }

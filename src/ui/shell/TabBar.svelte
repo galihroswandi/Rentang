@@ -3,6 +3,7 @@
   import Icon from '../icons/Icon.svelte'
   import { prefersReducedMotion, scale } from '../motion.ts'
   import { useApp } from './context.ts'
+  import OpenProjectMenu from './OpenProjectMenu.svelte'
 
   const { store, app } = useApp()
 
@@ -60,17 +61,7 @@
     </div>
   {/each}
 
-  <button
-    type="button"
-    aria-label="Buka proyek lain"
-    title="Buka proyek lain"
-    onclick={() => {
-      store.getState().showList()
-    }}
-    class="btn-ghost mb-0.5 ml-0.5 size-8 flex-none"
-  >
-    <Icon name="plus" />
-  </button>
+  <OpenProjectMenu />
 </nav>
 
 <style>

@@ -2,13 +2,14 @@
   import { untrack } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
   import { createWorkCalendar } from '../../core/calendar.ts'
-  import { addDays, diffDays } from '../../core/dates.ts'
+  import { diffDays, MAX_DATE } from '../../core/dates.ts'
   import type { CriticalPath } from '../../core/critical-path.ts'
   import type { IsoDate } from '../../core/dates.ts'
   import type { Project } from '../../core/model.ts'
   import GanttChart, { type Reschedule } from '../gantt/GanttChart.svelte'
   import { layoutGantt, type GanttLayout, type Zoom } from '../gantt/layout.ts'
-  import { isSideways, nearestSnap, sidewaysDelta, snapPoints, stepSnap } from '../gantt/snap.ts'
+  import { scrollAfterZoom, type ChartView } from '../gantt/zoom.ts'
+  import { isSideways, nearestSnap, sidewaysDelta, snapPoints } from '../gantt/snap.ts'
   import { prefersReducedMotion } from '../motion.ts'
   import Icon from '../icons/Icon.svelte'
   import { prefs, type ColumnKey, type Columns } from '../prefs.ts'
@@ -26,6 +27,8 @@
     today: IsoDate
     /** Incremented by the "Hari ini" button; each change scrolls to today. */
     todayRequest: number
+    /** Incremented by the "Awal proyek" button; each change scrolls to the first task's start. */
+    startRequest: number
     selectedId: string | null
     onSelect: (id: string | null) => void
     onOpen: (id: string) => void
@@ -47,6 +50,7 @@
     criticalOn,
     today,
     todayRequest,
+    startRequest,
     selectedId,
     onSelect,
     onOpen,
@@ -148,31 +152,64 @@
   const selectedIndex = $derived(rows.findIndex((row) => row.id === selectedId))
 
   let handledRequest = 0
-  /** What the chart showed before the last zoom change, to keep the same date in view. */
-  let previous: { start: IsoDate; dayWidth: number; scrollLeft: number } | null = null
+  let handledStart = 0
+  /** The first day and day width on screen, so a zoom change knows what it is leaving. */
+  let rendered: { zoom: Zoom; start: IsoDate; dayWidth: number } | null = null
+  /** Where the view was just before the zoom changed; the browser may clamp it afterwards. */
+  let anchor: ChartView | null = null
 
-  // Start the chart at today when it first appears and on every "Hari ini"; when only the
-  // zoom changes, keep the date that was in the middle of the screen in the middle.
+  // Runs before the page is redrawn for a new zoom, while the scroll position is still the
+  // reader's own: a narrower chart would make the browser clamp it.
+  $effect.pre(() => {
+    const nextZoom = zoom
+    untrack(() => {
+      if (scroller && rendered && rendered.zoom !== nextZoom) {
+        anchor = { ...rendered, scrollLeft: scroller.scrollLeft }
+      }
+    })
+  })
+
+  $effect(() => {
+    if (layout) rendered = { zoom: layout.zoom, start: layout.start, dayWidth: layout.dayWidth }
+  })
+
+  // Start the chart at today when it first appears and on every "Hari ini"; "Awal proyek"
+  // goes to the first task's start instead. When only the zoom changes, keep the date that
+  // was in the middle of the screen in the middle.
   $effect(() => {
     const requested = todayRequest !== handledRequest
-    const behavior: ScrollBehavior = requested ? 'smooth' : 'instant'
+    const startRequested = startRequest !== handledStart
+    const behavior: ScrollBehavior = requested || startRequested ? 'smooth' : 'instant'
     handledRequest = todayRequest
+    handledStart = startRequest
     const visibleZoom = zoom
     untrack(() => {
       if (!scroller || layout?.zoom !== visibleZoom) return
       const visible = scroller.clientWidth - shownWidth - SPLITTER
-      const last = previous
-      previous = { start: layout.start, dayWidth: layout.dayWidth, scrollLeft: scroller.scrollLeft }
+      const last = anchor
+      anchor = null
+      const first = startRequested ? projectStart() : null
+      if (first) {
+        // Its column becomes the first one against the table, like today does.
+        const left = diffDays(layout.start, first) * layout.dayWidth
+        const furthest = Math.max(0, scroller.scrollWidth - scroller.clientWidth)
+        scroller.scrollTo({ left: Math.min(Math.max(0, left), furthest), behavior })
+        return
+      }
       if (last && !requested && last.dayWidth !== layout.dayWidth) {
-        const centreDay = (last.scrollLeft + visible / 2) / last.dayWidth
-        const date = addDays(last.start, Math.round(centreDay))
-        const left = diffDays(layout.start, date) * layout.dayWidth + layout.dayWidth / 2
-        scroller.scrollTo({ left: Math.max(0, left - visible / 2), behavior })
+        scroller.scrollTo({ left: scrollAfterZoom(last, layout, visible), behavior })
         return
       }
       scrollToToday(scroller, layout, behavior)
     })
   })
+
+  /** The earliest start over every task, or null when there are none. */
+  function projectStart(): IsoDate | null {
+    let first: IsoDate | null = null
+    for (const row of rows) if (row.start && (!first || row.start < first)) first = row.start
+    return first
+  }
 
   /**
    * Today's column becomes the first one against the table: its left edge is the cell's.
@@ -186,7 +223,7 @@
     const todayEdge =
       current.bottom.find((cell) => cell.isToday)?.x ?? current.todayX - current.dayWidth / 2
     const furthest = Math.max(0, element.scrollWidth - element.clientWidth)
-    if (todayEdge > furthest + 0.5 && extraYears < MAX_EXTRA_YEARS) {
+    if (todayEdge > furthest + 0.5 && canAddYear(current)) {
       todayPending = behavior
       extraYears += 1
       return
@@ -195,10 +232,15 @@
     element.scrollTo({ left: Math.min(Math.max(0, todayEdge), furthest), behavior })
   }
 
+  /** Whether another year still fits: under the cap and before the end of the supported dates. */
+  function canAddYear(current: GanttLayout): boolean {
+    return extraYears < MAX_EXTRA_YEARS && current.end < MAX_DATE
+  }
+
   /** Keeps at least a screen and a half of dates ahead of the view, adding a year when not. */
   function ensureDatesAhead(element: HTMLElement): void {
     const ahead = element.scrollWidth - element.clientWidth - element.scrollLeft
-    if (ahead < element.clientWidth * 1.5 && extraYears < MAX_EXTRA_YEARS) extraYears += 1
+    if (ahead < element.clientWidth * 1.5 && layout && canAddYear(layout)) extraYears += 1
   }
 
   // After the chart grows (a new year, a zoom, a resize), check that dates still lie ahead,
@@ -227,8 +269,6 @@
   }
 
   let panning = $state(false)
-  /** Where a run of wheel steps is heading, so quick steps add up instead of repeating. */
-  let stepTarget: number | null = null
 
   // When scrolling stops, a column slides the last bit against the table's edge, like a magnet.
   $effect(() => {
@@ -255,17 +295,13 @@
     }
   })
 
-  // Wheel: Ctrl or Cmd zooms, like a map; Shift with the wheel, or a sideways swipe, moves one
-  // column per step. Both need a non-passive listener to stop the browser's own behaviour, so
+  // Wheel: Ctrl or Cmd zooms, like a map; Shift with the wheel, or a sideways swipe, moves the
+  // view sideways. Both need a non-passive listener to stop the browser's own behaviour, so
   // it is attached by hand.
   $effect(() => {
     const element = scroller
     if (!element) return
     let zoomRest = 0
-    let sideRest = 0
-    let lastStep = 0
-    let restTimer: ReturnType<typeof setTimeout> | undefined
-    let targetTimer: ReturnType<typeof setTimeout> | undefined
     const onWheel = (event: WheelEvent): void => {
       if (event.ctrlKey || event.metaKey) {
         event.preventDefault()
@@ -278,29 +314,13 @@
       }
       if (!isSideways(event)) return
       event.preventDefault()
-      sideRest += sidewaysDelta(event)
-      clearTimeout(restTimer)
-      restTimer = setTimeout(() => {
-        sideRest = 0
-      }, 200)
-      const now = performance.now()
-      // Enough travel for a step, and a short pause between steps so a swipe stays readable.
-      if (Math.abs(sideRest) < 30 || now - lastStep < 90) return
-      lastStep = now
-      const direction = sideRest > 0 ? 1 : -1
-      sideRest = 0
-      const next = stepSnap(stops(element), stepTarget ?? element.scrollLeft, direction)
-      stepTarget = next
-      element.scrollTo({ left: next, behavior: scrollBehavior() })
-      clearTimeout(targetTimer)
-      targetTimer = setTimeout(() => {
-        stepTarget = null
-      }, 350)
+      // Follows the wheel or swipe directly, a mouse notch counting for several, so a year
+      // away is a few turns; the magnet below settles it on a column once it stops.
+      const amount = sidewaysDelta(event) * (event.deltaMode === 0 ? 2 : 40)
+      element.scrollBy({ left: amount, behavior: 'instant' })
     }
     element.addEventListener('wheel', onWheel, { passive: false })
     return () => {
-      clearTimeout(restTimer)
-      clearTimeout(targetTimer)
       element.removeEventListener('wheel', onWheel)
     }
   })
@@ -313,7 +333,6 @@
     if (event.target instanceof Element && event.target.closest('[data-id]')) return
     const handle = event.currentTarget
     handle.setPointerCapture(event.pointerId)
-    stepTarget = null
     const startX = event.clientX
     const startY = event.clientY
     const startLeft = element.scrollLeft
@@ -395,7 +414,8 @@
   data-gantt-scroller
   bind:clientWidth={containerWidth}
   class={[
-    'relative min-h-0 flex-1 overflow-auto bg-surface',
+    // scroll-pt equals the sticky header height, so a focused row never lands underneath it.
+    'relative min-h-0 flex-1 scroll-pt-16 overflow-auto bg-surface',
     dragging && 'cursor-col-resize select-none',
   ]}
 >
@@ -444,6 +464,7 @@
             {onSelect}
             {onOpen}
             onToggle={toggle}
+            {onReorder}
           />
           {#if rows.length === 0}
             <p class="m-0 px-4 py-5 text-[13px] text-text-3">
@@ -451,26 +472,35 @@
             </p>
           {/if}
         </div>
-        <div
-          role="slider"
-          tabindex="0"
-          aria-orientation="horizontal"
-          aria-label="Lebar tabel"
-          aria-valuetext={`${String(shownWidth)} piksel`}
-          aria-valuemin={minTable}
-          aria-valuemax={Math.round(maxTable)}
-          aria-valuenow={shownWidth}
-          title="Seret untuk mengatur lebar tabel"
-          onpointerdown={startDrag}
-          onkeydown={onSplitterKey}
-          class={[
-            'group flex w-2.5 flex-none cursor-col-resize touch-none items-start justify-center border-x border-line pt-[19px] text-text-3 transition-colors duration-150 hover:bg-accent-soft hover:text-accent-text',
-            dragging ? 'bg-accent-soft text-accent-text' : 'bg-surface-2',
-          ]}
-        >
-          <span class="transition-transform duration-200 group-hover:scale-125"
-            ><Icon name="grip" size={12} strokeWidth={2} /></span
+        <div class="group relative flex w-2.5 flex-none justify-center">
+          <span
+            aria-hidden="true"
+            class={[
+              'pointer-events-none absolute inset-0 border-x border-line transition-colors duration-150',
+              dragging ? 'bg-accent-soft' : 'bg-surface-2 group-hover:bg-accent-soft',
+            ]}
+          ></span>
+          <div
+            role="slider"
+            tabindex="0"
+            aria-orientation="horizontal"
+            aria-label="Lebar tabel"
+            aria-valuetext={`${String(shownWidth)} piksel`}
+            aria-valuemin={minTable}
+            aria-valuemax={Math.round(maxTable)}
+            aria-valuenow={shownWidth}
+            title="Seret untuk mengatur lebar tabel"
+            onpointerdown={startDrag}
+            onkeydown={onSplitterKey}
+            class={[
+              'sticky top-1/2 z-10 flex h-8 w-full -translate-y-1/2 cursor-col-resize touch-none items-center justify-center border-x border-line text-text-3 transition-colors duration-150 hover:bg-accent-soft hover:text-accent-text',
+              dragging ? 'bg-accent-soft text-accent-text' : 'bg-surface-2',
+            ]}
           >
+            <span class="transition-transform duration-200 group-hover:scale-125"
+              ><Icon name="grip" size={12} strokeWidth={2} /></span
+            >
+          </div>
         </div>
       </div>
       {#if layout}

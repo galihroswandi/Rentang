@@ -16,9 +16,11 @@
     onSelect: (id: string) => void
     onOpen: (id: string) => void
     onToggle: (id: string, expanded: boolean) => void
+    onReorder: (id: string, targetId: string, place: 'before' | 'after') => void
   }
 
-  let { rows, columns, selectedId, criticalOn, onSelect, onOpen, onToggle }: Props = $props()
+  let { rows, columns, selectedId, criticalOn, onSelect, onOpen, onToggle, onReorder }: Props =
+    $props()
 
   let focusedIndex = $state(0)
   const rowElements: HTMLTableRowElement[] = $state([])
@@ -28,6 +30,24 @@
     focusedIndex = index
     await tick()
     rowElements[index]?.focus()
+  }
+
+  // Rows can be dragged by their grip, within the same group of siblings.
+  let dragId: string | null = $state(null)
+  let armedId: string | null = $state(null)
+  let dropTarget: { id: string; place: 'before' | 'after' } | null = $state(null)
+
+  function dropPlace(event: DragEvent, row: TaskRow): 'before' | 'after' | null {
+    const dragged = rows.find((candidate) => candidate.id === dragId)
+    if (!dragged || dragged.id === row.id || dragged.parentId !== row.parentId) return null
+    const box = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    return event.clientY < box.top + box.height / 2 ? 'before' : 'after'
+  }
+
+  function endDrag(): void {
+    dragId = null
+    armedId = null
+    dropTarget = null
   }
 
   function onKeydown(event: KeyboardEvent): void {
@@ -96,6 +116,32 @@
         aria-expanded={row.isSummary ? row.expanded : undefined}
         aria-selected={selected}
         tabindex={index === activeIndex ? 0 : -1}
+        draggable={armedId === row.id}
+        ondragstart={(event) => {
+          dragId = row.id
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move'
+            event.dataTransfer.setData('text/plain', row.id)
+          }
+        }}
+        ondragover={(event) => {
+          const place = dropPlace(event, row)
+          if (!place) {
+            dropTarget = null
+            return
+          }
+          event.preventDefault()
+          dropTarget = { id: row.id, place }
+        }}
+        ondrop={(event) => {
+          const place = dropPlace(event, row)
+          if (place && dragId) {
+            event.preventDefault()
+            onReorder(dragId, row.id, place)
+          }
+          endDrag()
+        }}
+        ondragend={endDrag}
         onclick={() => {
           focusedIndex = index
           onSelect(row.id)
@@ -108,11 +154,29 @@
         }}
         style:--i={index}
         class={[
-          'row h-9 border-b border-line outline-offset-[-2px] transition-colors duration-150',
+          'row group/row h-9 border-b border-line outline-offset-[-2px] transition-colors duration-150',
           selected ? 'bg-accent-soft' : 'hover:bg-surface-2',
+          dragId === row.id && 'opacity-50',
+          dropTarget?.id === row.id &&
+            (dropTarget.place === 'before'
+              ? 'shadow-[inset_0_2px_0_var(--color-accent)]'
+              : 'shadow-[inset_0_-2px_0_var(--color-accent)]'),
         ]}
       >
-        <td class="overflow-hidden pr-2 pl-3.5">
+        <td class="relative overflow-hidden pr-2 pl-3.5">
+          <span
+            role="presentation"
+            title="Seret untuk mengubah urutan"
+            onpointerdown={() => {
+              armedId = row.id
+            }}
+            onpointerup={() => {
+              armedId = null
+            }}
+            class="absolute top-1/2 left-0 flex h-6 w-3.5 -translate-y-1/2 cursor-grab items-center justify-center text-text-3 opacity-0 transition-opacity duration-150 group-hover/row:opacity-100"
+          >
+            <Icon name="grip" size={12} />
+          </span>
           <span
             class="flex min-w-0 items-center gap-2"
             style:padding-left={`${String((row.level - 1) * 18)}px`}

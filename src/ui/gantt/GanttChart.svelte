@@ -227,6 +227,11 @@
   class="block select-none"
   aria-hidden="true"
   onpointerdown={startDrag}
+  onmousedown={(event) => {
+    // Holding a bar next to the table makes the browser scroll the chart on its own, as it
+    // does when selecting text; the drag only ever moves the bar.
+    if (event.button === 0) event.preventDefault()
+  }}
   onpointermove={moveDrag}
   onpointerup={(event) => {
     endDrag(event, false)
@@ -339,6 +344,21 @@
             class="geometry fill-bar-fill"
           />
         {/if}
+        <!-- Days off inside a bar stay empty: the bar only fills working days. -->
+        {#each layout.offDays as day (day.x)}
+          {@const from = Math.max(day.x, bar.x + 2)}
+          {@const to = Math.min(day.x + day.width, bar.x + bar.width - 2)}
+          {#if to > from}
+            <rect
+              x={from}
+              y={bar.y - 1}
+              width={to - from}
+              height={bar.height + 2}
+              pointer-events="none"
+              class="geometry fill-weekend"
+            />
+          {/if}
+        {/each}
         <!-- Pull this strip to change how many workdays the task lasts. -->
         <rect
           data-handle="resize"

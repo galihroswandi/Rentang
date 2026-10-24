@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AppStore } from '../../app/store/app-store.ts'
   import type { IsoDate } from '../../core/dates.ts'
+  import { canPickFiles, pickFile } from '../file-access.ts'
   import { watchDayChange } from '../today.ts'
   import Icon from '../icons/Icon.svelte'
   import { describeNotice } from '../import/error-text.ts'
@@ -29,12 +30,20 @@
   const { app, ui } = provideApp(store, today)
 
   const inputs: Partial<Record<FileKind, HTMLInputElement>> = {}
-  ui.registerPicker((kind) => inputs[kind]?.click())
+  ui.registerPicker((kind) => {
+    if (!canPickFiles()) {
+      inputs[kind]?.click()
+      return
+    }
+    void pickFile(kind)
+      .then((file) => openFiles(file ? [file] : null))
+      .catch(() => inputs[kind]?.click())
+  })
 
   let dragDepth = $state(0)
   const session = $derived($app.active === null ? null : ($app.sessions[$app.active] ?? null))
 
-  async function openFiles(files: FileList | null | undefined): Promise<void> {
+  async function openFiles(files: ArrayLike<File> | null | undefined): Promise<void> {
     const file = files?.[0]
     if (!file) return
     await store.getState().openFile({ name: file.name, text: await file.text() })
@@ -142,7 +151,7 @@
 <input
   bind:this={inputs.rentang}
   type="file"
-  accept=".rentang"
+  accept=".rentang,application/json,application/octet-stream,text/plain"
   class="hidden"
   aria-label="Pilih berkas .rentang"
   onchange={(event) => {

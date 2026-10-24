@@ -16,6 +16,7 @@ import {
   removeResource,
   setWorkingDays,
   removeRole,
+  renameProject,
   reschedule,
   renameRole,
   subtreeOf,
@@ -287,5 +288,13 @@ describe('people and roles', () => {
     const removed = apply(project, removeRole('k'))
     expect(removed.roles).toEqual([])
     expect(removed.resources).toEqual([{ id: 'r', name: 'Rina' }])
+  })
+})
+
+describe('renameProject', () => {
+  it('trims the name and ignores a blank one', () => {
+    const base = createProject('p', 'Lama', 'work')
+    expect(produce(base, renameProject('  Baru  ')).name).toBe('Baru')
+    expect(produce(base, renameProject('   ')).name).toBe('Lama')
   })
 })

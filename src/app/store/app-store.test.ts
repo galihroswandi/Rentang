@@ -163,6 +163,27 @@ describe('tabs', () => {
     expect(state().sessions[DEMO_PROJECT_ID]?.origin).toBe('demo')
   })
 
+  it('deletes a project from storage and closes its tab', async () => {
+    const { state, storage } = setup()
+    await state().openDemo()
+    await state().createProject('Kebun', 'work')
+
+    await state().deleteProject('id-1')
+    expect(state().tabs).toEqual([DEMO_PROJECT_ID])
+    expect(state().projects.map((project) => project.id)).toEqual([DEMO_PROJECT_ID])
+    expect((await storage.list()).map((project) => project.id)).toEqual([DEMO_PROJECT_ID])
+    expect(state().toast?.message).toBe('Proyek dihapus')
+  })
+
+  it('keeps the project and reports when storage refuses the delete', async () => {
+    const base = createMemoryStorage()
+    const { state } = setup({ ...failing(base, {}), remove: () => Promise.reject(new Error('x')) })
+    await state().createProject('Kebun', 'work')
+    await state().deleteProject('id-1')
+    expect(state().tabs).toEqual(['id-1'])
+    expect(state().notice).toEqual({ kind: 'storage-failed' })
+  })
+
   it('keeps the active tab when closing another one', async () => {
     const { state } = setup()
     await state().openDemo()
@@ -274,5 +295,35 @@ describe('editing', () => {
     })
     expect(state().sessions['kedai-kopi']?.analysis.ok).toBe(false)
     expect(state().projects).toMatchObject([{ progress: 0, nextMilestone: null }])
+  })
+})
+
+describe('workspace memory', () => {
+  it('reopens the tabs and the active project after a reload', async () => {
+    const storage = createMemoryStorage()
+    let saved: { tabs: readonly string[]; active: string | null } | null = null
+    const workspace = {
+      read: () => saved,
+      write: (value: { tabs: readonly string[]; active: string | null }) => {
+        saved = value
+      },
+    }
+    const make = () =>
+      createAppStore({
+        storage,
+        workspace,
+        today: () => toIsoDate('2026-11-18'),
+        newId: () => 'new-id',
+      })
+
+    const first = make()
+    await first.getState().start()
+    await first.getState().openDemo()
+    expect(saved).toEqual({ tabs: [DEMO_PROJECT_ID], active: DEMO_PROJECT_ID })
+
+    const second = make()
+    await second.getState().start()
+    expect(second.getState().tabs).toEqual([DEMO_PROJECT_ID])
+    expect(second.getState().active).toBe(DEMO_PROJECT_ID)
   })
 })

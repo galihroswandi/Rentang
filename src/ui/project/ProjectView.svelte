@@ -3,6 +3,7 @@
   import type { IsoDate } from '../../core/dates.ts'
   import {
     addTask,
+    renameProject,
     deleteTask,
     moveTask as reorderTask,
     reschedule,
@@ -13,6 +14,7 @@
   import { ZOOMS, type Zoom } from '../gantt/layout.ts'
   import { ZOOM_LABELS } from '../labels.ts'
   import Icon from '../icons/Icon.svelte'
+  import { saveFile } from '../file-access.ts'
   import { fade, fly } from '../motion.ts'
   import { prefs, type Columns } from '../prefs.ts'
   import { NO_FILTER, type RowFilter } from '../table/rows.ts'
@@ -21,6 +23,9 @@
   import Segmented from '../shell/Segmented.svelte'
   import CalendarDialog from './CalendarDialog.svelte'
   import GanttView from './GanttView.svelte'
+  import DeleteProjectDialog from './DeleteProjectDialog.svelte'
+  import { projectFileName, serializeProject } from './project-file.ts'
+  import RenameProjectDialog from './RenameProjectDialog.svelte'
   import TaskDialog from './TaskDialog.svelte'
 
   let { session }: { session: ProjectSession } = $props()
@@ -32,11 +37,14 @@
   let columns: Columns = $state(prefs.columns())
   let criticalOn = $state(prefs.critical())
   let todayRequest = $state(0)
+  let startRequest = $state(0)
   let selectedId: string | null = $state(null)
   let peopleQuery = $state('')
   let addPersonRequest = $state(0)
   let rolesOpen = $state(false)
   let calendarOpen = $state(false)
+  let renameOpen = $state(false)
+  let deleteOpen = $state(false)
   let filter: RowFilter = $state(NO_FILTER)
   let dialog: { readonly kind: 'new' } | { readonly kind: 'edit'; readonly id: string } | null =
     $state(null)
@@ -105,6 +113,21 @@
     dialog = null
   }
 
+  function renameCurrent(name: string): void {
+    store.getState().edit('Nama proyek diubah', renameProject(name))
+    renameOpen = false
+  }
+
+  function deleteCurrent(): void {
+    deleteOpen = false
+    void store.getState().deleteProject(project.id)
+  }
+
+  /** Saves the project as a `.rentang` file where the person chooses. Nothing is sent anywhere. */
+  async function saveToFile(): Promise<void> {
+    await saveFile('rentang', projectFileName(project.name), serializeProject(project))
+  }
+
   function showTaskInGantt(id: string): void {
     view = 'gantt'
     selectedId = id
@@ -135,6 +158,10 @@
           <span class="max-sm:sr-only">Tugas</span>
         </button>
         <span aria-hidden="true" class="mx-1 h-[22px] w-px bg-line max-sm:hidden"></span>
+        <button type="button" class="btn" disabled={!analysis} onclick={() => (startRequest += 1)}>
+          <Icon name="arrow-left-to-line" />
+          <span class="max-sm:sr-only">Awal proyek</span>
+        </button>
         <button type="button" class="btn" disabled={!analysis} onclick={() => (todayRequest += 1)}>
           <Icon name="calendar-check" />
           <span class="max-sm:sr-only">Hari ini</span>
@@ -227,6 +254,32 @@
         </label>
       </div>
     {/if}
+
+    <span aria-hidden="true" class="mx-1 h-[22px] w-px bg-line"></span>
+    <div class="flex items-center gap-2" role="group" aria-label="Aksi proyek">
+      <button type="button" class="btn" onclick={saveToFile}>
+        <Icon name="file-down" />
+        <span class="max-lg:sr-only">Simpan ke berkas</span>
+      </button>
+      <button
+        type="button"
+        class="btn-icon"
+        aria-label="Ubah nama proyek"
+        title="Ubah nama proyek"
+        onclick={() => (renameOpen = true)}
+      >
+        <Icon name="pencil" />
+      </button>
+      <button
+        type="button"
+        class="btn-icon hover:text-danger"
+        aria-label="Hapus proyek"
+        title="Hapus proyek"
+        onclick={() => (deleteOpen = true)}
+      >
+        <Icon name="trash" />
+      </button>
+    </div>
   </div>
 
   {#if cycle}
@@ -251,6 +304,7 @@
           {criticalOn}
           today={today()}
           {todayRequest}
+          {startRequest}
           {selectedId}
           onSelect={(id: string | null) => {
             selectedId = id
@@ -287,6 +341,20 @@
     </div>
   {/key}
 </div>
+
+<RenameProjectDialog
+  open={renameOpen}
+  name={project.name}
+  onClose={() => (renameOpen = false)}
+  onSubmit={renameCurrent}
+/>
+
+<DeleteProjectDialog
+  open={deleteOpen}
+  name={project.name}
+  onClose={() => (deleteOpen = false)}
+  onConfirm={deleteCurrent}
+/>
 
 <CalendarDialog
   open={calendarOpen}

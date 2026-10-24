@@ -1,6 +1,7 @@
 <script lang="ts" module>
   // The Lucide icons the design canvas uses, under the names the components ask for.
   import ArrowDown from '@lucide/svelte/icons/arrow-down'
+  import ArrowLeftToLine from '@lucide/svelte/icons/arrow-left-to-line'
   import ArrowUp from '@lucide/svelte/icons/arrow-up'
   import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right'
   import CalendarCheck from '@lucide/svelte/icons/calendar-check'
@@ -15,6 +16,7 @@
   import Columns3Cog from '@lucide/svelte/icons/columns-3-cog'
   import Diamond from '@lucide/svelte/icons/diamond'
   import File from '@lucide/svelte/icons/file'
+  import FileDown from '@lucide/svelte/icons/file-down'
   import FileInput from '@lucide/svelte/icons/file-input'
   import Flag from '@lucide/svelte/icons/flag'
   import Funnel from '@lucide/svelte/icons/funnel'
@@ -44,6 +46,7 @@
 
   const ICONS = {
     'arrow-down': ArrowDown,
+    'arrow-left-to-line': ArrowLeftToLine,
     'arrow-up': ArrowUp,
     'arrow-up-right': ArrowUpRight,
     'calendar-check': CalendarCheck,
@@ -58,6 +61,7 @@
     columns: Columns3Cog,
     diamond: Diamond,
     file: File,
+    'file-down': FileDown,
     'file-import': FileInput,
     flag: Flag,
     filter: Funnel,

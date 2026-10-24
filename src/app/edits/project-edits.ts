@@ -41,6 +41,14 @@ export function createProject(id: string, name: string, area: Area): Project {
   }
 }
 
+/** Renames the project; a blank name is ignored. */
+export function renameProject(name: string): Recipe {
+  return (draft) => {
+    const label = name.trim()
+    if (label !== '') draft.name = label
+  }
+}
+
 /** Whole workdays, at least one and at most the longest the model allows. */
 function workdaysOf(duration: number): number {
   return Math.min(MAX_DURATION, Math.max(1, Math.round(duration)))
