@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createWorkCalendar } from './calendar.ts'
-import { toIsoDate } from './dates.ts'
+import { MAX_DATE, MIN_DATE, toIsoDate } from './dates.ts'
 
 const d = toIsoDate
 const mondayToFriday = [1, 2, 3, 4, 5]
@@ -59,5 +59,26 @@ describe('createWorkCalendar', () => {
   it('refuses a calendar without working weekdays', () => {
     expect(() => createWorkCalendar({ workingDays: [], holidays: [] })).toThrow(RangeError)
     expect(() => createWorkCalendar({ workingDays: [7, -1], holidays: [] })).toThrow(RangeError)
+  })
+
+  it('stops at the edges of the supported window, even for a huge count', () => {
+    expect(calendar.addWorkdays(d('2026-11-16'), 2_000_000_000)).toBe(MAX_DATE)
+    expect(calendar.addWorkdays(d('2026-11-16'), -2_000_000_000)).toBe(MIN_DATE)
+    expect(calendar.addWorkdays(d('9999-12-31'), 1)).toBe(MAX_DATE)
+    expect(calendar.nextWorkday(d('9000-01-01'))).toBe(MAX_DATE)
+    expect(calendar.previousWorkday(d('0001-01-01'))).toBe(MIN_DATE)
+  })
+
+  it('does not search past the window when every day to the edge is off', () => {
+    const lastDayOff = createWorkCalendar({
+      workingDays: [1],
+      holidays: [{ date: MAX_DATE }],
+    })
+    expect(lastDayOff.nextWorkday(MAX_DATE)).toBe(MAX_DATE)
+  })
+
+  it('counts workdays between dates outside the window as if clamped', () => {
+    const near = calendar.workdaysBetween(d('2100-12-01'), MAX_DATE)
+    expect(calendar.workdaysBetween(d('2100-12-01'), d('9999-12-31'))).toBe(near)
   })
 })

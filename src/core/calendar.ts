@@ -1,4 +1,11 @@
-import { addDays, dayOfWeek, toDayNumber, type IsoDate } from './dates.ts'
+import {
+  addDays,
+  clampDate,
+  dayOfWeek,
+  isSupportedDate,
+  toDayNumber,
+  type IsoDate,
+} from './dates.ts'
 
 /** The parts of a project calendar that decide which days count as workdays. */
 export type CalendarRules = {
@@ -9,7 +16,11 @@ export type CalendarRules = {
 
 export type WorkCalendar = {
   isWorkday(date: IsoDate): boolean
-  /** The date itself if it is a workday, otherwise the first workday after it. */
+  /**
+   * The date itself if it is a workday, otherwise the first workday after it.
+   * Every result stays inside the supported window (MIN_DATE to MAX_DATE); a search that
+   * reaches an edge stops there, even when that day is a day off.
+   */
   nextWorkday(date: IsoDate): IsoDate
   /** The date itself if it is a workday, otherwise the last workday before it. */
   previousWorkday(date: IsoDate): IsoDate
@@ -33,8 +44,12 @@ export function createWorkCalendar(rules: CalendarRules): WorkCalendar {
     workingDays.has(dayOfWeek(date)) && !holidays.has(date)
 
   const step = (date: IsoDate, direction: 1 | -1): IsoDate => {
-    let current = date
-    while (!isWorkday(current)) current = addDays(current, direction)
+    let current = clampDate(date)
+    while (!isWorkday(current)) {
+      const next = addDays(current, direction)
+      if (!isSupportedDate(next)) return current
+      current = next
+    }
     return current
   }
 
@@ -44,14 +59,22 @@ export function createWorkCalendar(rules: CalendarRules): WorkCalendar {
     previousWorkday: (date) => step(date, -1),
     addWorkdays(date, count) {
       const direction = count < 0 ? -1 : 1
-      let current = date
+      let current = clampDate(date)
       for (let remaining = Math.abs(count); remaining > 0; remaining--) {
-        current = step(addDays(current, direction), direction)
+        const next = addDays(current, direction)
+        // At an edge, further steps cannot move; stopping keeps a huge count from looping.
+        if (!isSupportedDate(next)) break
+        const moved = step(next, direction)
+        if (moved === current) break
+        current = moved
       }
       return current
     },
-    workdaysBetween: (from, to) =>
-      to < from ? -countWorkdays(isWorkday, to, from) : countWorkdays(isWorkday, from, to),
+    workdaysBetween(from, to) {
+      const low = clampDate(from)
+      const high = clampDate(to)
+      return high < low ? -countWorkdays(isWorkday, high, low) : countWorkdays(isWorkday, low, high)
+    },
   }
 }
 

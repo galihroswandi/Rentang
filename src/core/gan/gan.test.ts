@@ -171,6 +171,7 @@ describe('calendar', () => {
       <date year="2026" month="11" date="18" type="HOLIDAY">Libur fiktif</date>
       <date year="2026" month="12" date="1"/>
       <date year="2026" month="2" date="30" type="HOLIDAY"/>
+      <date year="2101" month="1" date="1" type="HOLIDAY"/>
       <date year="2026" month="11" date="7" type="WORKING_DAY"/>
     </calendars>`
     const { project, report } = imported(gan({ calendars }))
@@ -181,6 +182,7 @@ describe('calendar', () => {
     expect(report.imported.holidays).toBe(2)
     expect(report.skipped).toEqual([
       { code: 'invalid-holiday', year: '2026', month: '2', day: '30' },
+      { code: 'invalid-holiday', year: '2101', month: '1', day: '1' },
       { code: 'unsupported-calendar-day', type: 'WORKING_DAY' },
     ])
   })
@@ -203,6 +205,22 @@ describe('tasks', () => {
       { code: 'invalid-task', taskId: '4', reason: 'parent-skipped' },
       { code: 'invalid-task', taskId: '5', reason: 'parent-skipped' },
       { code: 'invalid-task', taskId: '6', reason: 'invalid-duration' },
+    ])
+  })
+
+  it('skips tasks outside the supported dates or durations', () => {
+    const tasks = [
+      t('1'),
+      t('2', 'start="2101-01-01"'),
+      t('3', 'start="1969-12-31"'),
+      t('4', 'duration="3651"'),
+    ].join('')
+    const { project, report } = imported(gan({ tasks }))
+    expect(project.tasks.map((task) => task.id)).toEqual(['1'])
+    expect(report.skipped).toEqual([
+      { code: 'invalid-task', taskId: '2', reason: 'invalid-start' },
+      { code: 'invalid-task', taskId: '3', reason: 'invalid-start' },
+      { code: 'invalid-task', taskId: '4', reason: 'invalid-duration' },
     ])
   })
 
@@ -280,6 +298,13 @@ describe('tasks', () => {
 })
 
 describe('dependencies', () => {
+  it('resets a lag beyond the supported limit', () => {
+    const tasks = t('1', '', '<depend id="2" type="2" difference="4000"/>') + t('2')
+    const { project, report } = imported(gan({ tasks }))
+    expect(project.dependencies.map((dependency) => dependency.lag)).toEqual([0])
+    expect(report.changed).toEqual([{ code: 'lag-reset', from: '1', to: '2', original: '4000' }])
+  })
+
   it('converts other types to finish-to-start and keeps lag', () => {
     const depends = [
       '<depend id="2" type="3" difference="0"/>',

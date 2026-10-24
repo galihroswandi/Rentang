@@ -4,13 +4,18 @@
  * End dates are never stored: they are computed by schedule.ts.
  */
 import { z } from 'zod'
-import { isIsoDate, type IsoDate } from './dates.ts'
+import { isIsoDate, isSupportedDate, type IsoDate } from './dates.ts'
 
 export const CURRENT_SCHEMA_VERSION = 2
 
+/** Longest task, in workdays (about fourteen years). */
+export const MAX_DURATION = 3650
+/** Largest lag either way, in workdays. */
+export const MAX_LAG = 3650
+
 export const isoDateSchema = z.custom<IsoDate>(
-  (value) => typeof value === 'string' && isIsoDate(value),
-  { message: "Expected a 'YYYY-MM-DD' date" },
+  (value) => typeof value === 'string' && isIsoDate(value) && isSupportedDate(value),
+  { message: "Expected a 'YYYY-MM-DD' date from 1970 to 2100" },
 )
 
 const idSchema = z.string().min(1)
@@ -38,7 +43,7 @@ export const taskSchema = z
     /** Requested start. The scheduled start may be later because of dependencies or days off. */
     start: isoDateSchema,
     /** Length in workdays; 0 only for milestones. Ignored for summary tasks. */
-    duration: z.int().min(0),
+    duration: z.int().min(0).max(MAX_DURATION),
     progress: z.int().min(0).max(100),
     isMilestone: z.boolean(),
     parentId: idSchema.optional(),
@@ -61,7 +66,7 @@ export const dependencySchema = z.object({
   to: idSchema,
   type: z.literal('finish-to-start'),
   /** Workdays between the predecessor's finish and the successor's start; negative overlaps. */
-  lag: z.int(),
+  lag: z.int().min(-MAX_LAG).max(MAX_LAG),
 })
 
 export const roleSchema = z.object({ id: idSchema, name: z.string().min(1) })

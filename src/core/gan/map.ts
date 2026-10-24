@@ -3,8 +3,10 @@
  * import report. The original .gan file is never written back.
  */
 import { z } from 'zod'
-import { formatIsoDate, isIsoDate, type IsoDate } from '../dates.ts'
+import { formatIsoDate, isIsoDate, isSupportedDate, type IsoDate } from '../dates.ts'
 import {
+  MAX_DURATION,
+  MAX_LAG,
   projectSchema,
   type Area,
   type Assignment,
@@ -146,7 +148,7 @@ function mapCalendar(gan: GanDocument, changed: ImportChange[], skipped: ImportS
 
 function toDate(year: string, month: string, day: string): IsoDate | null {
   const text = `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-  return /^\d{4}-\d{2}-\d{2}$/.test(text) && isIsoDate(text)
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) && isIsoDate(text) && isSupportedDate(text)
     ? formatIsoDate({ year: Number(year), month: Number(month), day: Number(day) })
     : null
 }
@@ -174,8 +176,10 @@ function mapTasks(
         ? 'duplicate-id'
         : !/^-?\d+$/.test(gan.duration)
           ? 'invalid-duration'
-          : null
-      if (reason !== null || !isIsoDate(start)) {
+          : Number(gan.duration) > MAX_DURATION
+            ? 'invalid-duration'
+            : null
+      if (reason !== null || !isIsoDate(start) || !isSupportedDate(start)) {
         skipped.push({ code: 'invalid-task', taskId: gan.id, reason: reason ?? 'invalid-start' })
         skipSubtree(gan, 'parent-skipped')
         continue
@@ -301,7 +305,7 @@ function mapDependencies(
             changed.push({ code: 'dependency-type-converted', from, to, original: kind })
           }
           let lag = Number(depend.difference)
-          if (!Number.isInteger(lag)) {
+          if (!Number.isInteger(lag) || Math.abs(lag) > MAX_LAG) {
             changed.push({ code: 'lag-reset', from, to, original: depend.difference })
             lag = 0
           }

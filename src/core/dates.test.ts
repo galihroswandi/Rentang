@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
+  clampDate,
   compareDates,
   dayOfWeek,
   diffDays,
   formatIsoDate,
   fromDayNumber,
   isIsoDate,
+  isSupportedDate,
+  MAX_DATE,
   maxDate,
+  MIN_DATE,
   minDate,
   parseIsoDate,
   toDayNumber,
@@ -112,5 +116,20 @@ describe('comparison', () => {
     expect(maxDate(late, early)).toBe(late)
     expect(minDate(early, late)).toBe(early)
     expect(minDate(late, early)).toBe(early)
+  })
+})
+
+describe('supported window', () => {
+  it('tells which dates are inside it', () => {
+    expect(isSupportedDate(MIN_DATE)).toBe(true)
+    expect(isSupportedDate(MAX_DATE)).toBe(true)
+    expect(isSupportedDate(d('1969-12-31'))).toBe(false)
+    expect(isSupportedDate(d('2101-01-01'))).toBe(false)
+  })
+
+  it('clamps to the nearest edge', () => {
+    expect(clampDate(d('0001-01-01'))).toBe(MIN_DATE)
+    expect(clampDate(d('9999-12-31'))).toBe(MAX_DATE)
+    expect(clampDate(d('2026-11-02'))).toBe('2026-11-02')
   })
 })

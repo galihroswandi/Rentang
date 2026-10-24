@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { toIsoDate } from './dates.ts'
 import {
   CURRENT_SCHEMA_VERSION,
+  MAX_DURATION,
+  MAX_LAG,
   projectFileSchema,
   projectSchema,
   type Project,
@@ -46,7 +48,7 @@ describe('projectSchema', () => {
 
   it('rejects malformed dates and durations', () => {
     expect(issuesOf(withChanges((p) => (taskAt(p, 1).start = '2026-02-30' as never)))).toContain(
-      "Expected a 'YYYY-MM-DD' date",
+      "Expected a 'YYYY-MM-DD' date from 1970 to 2100",
     )
     expect(issuesOf(withChanges((p) => (taskAt(p, 1).duration = 0)))).toContain(
       'Milestones last 0 workdays; other tasks at least 1',
@@ -54,6 +56,26 @@ describe('projectSchema', () => {
     expect(issuesOf(withChanges((p) => (taskAt(p, 12).duration = 1)))).toContain(
       'Milestones last 0 workdays; other tasks at least 1',
     )
+  })
+
+  it('rejects dates, durations and lags outside the supported limits', () => {
+    const dateMessage = "Expected a 'YYYY-MM-DD' date from 1970 to 2100"
+    expect(issuesOf(withChanges((p) => (taskAt(p, 1).start = '1969-12-31' as never)))).toContain(
+      dateMessage,
+    )
+    expect(issuesOf(withChanges((p) => (taskAt(p, 1).start = '2101-01-01' as never)))).toContain(
+      dateMessage,
+    )
+    expect(issuesOf(withChanges((p) => (taskAt(p, 1).duration = 2_000_000_000)))).not.toEqual([])
+    expect(issuesOf(withChanges((p) => (taskAt(p, 1).duration = MAX_DURATION)))).toEqual([])
+    expect(
+      issuesOf(
+        withChanges((p) => {
+          const dependency = p.dependencies[0]
+          if (dependency) dependency.lag = MAX_LAG + 1
+        }),
+      ),
+    ).not.toEqual([])
   })
 
   it('rejects a calendar without or with repeated working days', () => {

@@ -51,6 +51,22 @@ export function isIsoDate(text: string): text is IsoDate {
   return parseIsoDate(text) !== null
 }
 
+/**
+ * The window Rentang works in. Dates outside it are refused when data comes in, so
+ * arithmetic stays far from the edges of the calendar (year 1 and year 9999).
+ */
+export const MIN_DATE = '1970-01-01' as IsoDate
+export const MAX_DATE = '2100-12-31' as IsoDate
+
+export function isSupportedDate(date: IsoDate): boolean {
+  return date >= MIN_DATE && date <= MAX_DATE
+}
+
+/** The date itself, or the nearest edge of the supported window. */
+export function clampDate(date: IsoDate): IsoDate {
+  return date < MIN_DATE ? MIN_DATE : date > MAX_DATE ? MAX_DATE : date
+}
+
 /** Writes date parts as 'YYYY-MM-DD'. Throws RangeError for a date that does not exist. */
 export function formatIsoDate(parts: DateParts): IsoDate {
   if (!isValidParts(parts)) {
