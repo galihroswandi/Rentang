@@ -2,7 +2,7 @@
 
 Aplikasi web satu halaman untuk memantau jadwal dan kemajuan semua proyek di satu tempat, dengan **Gantt** sebagai inti dan dokumen tulisan di sampingnya. Membuka berkas GanttProject (`.gan`), menyimpan ke berkas `.rentang` di komputer Anda. Tanpa akun dan tanpa server.
 
-> **Status: Tahap 1 (penampil) selesai.** Anda bisa mengimpor berkas `.gan` atau membuka `.rentang`, membaca laporan impor, lalu melihat tabel tugas dan Gantt (hanya baca) dengan jalur kritis, zoom Hari/Minggu/Bulan, serta tema terang dan gelap. Proyek tersimpan di browser. Menyunting jadwal menyusul di Tahap 2. Rencana lengkap ada di [ruang lingkup](docs/ruang-lingkup.md).
+> **Status:** desain baru diterapkan. Anda bisa mengimpor `.gan` atau membuka `.rentang`, membaca laporan impor, mengelola proyek dari Daftar proyek (tabel atau kartu), membuka beberapa proyek dalam tab, menambah dan mengubah tugas, mengelola orang dan role, serta mengurungkan setiap suntingan. Proyek tersimpan di browser. Belum ada: seret batang Gantt, menyunting dependensi, dokumen proyek, dan simpan ke berkas. Rencana lengkap ada di [ruang lingkup](docs/ruang-lingkup.md).
 
 ## Menjalankan
 
@@ -34,8 +34,8 @@ Aplikasi terbuka di <http://localhost:5173>.
 ```text
 src/
   core/     TypeScript murni: model, tanggal, kalender, jadwal, jalur kritis, migrasi, impor .gan
-  app/      Store aplikasi, penyimpanan browser, proyek demo
-  ui/       Komponen Svelte: shell, layar Mulai, laporan impor, tabel, Gantt
+  app/      Store aplikasi, suntingan dan riwayat undo, penyimpanan browser, proyek demo
+  ui/       Komponen Svelte: header dan tab, Daftar proyek, Gantt, Resource, dialog
 docs/
   ruang-lingkup.md   Ruang lingkup, tahap, dan risiko
   decisions/         Catatan keputusan arsitektur (ADR)
@@ -64,6 +64,7 @@ Setelah Tahap 4, proyek dibekukan.
 - [002. Lapisan dan aturan tanggal](docs/decisions/002-layers-and-dates.md)
 - [003. Format simpan dan penyimpanan berkas](docs/decisions/003-save-format-and-file-storage.md)
 - [004. Antarmuka penampil](docs/decisions/004-viewer-ui.md)
+- [005. Desain baru, penyuntingan, dan skema v2](docs/decisions/005-redesign-and-editing.md)
 
 ## Lisensi
 

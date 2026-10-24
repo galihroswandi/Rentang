@@ -80,6 +80,8 @@ describe('week zoom', () => {
 
   it('routes links straight when there is room and around when there is not', () => {
     const links = new Map(result.links.map((link) => [link.id, link]))
+    // Into the milestone's top point rather than across its label.
+    expect(links.get('12-13')).toEqual({ id: '12-13', d: 'M880 414 H890 V438', critical: true })
     // Izin usaha ends 10 Nov; Rekrut barista starts 12 Nov, one day later.
     expect(links.get('3-10')).toEqual({ id: '3-10', d: 'M320 90 H326 V342 H340', critical: false })
     // Survei lokasi ends 4 Nov and Izin usaha starts the next day: no room.

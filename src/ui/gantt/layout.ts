@@ -26,6 +26,8 @@ export const HEADER_ROW_HEIGHT = 26
 const BAR_HEIGHT = 18
 const SUMMARY_HEIGHT = 13
 const MILESTONE_HALF = 7
+/** Distance from a milestone's centre to its top point, ring included. */
+const MILESTONE_TIP = 12
 const LINK_GAP = 6
 
 /** Below this x a milestone label would run off the chart, so it goes to the right. */
@@ -139,7 +141,14 @@ export function layoutGantt({
   // Where links attach: the end of a predecessor and the start of a successor.
   const anchors = new Map<
     string,
-    { index: number; startX: number; endX: number; critical: boolean }
+    {
+      index: number
+      startX: number
+      endX: number
+      critical: boolean
+      /** Centre of a milestone's diamond, which links enter from above or below. */
+      milestone?: { cx: number; cy: number }
+    }
   >()
 
   rows.forEach((row, index) => {
@@ -166,6 +175,7 @@ export function layoutGantt({
         startX: cx - MILESTONE_HALF,
         endX: cx + MILESTONE_HALF,
         critical: row.critical,
+        milestone: { cx, cy: top + ROW_HEIGHT / 2 },
       })
     } else if (row.isSummary) {
       const y = top + (ROW_HEIGHT - SUMMARY_HEIGHT) / 2
@@ -208,7 +218,11 @@ export function layoutGantt({
     const x1 = from.endX
     const x2 = to.startX
     let d: string
-    if (x2 >= x1 + 2 * LINK_GAP) {
+    if (to.milestone && to.milestone.cx >= x1 + LINK_GAP && y1 !== y2) {
+      // Into the diamond's top or bottom point, keeping clear of its label beside it.
+      const tip = y2 > y1 ? y2 - MILESTONE_TIP : y2 + MILESTONE_TIP
+      d = `M${String(x1)} ${String(y1)} H${String(to.milestone.cx)} V${String(tip)}`
+    } else if (x2 >= x1 + 2 * LINK_GAP) {
       d = `M${String(x1)} ${String(y1)} H${String(x1 + LINK_GAP)} V${String(y2)} H${String(x2)}`
     } else {
       // No room to drop straight down: run along the successor's row edge and come back.

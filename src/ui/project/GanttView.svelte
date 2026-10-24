@@ -8,7 +8,7 @@
   import GanttChart from '../gantt/GanttChart.svelte'
   import { layoutGantt, type Zoom } from '../gantt/layout.ts'
   import Icon from '../icons/Icon.svelte'
-  import { prefs, type Columns } from '../prefs.ts'
+  import { prefs, type ColumnKey, type Columns } from '../prefs.ts'
   import { buildTaskRows } from '../table/rows.ts'
   import TaskTable from '../table/TaskTable.svelte'
 
@@ -40,24 +40,48 @@
     onOpen,
   }: Props = $props()
 
-  const MIN_TABLE = 220
   const DEFAULT_TABLE = 452
   const SPLITTER = 10
+  /** Room the name column always keeps, plus the cell padding. */
+  const NAME_ROOM = 200
+  const COLUMN_WIDTHS: Readonly<Record<ColumnKey, number>> = {
+    resource: 72,
+    start: 64,
+    end: 64,
+    duration: 64,
+    progress: 52,
+  }
+  /** On a phone the chart matters more than the dates, which it already shows. */
+  const PHONE_COLUMNS: Columns = {
+    resource: false,
+    start: false,
+    end: false,
+    duration: false,
+    progress: true,
+  }
 
   const collapsed = new SvelteSet<string>()
   let scroller: HTMLDivElement | undefined = $state()
   let containerWidth = $state(0)
   // svelte-ignore state_referenced_locally
-  let tableWidth = $state(prefs.tableWidth(project.id) ?? DEFAULT_TABLE)
+  let customWidth: number | null = $state(prefs.tableWidth(project.id))
   let dragging = $state(false)
 
-  const maxTable = $derived(Math.max(MIN_TABLE, containerWidth - 120))
-  // On a phone the table first takes a little over half the screen.
+  const phone = $derived(containerWidth > 0 && containerWidth < 640)
+  const visibleColumns = $derived(phone ? PHONE_COLUMNS : columns)
+  // The table widens by itself when columns are added, so names never get squeezed out.
+  const minTable = $derived(
+    NAME_ROOM +
+      (Object.keys(COLUMN_WIDTHS) as ColumnKey[])
+        .filter((key) => visibleColumns[key])
+        .reduce((sum, key) => sum + COLUMN_WIDTHS[key], 0),
+  )
+  const maxTable = $derived(Math.max(minTable, containerWidth - 120))
   const shownWidth = $derived(
     Math.round(
       Math.min(
-        Math.max(tableWidth, MIN_TABLE),
-        containerWidth < 640 ? containerWidth * 0.58 : maxTable,
+        Math.max(customWidth ?? Math.max(DEFAULT_TABLE, minTable + 100), minTable),
+        phone ? containerWidth * 0.56 : maxTable,
       ),
     ),
   )
@@ -90,8 +114,8 @@
   }
 
   function resizeTo(width: number): void {
-    tableWidth = Math.min(Math.max(width, MIN_TABLE), maxTable)
-    prefs.setTableWidth(project.id, tableWidth)
+    customWidth = Math.min(Math.max(width, minTable), maxTable)
+    prefs.setTableWidth(project.id, customWidth)
   }
 
   function startDrag(event: PointerEvent & { currentTarget: HTMLDivElement }): void {
@@ -122,7 +146,7 @@
         : event.key === 'ArrowRight'
           ? shownWidth + step
           : event.key === 'Home'
-            ? MIN_TABLE
+            ? minTable
             : event.key === 'End'
               ? maxTable
               : null
@@ -166,7 +190,7 @@
         >
           <TaskTable
             {rows}
-            {columns}
+            columns={visibleColumns}
             {selectedId}
             {criticalOn}
             {onSelect}
@@ -180,7 +204,7 @@
           aria-orientation="horizontal"
           aria-label="Lebar tabel"
           aria-valuetext={`${String(shownWidth)} piksel`}
-          aria-valuemin={MIN_TABLE}
+          aria-valuemin={minTable}
           aria-valuemax={Math.round(maxTable)}
           aria-valuenow={shownWidth}
           title="Seret untuk mengatur lebar tabel"

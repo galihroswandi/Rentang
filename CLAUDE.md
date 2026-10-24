@@ -61,15 +61,22 @@ Sumber kebenaran ruang lingkup: [docs/ruang-lingkup.md](docs/ruang-lingkup.md). 
 - `src/core/summary.ts`: rollup persen, status tugas, ringkasan proyek.
 - `src/core/test-utils/`: proyek emas Kedai Kopi, generator proyek deterministik, dan `toGan` untuk membuat `.gan` besar di test (hanya untuk test; Rentang tidak menulis `.gan`).
 - `src/app/persistence/`: `StorageProvider`, `browser.ts` (Dexie), `memory.ts`.
-- `src/app/store/app-store.ts`: state aplikasi (Zustand vanilla): layar, proyek terbuka, impor yang menunggu konfirmasi.
+- `src/app/edits/`: suntingan sebagai resep Immer murni (tugas, orang, role, penugasan).
+- `src/app/history/`: undo/redo dari patch Immer.
+- `src/app/store/app-store.ts`: state aplikasi (Zustand vanilla): daftar proyek, tab, sesi per proyek, impor yang menunggu, status simpan, toast.
 - `src/app/demo/`: proyek demo fiktif, tanggalnya digeser relatif ke hari ini.
-- `src/ui/shell/`: App, Sidebar, tema, konteks store (`$app`), `global.css` (Tailwind dipetakan ke token).
-- `src/ui/table/`: `rows.ts` (baris pohon tugas), `treegrid-keys.ts`, `TaskTable.svelte`.
-- `src/ui/gantt/`: `layout.ts` (geometri murni), `GanttChart.svelte`.
-- `src/ui/import/`: dialog dan teks Laporan impor, teks galat.
+- `src/ui/shell/`: App, header, tab, tema, toast, dialog Proyek baru, `global.css` (Tailwind dipetakan ke token, animasi).
+- `src/ui/list/`: Daftar proyek (tabel atau kartu) dan tampilan kosong.
+- `src/ui/project/`: toolbar proyek, Gantt (tabel + pembatas + chart), menu Kolom, dialog Tugas.
+- `src/ui/resource/`: tampilan Resource, dialog Kelola role.
+- `src/ui/table/`, `src/ui/gantt/`: baris pohon tugas, tombol treegrid, geometri Gantt murni.
+- `src/ui/icons/Icon.svelte`: nama ikon → komponen `@lucide/svelte`.
+- `src/ui/motion.ts`: transisi Svelte yang mematuhi "reduce motion".
 
 ## Catatan UI
 
 - Warna hanya lewat utilitas Tailwind yang dipetakan ke token (`bg-surface`, `stroke-critical`, ...). Jangan menulis hex di komponen.
+- Ikon hanya dari Lucide lewat `Icon.svelte`, sama dengan kanvas desain.
+- Animasi lewat `motion.ts` atau kelas di `global.css`, supaya "reduce motion" selalu dihormati.
 - Logika UI yang bisa diuji tanpa browser ditaruh di modul `.ts` murni dan diuji; komponen `.svelte` diuji hanya bila punya logika.
 - `fixtures/kedai-kopi-demo.gan`: satu-satunya tempat berkas `.gan` boleh ada.

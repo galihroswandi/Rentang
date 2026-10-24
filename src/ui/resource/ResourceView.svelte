@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { flip } from 'svelte/animate'
   import {
     addResource,
@@ -18,16 +18,25 @@
   import { buildPeople, filterPeople, tasksOf } from './people.ts'
   import RoleDialog from './RoleDialog.svelte'
 
-  let { session, onShowTask }: { session: ProjectSession; onShowTask: (taskId: string) => void } =
+  type Props = {
+    session: ProjectSession
+    /** Filter typed in the project toolbar. */
+    query: string
+    /** Incremented by the toolbar's "Orang" button; each change adds a person. */
+    addRequest: number
+    rolesOpen: boolean
+    onRolesClose: () => void
+    onOpenRoles: () => void
+    onShowTask: (taskId: string) => void
+  }
+  let { session, query, addRequest, rolesOpen, onRolesClose, onOpenRoles, onShowTask }: Props =
     $props()
 
   const { store } = useApp()
 
-  let query = $state('')
   let selectedId: string | null = $state(null)
   let assigning = $state(false)
   let taskToAssign = $state('')
-  let rolesOpen = $state(false)
   let nameInput: HTMLInputElement | undefined = $state()
 
   const project = $derived(session.project)
@@ -43,6 +52,13 @@
   })
   const flipDuration = prefersReducedMotion() ? 0 : 240
 
+  let handledAdd = untrack(() => addRequest)
+  $effect(() => {
+    if (addRequest === handledAdd) return
+    handledAdd = addRequest
+    untrack(() => void addPerson())
+  })
+
   async function addPerson(): Promise<void> {
     const id = store.getState().createId()
     if (
@@ -50,7 +66,6 @@
     )
       return
     selectedId = id
-    query = ''
     await tick()
     nameInput?.focus()
     nameInput?.select()
@@ -72,29 +87,6 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-  <div class="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2">
-    <button type="button" class="btn" onclick={() => void addPerson()}>
-      <Icon name="user-plus" />
-      <span class="max-sm:sr-only">Orang</span>
-    </button>
-    <button type="button" class="btn" onclick={() => (rolesOpen = true)}>
-      <Icon name="tag" />
-      <span class="max-sm:sr-only">Kelola role</span>
-    </button>
-    <label
-      class="press ml-auto flex h-9 w-[260px] max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-text-3 focus-within:border-accent-border focus-within:shadow-[0_0_0_3px_rgb(245_158_11/25%)] max-sm:ml-0 max-sm:w-full"
-    >
-      <Icon name="search" />
-      <span class="sr-only">Cari orang</span>
-      <input
-        type="search"
-        bind:value={query}
-        placeholder="Cari nama atau role"
-        class="h-full min-w-0 flex-1 border-0 bg-transparent text-[13.5px] text-text outline-none"
-      />
-    </label>
-  </div>
-
   <div class="flex flex-1 flex-wrap">
     <section
       aria-label="Daftar orang"
@@ -250,7 +242,7 @@
                 Daftar role diatur lewat <button
                   type="button"
                   class="font-medium text-accent-text underline-offset-2 hover:underline"
-                  onclick={() => (rolesOpen = true)}>Kelola role</button
+                  onclick={onOpenRoles}>Kelola role</button
                 >.
               </span>
             </div>
@@ -359,7 +351,7 @@
   </div>
 </div>
 
-<RoleDialog open={rolesOpen} {project} onClose={() => (rolesOpen = false)} />
+<RoleDialog open={rolesOpen} {project} onClose={onRolesClose} />
 
 <style>
   .person-grid {

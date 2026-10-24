@@ -6,6 +6,8 @@ import { toGan } from '../src/core/test-utils/to-gan.ts'
 const fixture = 'fixtures/kedai-kopi-demo.gan'
 
 async function expectNoSeriousViolations(page: Page): Promise<void> {
+  // Let entrance animations settle so colours are checked at their final values.
+  await page.waitForTimeout(900)
   const results = await new AxeBuilder({ page }).analyze()
   const serious = results.violations
     .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
@@ -16,14 +18,21 @@ async function expectNoSeriousViolations(page: Page): Promise<void> {
   expect(serious).toEqual([])
 }
 
-test('imports a .gan file through the report and keeps it after a reload', async ({ page }) => {
+async function openDemo(page: Page): Promise<void> {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Coba dengan proyek demo' }).click()
+  await expect(page.getByRole('treegrid', { name: 'Daftar tugas' })).toBeVisible()
+}
+
+test('imports a .gan file through the report, lists it and keeps it after a reload', async ({
+  page,
+}) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: 'Mulai dari mana?' })).toBeVisible()
   await expectNoSeriousViolations(page)
 
   await page.locator('input[accept=".gan"]').setInputFiles(fixture)
   const dialog = page.getByRole('dialog', { name: 'Laporan impor' })
-  await expect(dialog).toBeVisible()
   await expect(
     dialog.getByText('1 dependensi start-to-start menjadi finish-to-start'),
   ).toBeVisible()
@@ -32,14 +41,18 @@ test('imports a .gan file through the report and keeps it after a reload', async
   await dialog.getByRole('button', { name: 'Simpan dan buka proyek' }).click()
   const grid = page.getByRole('treegrid', { name: 'Daftar tugas' })
   await expect(grid.getByRole('row')).toHaveCount(1 + 14)
-  await expect(page.getByRole('heading', { level: 1, name: 'Peluncuran Kedai Kopi' })).toBeVisible()
+  await expectNoSeriousViolations(page)
+
+  await page.getByRole('button', { name: 'Daftar proyek', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Proyek terakhir' })).toBeVisible()
+  await expect(page.getByText('kedai-kopi-demo.gan')).toBeVisible()
+  await expectNoSeriousViolations(page)
+  await page.getByRole('button', { name: 'Kartu' }).click()
   await expectNoSeriousViolations(page)
 
   await page.reload()
+  await page.getByRole('button', { name: /Peluncuran Kedai Kopi/ }).click()
   await expect(grid.getByRole('row')).toHaveCount(1 + 14)
-  await expect(
-    page.getByRole('navigation', { name: 'Proyek' }).getByRole('button', { name: /Peluncuran/ }),
-  ).toHaveAttribute('aria-current', 'page')
 })
 
 test('cancelling the import report keeps the start screen', async ({ page }) => {
@@ -119,18 +132,14 @@ test('opens 200 tasks in under a second', async ({ page }) => {
 })
 
 test('the task table works from the keyboard', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Coba dengan proyek demo' }).click()
-  const grid = page.getByRole('treegrid', { name: 'Daftar tugas' })
-  const rows = grid.getByRole('row')
+  await openDemo(page)
+  const rows = page.getByRole('treegrid').getByRole('row')
   await expect(rows).toHaveCount(1 + 13)
 
-  // Tab from the time-scale buttons lands on the first task.
-  await page.getByRole('button', { name: 'Bulan' }).focus()
-  await page.keyboard.press('Tab')
-  await expect(rows.nth(1)).toBeFocused()
+  await rows.nth(1).focus()
   await page.keyboard.press('ArrowDown')
   await expect(rows.nth(2)).toBeFocused()
+  await expect(rows.nth(2)).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('End')
   await expect(rows.nth(13)).toBeFocused()
   await page.keyboard.press('Home')
@@ -140,17 +149,88 @@ test('the task table works from the keyboard', async ({ page }) => {
   await page.keyboard.press('ArrowRight')
   await expect(rows).toHaveCount(1 + 13)
   await page.keyboard.press('Enter')
-  await expect(rows.nth(1)).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('dialog', { name: 'Ubah tugas' })).toBeVisible()
 })
 
-test('the demo passes accessibility checks in both themes', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Coba dengan proyek demo' }).click()
-  await expect(page.getByText('Demo · data fiktif')).toBeVisible()
+test('tasks can be added, edited, deleted and every edit undone', async ({ page }) => {
+  await openDemo(page)
+  const grid = page.getByRole('treegrid')
+  await grid.getByRole('row', { name: /Desain interior/ }).click()
+
+  await page.getByRole('button', { name: 'Tugas', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Tugas baru' })
+  await dialog.getByLabel('Nama tugas').fill('Pasang papan nama')
+  await dialog.getByText('Desain', { exact: true }).click()
+  await dialog.getByLabel('Durasi (hari kerja)').fill('3')
+  await expectNoSeriousViolations(page)
+  await dialog.getByRole('button', { name: 'Tambah tugas' }).click()
+  const added = grid.getByRole('row', { name: /Pasang papan nama/ })
+  await expect(added).toBeVisible()
+
+  await page.getByRole('button', { name: 'Urungkan' }).click()
+  await expect(added).toBeHidden()
+  await page.keyboard.press('Control+Shift+Z')
+  await expect(added).toBeVisible()
+
+  await added.dblclick()
+  const edit = page.getByRole('dialog', { name: 'Ubah tugas' })
+  await edit.getByText('50%', { exact: true }).click()
+  await edit.getByRole('button', { name: 'Simpan' }).click()
+  await expect(added.getByRole('gridcell').last()).toHaveText('50%')
+  await page.keyboard.press('Control+z')
+  await expect(added.getByRole('gridcell').last()).toHaveText('0%')
+
+  await added.dblclick()
+  await page.getByRole('button', { name: 'Hapus tugas' }).click()
+  await page.getByRole('button', { name: 'Ya, hapus' }).click()
+  await expect(added).toBeHidden()
+  await expect(grid.getByRole('row')).toHaveCount(1 + 13)
+})
+
+test('people can be added, given a role, assigned and removed', async ({ page }) => {
+  await openDemo(page)
+  await page.getByRole('button', { name: 'Resource', exact: true }).click()
   await expectNoSeriousViolations(page)
 
-  await page.getByRole('button', { name: 'Gelap' }).click()
+  await page.getByRole('button', { name: 'Orang', exact: true }).click()
+  const name = page.getByLabel('Nama', { exact: true })
+  await expect(name).toBeFocused()
+  await name.fill('Wulan Sari')
+  await name.press('Enter')
+  await page.getByLabel('Role', { exact: true }).selectOption({ label: 'Barista' })
+  await page.getByRole('button', { name: 'Tugaskan ke tugas' }).click()
+  await page.getByLabel('Tugas', { exact: true }).selectOption({ label: '[DOC] Pelatihan barista' })
+  await page.getByRole('button', { name: 'Tugaskan', exact: true }).click()
+
+  const person = page.getByRole('button', { name: /Wulan Sari/ })
+  await expect(person).toContainText('Barista')
+  await expect(person).toContainText('1 tugas')
+
+  await page.getByRole('button', { name: 'Kelola role' }).first().click()
+  await page.getByLabel('Nama role baru').fill('Kasir')
+  await page.getByRole('button', { name: 'Tambah', exact: true }).click()
+  await expect(page.getByRole('dialog').getByLabel('Nama role').last()).toHaveValue('Kasir')
+  await expectNoSeriousViolations(page)
+  await page.keyboard.press('Escape')
+
+  await page.getByRole('button', { name: 'Hapus dari proyek' }).click()
+  await expect(person).toBeHidden()
+})
+
+test('the project view passes accessibility checks in dark mode and on a phone', async ({
+  page,
+}) => {
+  await openDemo(page)
+  await page.getByRole('switch', { name: /Jalur kritis/ }).click()
+  await page.getByRole('button', { name: 'Ganti ke mode gelap' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expectNoSeriousViolations(page)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expectNoSeriousViolations(page)
+  await page.getByRole('button', { name: 'Resource', exact: true }).click()
+  await expectNoSeriousViolations(page)
+  await page.getByRole('button', { name: 'Daftar proyek', exact: true }).click()
   await expectNoSeriousViolations(page)
 
   await page.reload()

@@ -88,7 +88,14 @@
                 <Icon name="x" size={16} strokeWidth={2} />
               </Dialog.Close>
             </div>
-            <div class="min-h-0 flex-1 overflow-y-auto px-6 pb-5 max-sm:px-5">
+            <!-- Keyboard users must be able to reach and scroll a long dialog body. -->
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+            <div
+              tabindex="0"
+              role="region"
+              aria-label={title}
+              class="min-h-0 flex-1 overflow-y-auto px-6 pb-5 focus-visible:outline-offset-[-2px] max-sm:px-5"
+            >
               {@render children()}
             </div>
             {#if footer}

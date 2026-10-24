@@ -28,6 +28,9 @@
   let criticalOn = $state(prefs.critical())
   let todayRequest = $state(0)
   let selectedId: string | null = $state(null)
+  let peopleQuery = $state('')
+  let addPersonRequest = $state(0)
+  let rolesOpen = $state(false)
   let dialog: { readonly kind: 'new' } | { readonly kind: 'edit'; readonly id: string } | null =
     $state(null)
 
@@ -176,6 +179,29 @@
           </span>
         </button>
       </div>
+    {:else}
+      <div in:fade class="flex flex-1 flex-wrap items-center gap-2">
+        <button type="button" class="btn" onclick={() => (addPersonRequest += 1)}>
+          <Icon name="user-plus" />
+          <span class="max-sm:sr-only">Orang</span>
+        </button>
+        <button type="button" class="btn" onclick={() => (rolesOpen = true)}>
+          <Icon name="tag" />
+          <span class="max-sm:sr-only">Kelola role</span>
+        </button>
+        <label
+          class="press ml-auto flex h-9 w-[260px] max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-text-3 focus-within:border-accent-border focus-within:shadow-[0_0_0_3px_rgb(245_158_11/25%)] max-sm:ml-0 max-sm:w-full"
+        >
+          <Icon name="search" />
+          <span class="sr-only">Cari orang</span>
+          <input
+            type="search"
+            bind:value={peopleQuery}
+            placeholder="Cari nama atau role"
+            class="h-full min-w-0 flex-1 border-0 bg-transparent text-[13.5px] text-text outline-none"
+          />
+        </label>
+      </div>
     {/if}
   </div>
 
@@ -211,7 +237,15 @@
           }}
         />
       {:else}
-        <ResourceView {session} onShowTask={showTaskInGantt} />
+        <ResourceView
+          {session}
+          query={peopleQuery}
+          addRequest={addPersonRequest}
+          {rolesOpen}
+          onRolesClose={() => (rolesOpen = false)}
+          onOpenRoles={() => (rolesOpen = true)}
+          onShowTask={showTaskInGantt}
+        />
       {/if}
     </div>
   {/key}

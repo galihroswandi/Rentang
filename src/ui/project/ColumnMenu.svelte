@@ -35,11 +35,11 @@
     <Popover.Content forceMount sideOffset={6} align="start" collisionPadding={12}>
       {#snippet child({ wrapperProps, props, open: visible })}
         {#if visible}
-          <div {...wrapperProps} class="z-30">
+          <div {...wrapperProps}>
             <div
               {...props}
               transition:fly={{ y: -6, duration: 180 }}
-              class="w-[250px] rounded-[10px] border border-line-strong bg-surface p-1.5 shadow-pop"
+              class="relative z-50 w-[250px] rounded-[10px] border border-line-strong bg-surface p-1.5 shadow-pop"
             >
               <p class="m-0 px-2.5 pt-1.5 pb-2 text-xs font-semibold text-text-2">
                 Kolom yang tampil di tabel
