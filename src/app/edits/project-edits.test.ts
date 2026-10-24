@@ -12,6 +12,7 @@ import {
   deleteTask,
   removeResource,
   removeRole,
+  reschedule,
   renameRole,
   subtreeOf,
   unassign,
@@ -128,6 +129,29 @@ describe('tasks', () => {
 
   it('finds a subtree', () => {
     expect([...subtreeOf(coffeeShopProject(), '9')].sort()).toEqual(['10', '11', '12', '13', '9'])
+  })
+})
+
+describe('reschedule', () => {
+  it('moves and resizes a task, and leaves milestones without a length', () => {
+    const project = apply(
+      coffeeShopProject(),
+      reschedule('7', toIsoDate('2026-11-25'), 4.4),
+      reschedule('13', toIsoDate('2026-12-14'), 9),
+    )
+    expect(byId(project, '7')).toMatchObject({ start: '2026-11-25', duration: 4 })
+    expect(byId(project, '13')).toMatchObject({ start: '2026-12-14', duration: 0 })
+  })
+
+  it('refuses summary tasks, unknown ids and lengths below one day', () => {
+    const before = coffeeShopProject()
+    const unchanged = apply(
+      before,
+      reschedule('5', toIsoDate('2026-12-01'), 3),
+      reschedule('nope', toIsoDate('2026-12-01'), 3),
+    )
+    expect(unchanged).toEqual(before)
+    expect(byId(apply(before, reschedule('7', toIsoDate('2026-11-18'), 0)), '7')?.duration).toBe(1)
   })
 })
 

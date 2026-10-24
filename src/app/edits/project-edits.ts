@@ -82,6 +82,16 @@ export function updateTask(id: string, input: TaskInput): Recipe {
   }
 }
 
+/** Sets when a task starts and how many workdays it lasts, as a drag on the Gantt does. */
+export function reschedule(id: string, start: IsoDate, duration: number): Recipe {
+  return (draft) => {
+    const task = draft.tasks.find((candidate) => candidate.id === id)
+    if (!task || draft.tasks.some((candidate) => candidate.parentId === id)) return
+    task.start = start
+    task.duration = task.isMilestone ? 0 : Math.max(1, Math.round(duration))
+  }
+}
+
 /** Ids of a task and everything below it. */
 export function subtreeOf(project: Pick<Project, 'tasks'>, id: string): Set<string> {
   const ids = new Set([id])

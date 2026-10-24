@@ -5,7 +5,7 @@
   import type { CriticalPath } from '../../core/critical-path.ts'
   import type { IsoDate } from '../../core/dates.ts'
   import type { Project } from '../../core/model.ts'
-  import GanttChart from '../gantt/GanttChart.svelte'
+  import GanttChart, { type Reschedule } from '../gantt/GanttChart.svelte'
   import { layoutGantt, type Zoom } from '../gantt/layout.ts'
   import Icon from '../icons/Icon.svelte'
   import { prefs, type ColumnKey, type Columns } from '../prefs.ts'
@@ -25,6 +25,7 @@
     selectedId: string | null
     onSelect: (id: string | null) => void
     onOpen: (id: string) => void
+    onReschedule: (change: Reschedule) => void
   }
   let {
     project,
@@ -38,6 +39,7 @@
     selectedId,
     onSelect,
     onOpen,
+    onReschedule,
   }: Props = $props()
 
   const DEFAULT_TABLE = 452
@@ -224,12 +226,15 @@
         <div class="flex-none">
           <GanttChart
             {layout}
+            {rows}
+            {calendar}
             {selectedIndex}
             {criticalOn}
             onSelect={(id: string) => {
               onSelect(id)
             }}
             {onOpen}
+            {onReschedule}
           />
         </div>
       {/if}

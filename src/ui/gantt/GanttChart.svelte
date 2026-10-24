@@ -1,23 +1,153 @@
 <script lang="ts">
+  import type { WorkCalendar } from '../../core/calendar.ts'
+  import { diffDays } from '../../core/dates.ts'
+  import { formatRange } from '../format.ts'
+  import type { TaskRow } from '../table/rows.ts'
+  import {
+    changed,
+    DRAG_THRESHOLD,
+    daysFromPixels,
+    resolveDrag,
+    type DragInput,
+    type DragMode,
+    type DragResult,
+  } from './drag.ts'
   import { HEADER_ROW_HEIGHT, ROW_HEIGHT, type GanttLayout } from './layout.ts'
+
+  export type Reschedule = {
+    readonly id: string
+    readonly start: DragResult['start']
+    readonly duration: number
+    readonly mode: DragMode
+  }
 
   type Props = {
     layout: GanttLayout
+    rows: readonly TaskRow[]
+    calendar: WorkCalendar
     selectedIndex: number
     criticalOn: boolean
     onSelect: (id: string) => void
     onOpen: (id: string) => void
+    onReschedule: (change: Reschedule) => void
   }
-  let { layout, selectedIndex, criticalOn, onSelect, onOpen }: Props = $props()
+  let { layout, rows, calendar, selectedIndex, criticalOn, onSelect, onOpen, onReschedule }: Props =
+    $props()
+
+  /** The grab strip on a bar's right edge, in px. */
+  const HANDLE = 8
+
+  type Drag = {
+    readonly pointerId: number
+    readonly id: string
+    readonly mode: DragMode
+    readonly originX: number
+    readonly input: Omit<DragInput, 'deltaDays'>
+    deltaDays: number
+    moved: boolean
+  }
+
+  let drag: Drag | null = $state(null)
+  let justDragged = false
+  /**
+   * The bar under the last press. Pointer capture sends the click that follows to the
+   * <svg> itself, so the target of the click no longer says which bar was meant.
+   */
+  let pressedId: string | null = null
+
+  const preview = $derived.by(() => {
+    if (!drag?.moved) return null
+    const input = { ...drag.input, deltaDays: drag.deltaDays }
+    const result = resolveDrag(input)
+    const bar = layout.bars.find((candidate) => candidate.id === drag?.id)
+    const row = (bar?.kind === 'task' ? bar : null) ?? null
+    const x = diffDays(layout.start, result.start) * layout.dayWidth
+    const width = (diffDays(result.start, result.end) + 1) * layout.dayWidth
+    const y = bar?.kind === 'task' ? bar.y : bar?.kind === 'milestone' ? bar.cy - 9 : 0
+    const label = `${formatRange(result.start, result.end)}${result.duration > 0 ? ` · ${String(result.duration)} hari` : ''}`
+    // Mono 11px is about 6.7px a glyph; the pill adds 8px of padding on each side.
+    const labelWidth = Math.ceil(label.length * 6.7) + 16
+    return {
+      ...result,
+      label,
+      labelWidth,
+      x,
+      width,
+      y,
+      valid: changed(input, result),
+      isBar: row !== null,
+    }
+  })
 
   const rowLines = $derived(
     Array.from({ length: layout.height / ROW_HEIGHT }, (_, index) => (index + 1) * ROW_HEIGHT),
   )
 
-  /** Bars are a mouse shortcut; the table is the keyboard and screen-reader route. */
-  function idAt(event: MouseEvent): string | null {
+  /** Bars are a mouse shortcut; the table and its dialog are the keyboard route. */
+  function idAt(event: Event): string | null {
     const target = event.target instanceof Element ? event.target.closest('[data-id]') : null
     return target?.getAttribute('data-id') ?? null
+  }
+
+  function startDrag(event: PointerEvent & { currentTarget: SVGSVGElement }): void {
+    if (event.button !== 0 || !event.isPrimary) return
+    const id = idAt(event)
+    pressedId = id
+    const row = rows.find((candidate) => candidate.id === id)
+    if (!id || !row?.start || !row.end || row.isSummary) return
+    const onHandle =
+      event.target instanceof Element && event.target.closest('[data-handle]') !== null
+    drag = {
+      pointerId: event.pointerId,
+      id,
+      mode: onHandle && !row.isMilestone ? 'resize' : 'move',
+      originX: event.clientX,
+      input: {
+        mode: onHandle && !row.isMilestone ? 'resize' : 'move',
+        start: row.start,
+        end: row.end,
+        duration: row.duration,
+        isMilestone: row.isMilestone,
+        calendar,
+      },
+      deltaDays: 0,
+      moved: false,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function moveDrag(event: PointerEvent): void {
+    if (!drag || event.pointerId !== drag.pointerId) return
+    const dx = event.clientX - drag.originX
+    if (!drag.moved && Math.abs(dx) < DRAG_THRESHOLD) return
+    drag = { ...drag, moved: true, deltaDays: daysFromPixels(dx, layout.dayWidth) }
+  }
+
+  function endDrag(event: PointerEvent, cancelled: boolean): void {
+    const current = drag
+    if (!current || event.pointerId !== current.pointerId) return
+    drag = null
+    if (!current.moved) return
+    justDragged = true
+    // The click that follows a drag must not select or open anything.
+    setTimeout(() => {
+      justDragged = false
+    }, 0)
+    if (cancelled) return
+    const input = { ...current.input, deltaDays: current.deltaDays }
+    const result = resolveDrag(input)
+    if (changed(input, result)) {
+      onReschedule({
+        id: current.id,
+        start: result.start,
+        duration: result.duration,
+        mode: current.mode,
+      })
+    }
+  }
+
+  function onKey(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && drag) drag = null
   }
 </script>
 
@@ -92,14 +222,23 @@
 <svg
   width={layout.width}
   height={layout.height}
-  class="block"
+  class="block select-none"
   aria-hidden="true"
+  onpointerdown={startDrag}
+  onpointermove={moveDrag}
+  onpointerup={(event) => {
+    endDrag(event, false)
+  }}
+  onpointercancel={(event) => {
+    endDrag(event, true)
+  }}
   onclick={(event) => {
-    const id = idAt(event)
+    if (justDragged) return
+    const id = idAt(event) ?? pressedId
     if (id) onSelect(id)
   }}
   ondblclick={(event) => {
-    const id = idAt(event)
+    const id = idAt(event) ?? pressedId
     if (id) onOpen(id)
   }}
 >
@@ -163,7 +302,11 @@
   {#each layout.bars as bar, index (bar.id)}
     {#if bar.kind === 'task'}
       {@const critical = criticalOn && bar.critical}
-      <g data-id={bar.id} class="bar cursor-pointer" style:--i={index}>
+      <g
+        data-id={bar.id}
+        class={['bar touch-none', drag?.id === bar.id && drag.moved ? 'dragging' : 'cursor-grab']}
+        style:--i={index}
+      >
         {#if critical}
           <rect
             x={bar.x + 1}
@@ -194,6 +337,15 @@
             class="geometry fill-bar-fill"
           />
         {/if}
+        <!-- Pull this strip to change how many workdays the task lasts. -->
+        <rect
+          data-handle="resize"
+          x={bar.x + Math.max(2, bar.width - 4) + 2 - HANDLE}
+          y={bar.y}
+          width={HANDLE}
+          height={bar.height}
+          class="handle fill-transparent"
+        />
       </g>
     {:else if bar.kind === 'summary'}
       <polygon
@@ -204,7 +356,10 @@
       />
     {:else}
       {@const critical = criticalOn && bar.critical}
-      <g data-id={bar.id} class="cursor-pointer">
+      <g
+        data-id={bar.id}
+        class={['touch-none', drag?.id === bar.id && drag.moved ? 'dragging' : 'cursor-grab']}
+      >
         <text
           x={bar.labelX}
           y={bar.cy + 4}
@@ -240,6 +395,28 @@
     {/if}
   {/each}
 
+  {#if preview}
+    <!-- Where the task will land if released now. -->
+    <g class="preview" pointer-events="none">
+      <rect
+        x={preview.x + 2}
+        y={preview.y - 2}
+        width={Math.max(2, preview.width - 4)}
+        height={preview.isBar ? 22 : 18}
+        rx="7"
+        stroke-width="2"
+        stroke-dasharray="5 3"
+        class="fill-accent/15 stroke-accent-border"
+      />
+      <g
+        transform={`translate(${String(Math.max(4, preview.x))} ${String(Math.max(2, preview.y - 22))})`}
+      >
+        <rect width={preview.labelWidth} height="18" rx="5" class="fill-text" />
+        <text x="8" y="12.5" class="mono fill-bg text-[11px] font-semibold">{preview.label}</text>
+      </g>
+    </g>
+  {/if}
+
   <line
     x1={layout.todayX}
     x2={layout.todayX}
@@ -250,6 +427,8 @@
   />
 </svg>
 
+<svelte:window onkeydown={onKey} />
+
 <style>
   /* Bars sweep in from their start date, one after another. */
   .bar {
@@ -257,6 +436,17 @@
     transform-origin: left center;
     animation: grow-x 680ms var(--ease-out) backwards;
     animation-delay: calc(80ms + min(var(--i), 30) * 18ms);
+  }
+  .bar.dragging,
+  .dragging {
+    cursor: grabbing;
+    opacity: 0.55;
+  }
+  .handle {
+    cursor: ew-resize;
+  }
+  .preview {
+    animation: fade-in 120ms var(--ease-out);
   }
   .bar:hover {
     filter: brightness(1.04) drop-shadow(0 1px 2px rgb(0 0 0 / 15%));

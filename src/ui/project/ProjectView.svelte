@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { ProjectSession } from '../../app/store/app-store.ts'
+  import type { IsoDate } from '../../core/dates.ts'
   import {
     addTask,
     deleteTask,
+    reschedule,
     subtreeOf,
     updateTask,
     type TaskInput,
@@ -71,6 +73,17 @@
       store.getState().edit('Tugas diubah', updateTask(dialog.id, input))
     }
     dialog = null
+  }
+
+  function moveTask(change: {
+    id: string
+    start: IsoDate
+    duration: number
+    mode: 'move' | 'resize'
+  }): void {
+    const label = change.mode === 'move' ? 'Tugas dipindah' : 'Durasi diubah'
+    store.getState().edit(label, reschedule(change.id, change.start, change.duration))
+    selectedId = change.id
   }
 
   function removeTask(): void {
@@ -231,6 +244,7 @@
           onSelect={(id: string | null) => {
             selectedId = id
           }}
+          onReschedule={moveTask}
           onOpen={(id: string) => {
             selectedId = id
             dialog = { kind: 'edit', id }

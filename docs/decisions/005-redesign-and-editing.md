@@ -29,6 +29,8 @@ Pemilik proyek mengganti desain dengan kanvas baru ("Sketsa Daftar Proyek Rentan
 - Panel Resource turun ke bawah daftar.
 - Dialog menjadi sheet dari bawah layar.
 
+**Seret batang Gantt.** Menggeser batang memindah tanggal mulai, dan menarik tepi kanannya mengubah durasi. Aturannya ada di `ui/gantt/drag.ts` (fungsi murni): piksel dibulatkan ke hari penuh; pemindahan tidak pernah mendarat di hari libur (ke depan ke hari kerja berikutnya, ke belakang ke hari kerja sebelumnya); durasi dihitung dalam hari kerja dan tidak kurang dari 1. Milestone hanya bisa dipindah, dan tugas induk tidak bisa diseret karena tanggalnya dihitung dari subtugasnya. Selama diseret tampil bayangan putus-putus beserta tanggal dan durasi barunya; Esc membatalkan. Hasilnya satu suntingan dengan "Urungkan". Tabel dan dialog tugas tetap jalur keyboard, karena seret hanya pintasan mouse dan sentuhan. Tanggal yang disimpan adalah tanggal mulai yang _diminta_: bila tugas punya pendahulu, menyeretnya lebih awal dari yang diizinkan dependensi tidak mengubah tanggal sebenarnya, karena jadwal tetap dihitung dari dependensi.
+
 **Lebar tabel Gantt** bisa diseret lewat pembatas (`role="slider"`, bisa juga dengan panah kiri/kanan) dan diingat per proyek. Tabel ikut melebar sendiri saat kolom ditambah dari menu Kolom.
 
 ## Konsekuensi

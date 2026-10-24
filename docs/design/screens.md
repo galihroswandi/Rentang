@@ -10,4 +10,4 @@ Acuan: kanvas desain "Sketsa Daftar Proyek Rentang" milik pemilik proyek, halama
 | Laporan impor `.gan`      | ✓      | Gaya mengikuti token baru                                                      |
 | Dialog Tugas, Proyek baru | ✓      | Tidak ada di kanvas; dibuat dengan gaya yang sama                              |
 
-Yang belum dibuat: seret batang Gantt, menyunting dependensi, dokumen proyek, dan simpan ke berkas. Status simpan menyebut "Tersimpan di browser" sampai penyimpanan ke Drive ada.
+Seret batang Gantt (pindah dan ubah durasi) sudah ada. Yang belum dibuat: menyunting dependensi, dokumen proyek, dan simpan ke berkas. Status simpan menyebut "Tersimpan di browser" sampai penyimpanan ke Drive ada.

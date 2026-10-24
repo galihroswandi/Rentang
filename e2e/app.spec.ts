@@ -187,6 +187,60 @@ test('tasks can be added, edited, deleted and every edit undone', async ({ page 
   await expect(grid.getByRole('row')).toHaveCount(1 + 13)
 })
 
+test('bars can be dragged to move or resize a task, and the drag undone', async ({ page }) => {
+  await openDemo(page)
+  const grid = page.getByRole('treegrid')
+  const row = grid.getByRole('row', { name: /Pengerjaan ruang/ })
+  const dates = async () => (await row.getByRole('gridcell').allInnerTexts()).slice(1, 3)
+  const bar = page.locator('svg g[data-id="7"] rect').first()
+  const before = await dates()
+
+  // Wait for the bar to settle after entering, then pull it three days to the right.
+  await page.waitForTimeout(1200)
+  const box = await bar.boundingBox()
+  if (!box) throw new Error('bar not found')
+  const y = box.y + box.height / 2
+  await page.mouse.move(box.x + box.width / 2, y)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 30, y, { steps: 5 })
+  await page.mouse.move(box.x + box.width / 2 + 60, y, { steps: 5 })
+  await expect(page.getByText(/\d+ hari$/).first()).toBeVisible()
+  await page.mouse.up()
+  await expect(page.getByText('Tugas dipindah')).toBeVisible()
+  expect(await dates()).not.toEqual(before)
+
+  await page.getByRole('button', { name: 'Urungkan' }).click()
+  await expect.poll(dates).toEqual(before)
+
+  // Pulling the right edge changes the length; Escape cancels a drag without an edit.
+  await page.waitForTimeout(600)
+  const settled = await bar.boundingBox()
+  if (!settled) throw new Error('bar not found')
+  const edge = settled.x + settled.width - 3
+  await page.mouse.move(edge, y)
+  await page.mouse.down()
+  await page.mouse.move(edge + 40, y, { steps: 4 })
+  await page.mouse.move(edge + 80, y, { steps: 4 })
+  await page.keyboard.press('Escape')
+  await page.mouse.up()
+  expect(await dates()).toEqual(before)
+
+  await page.mouse.move(edge, y)
+  await page.mouse.down()
+  await page.mouse.move(edge + 40, y, { steps: 4 })
+  await page.mouse.move(edge + 80, y, { steps: 4 })
+  await page.mouse.up()
+  await expect(page.getByText('Durasi diubah')).toBeVisible()
+  expect((await dates())[1]).not.toBe(before[1])
+  expect((await dates())[0]).toBe(before[0])
+
+  // A plain click only selects: the dates stay as they are.
+  const afterResize = await dates()
+  await page.mouse.click(box.x + 40, y)
+  await expect(row).toHaveAttribute('aria-selected', 'true')
+  expect(await dates()).toEqual(afterResize)
+})
+
 test('people can be added, given a role, assigned and removed', async ({ page }) => {
   await openDemo(page)
   await page.getByRole('button', { name: 'Resource', exact: true }).click()
