@@ -15,6 +15,7 @@ import {
   type Task,
 } from '../model.ts'
 import { err, ok, type Result } from '../result.ts'
+import { rollUpProgress } from '../summary.ts'
 import { parseGan, type GanDocument, type GanParseError, type GanTask } from './parse.ts'
 import type { DependencyKind, ImportChange, ImportReport, ImportSkip } from './report.ts'
 
@@ -214,7 +215,20 @@ function mapTasks(
   }
 
   visit(roots, undefined)
-  return tasks
+
+  // A summary task's percentage is always derived from its subtasks in Rentang.
+  const rolledUp = rollUpProgress({ tasks })
+  const parentIds = new Set(tasks.map((task) => task.parentId))
+  return tasks.map((task) => {
+    const progress = rolledUp.get(task.id) ?? task.progress
+    if (!parentIds.has(task.id) || progress === task.progress) return task
+    changed.push({
+      code: 'summary-progress-recalculated',
+      taskId: task.id,
+      original: task.progress,
+    })
+    return { ...task, progress }
+  })
 }
 
 function mapProgress(gan: GanTask, changed: ImportChange[]): number {

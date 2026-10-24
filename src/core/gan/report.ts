@@ -27,6 +27,12 @@ export type ImportChange =
       readonly to: TaskId
       readonly original: string
     }
+  /** A summary task's own percentage was replaced by the roll-up of its subtasks. */
+  | {
+      readonly code: 'summary-progress-recalculated'
+      readonly taskId: TaskId
+      readonly original: number
+    }
   | { readonly code: 'default-work-week' }
 
 export type ImportSkip =

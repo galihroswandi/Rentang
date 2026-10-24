@@ -60,6 +60,7 @@ describe('importGan with the demo fixture', () => {
     expect(report).toEqual({
       imported: { tasks: 14, dependencies: 11, resources: 1, assignments: 1, holidays: 0 },
       changed: [
+        { code: 'summary-progress-recalculated', taskId: '1', original: 64 },
         { code: 'dependency-type-converted', from: '6', to: '14', original: 'start-to-start' },
       ],
       skipped: [
