@@ -27,3 +27,9 @@ dist-ssr
 coverage
 playwright-report
 test-results
+
+# Project files: only fictional fixtures may be committed
+*.gan
+*.rentang
+!fixtures/**/*.gan
+!fixtures/**/*.rentang

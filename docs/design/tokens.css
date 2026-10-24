@@ -1,0 +1,85 @@
+/*
+ * Rentang design tokens. Source: the "Contoh Desain Pelacak Gantt" design canvas.
+ * Light and dark only swap token values; components never hard-code colors.
+ * Theme follows the OS unless <html data-theme="light|dark"> overrides it.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Color: light */
+  --color-bg: #f7f6f3;
+  --color-surface: #ffffff;
+  --color-line: #e4e1da;
+  --color-text: #1c1b19;
+  --color-text-2: #57534e;
+  --color-text-3: #6b665f;
+  --color-amber: #f59e0b;
+  --color-accent-text: #b45309;
+  --color-critical: #d97706;
+  --color-bar: #d3cec4;
+  --color-bar-border: #8a847b;
+  --color-bar-fill: #44403c;
+  --color-weekend: #f1efea;
+  --color-late: #b91c1c;
+  --color-focus: #b45309;
+
+  /* Typography */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+
+  /* Size and spacing (multiples of 4px) */
+  --row-height: 36px;
+  --day-width: 15px;
+  --target-min: 40px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --critical-border: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --color-bg: #131211;
+    --color-surface: #1b1a18;
+    --color-line: #33302b;
+    --color-text: #f2efe9;
+    --color-text-2: #b5afa6;
+    --color-text-3: #918b82;
+    --color-accent-text: #fbbf24;
+    --color-critical: #fbbf24;
+    --color-bar: #4a463f;
+    --color-bar-fill: #d9d4ca;
+    --color-weekend: #22201d;
+    --color-late: #f87171;
+    --color-focus: #fbbf24;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #131211;
+  --color-surface: #1b1a18;
+  --color-line: #33302b;
+  --color-text: #f2efe9;
+  --color-text-2: #b5afa6;
+  --color-text-3: #918b82;
+  --color-accent-text: #fbbf24;
+  --color-critical: #fbbf24;
+  --color-bar: #4a463f;
+  --color-bar-fill: #d9d4ca;
+  --color-weekend: #22201d;
+  --color-late: #f87171;
+  --color-focus: #fbbf24;
+}

@@ -1,6 +1,6 @@
 import { mount } from 'svelte'
-import './index.css'
-import App from './App.svelte'
+import App from './shell/App.svelte'
+import './shell/global.css'
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {

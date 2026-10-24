@@ -6,8 +6,32 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [svelte(), svelteTesting()],
   test: {
-    environment: 'jsdom',
-    include: ['tests/**/*.test.ts'],
-    setupFiles: ['tests/setup.ts'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'core',
+          environment: 'node',
+          include: ['src/core/**/*.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'ui',
+          environment: 'jsdom',
+          include: ['src/app/**/*.test.ts', 'src/ui/**/*.test.ts'],
+          setupFiles: ['src/ui/test-setup.ts'],
+        },
+      },
+    ],
+    coverage: {
+      provider: 'v8',
+      include: ['src/core/**/*.ts'],
+      exclude: ['src/core/**/*.test.ts', 'src/core/test-utils/**'],
+      thresholds: {
+        'src/core/**': { lines: 90, functions: 90, branches: 90, statements: 90 },
+      },
+    },
   },
 })
