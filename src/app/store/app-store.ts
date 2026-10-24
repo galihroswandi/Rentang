@@ -1,7 +1,7 @@
 /**
- * Application state: which screen is open, the open project and its computed schedule,
- * and the import waiting for confirmation. Framework-free (zustand/vanilla), so it runs
- * and is tested without Svelte.
+ * Application state: the project list, the open project tabs with their computed schedule
+ * and undo history, the import waiting for confirmation, and save status. Framework-free
+ * (zustand/vanilla), so it runs and is tested without Svelte.
  */
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { analyzeCriticalPath, type CriticalPath } from '../../core/critical-path.ts'
@@ -10,10 +10,12 @@ import { importGan, type GanImportError } from '../../core/gan/map.ts'
 import type { ImportReport } from '../../core/gan/report.ts'
 import type { CycleError } from '../../core/graph.ts'
 import { loadProjectFile } from '../../core/migrations.ts'
-import { CURRENT_SCHEMA_VERSION, type Project } from '../../core/model.ts'
+import { CURRENT_SCHEMA_VERSION, projectSchema, type Area, type Project } from '../../core/model.ts'
 import type { Result } from '../../core/result.ts'
 import { rollUpProgress, summarizeProject } from '../../core/summary.ts'
 import { createDemoProject } from '../demo/coffee-shop-demo.ts'
+import { createProject, type Recipe } from '../edits/project-edits.ts'
+import { EMPTY_HISTORY, record, redo, undo, type History, type Step } from '../history/history.ts'
 import type {
   ProjectOrigin,
   StorageLoadError,
@@ -21,14 +23,13 @@ import type {
   StoredProjectSummary,
 } from '../persistence/storage-provider.ts'
 
-export type Screen =
-  { readonly kind: 'loading' } | { readonly kind: 'start' } | { readonly kind: 'project' }
-
-export type OpenProject = {
+export type ProjectSession = {
   readonly project: Project
   readonly origin: ProjectOrigin
+  readonly fileName: string | null
   readonly analysis: Result<CriticalPath, CycleError>
   readonly progress: ReadonlyMap<string, number>
+  readonly history: History
 }
 
 export type PendingImport = {
@@ -46,25 +47,51 @@ export type OpenFileError =
 export type Notice =
   | { readonly kind: 'open-failed'; readonly fileName: string; readonly error: OpenFileError }
   | { readonly kind: 'storage-failed' }
+  | { readonly kind: 'edit-rejected'; readonly issues: readonly string[] }
 
-export type AppState = {
-  readonly screen: Screen
-  readonly projects: readonly StoredProjectSummary[]
-  readonly current: OpenProject | null
-  readonly pendingImport: PendingImport | null
-  readonly notice: Notice | null
+export type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
+
+export type Toast = {
+  /** Changes with every toast, so the same message shown twice still restarts its timer. */
+  readonly id: number
+  readonly message: string
+  readonly action: 'undo' | 'redo' | null
 }
 
+export type AppState = {
+  readonly ready: boolean
+  readonly projects: readonly StoredProjectSummary[]
+  readonly sessions: Readonly<Record<string, ProjectSession>>
+  /** Open project ids, in tab order. */
+  readonly tabs: readonly string[]
+  /** The open project's id, or null while the project list shows. */
+  readonly active: string | null
+  readonly pendingImport: PendingImport | null
+  readonly notice: Notice | null
+  readonly saveState: SaveState
+  readonly toast: Toast | null
+}
+
+export type EditOutcome = 'applied' | 'unchanged' | 'rejected'
+
 export type AppActions = {
-  /** Lists stored projects and reopens the most recent one, or shows the start screen. */
   start(): Promise<void>
   openFile(file: { readonly name: string; readonly text: string }): Promise<void>
   confirmImport(): Promise<void>
   cancelImport(): void
   openProject(id: string): Promise<void>
   openDemo(): Promise<void>
-  showStart(): void
+  createProject(name: string, area: Area): Promise<void>
+  closeTab(id: string): void
+  showList(): void
+  /** Applies an edit to the active project, with undo, and saves it. */
+  edit(label: string, recipe: Recipe): EditOutcome
+  undo(): void
+  redo(): void
+  /** A fresh id for a new task, person, role or assignment. */
+  createId(): string
   dismissNotice(): void
+  dismissToast(): void
 }
 
 export type AppStore = StoreApi<AppState & AppActions>
@@ -85,55 +112,109 @@ function stemOf(name: string): string {
   return dot <= 0 ? name : name.slice(0, dot)
 }
 
-export function createAppStore({ storage, today, newId }: AppDependencies): AppStore {
-  return createStore<AppState & AppActions>()((set, get) => {
-    const open = (project: Project, origin: ProjectOrigin): OpenProject => ({
-      project,
-      origin,
-      analysis: analyzeCriticalPath(project),
-      progress: rollUpProgress(project),
-    })
+function sessionOf(
+  project: Project,
+  origin: ProjectOrigin,
+  fileName: string | null,
+  history: History = EMPTY_HISTORY,
+): ProjectSession {
+  return {
+    project,
+    origin,
+    fileName,
+    analysis: analyzeCriticalPath(project),
+    progress: rollUpProgress(project),
+    history,
+  }
+}
 
-    /** Saves, refreshes the list and shows the project. */
-    const saveAndShow = async (project: Project, origin: ProjectOrigin): Promise<void> => {
-      const opened = open(project, origin)
-      const summary = opened.analysis.ok
-        ? summarizeProject(project, opened.analysis.value.schedule, today())
-        : { progress: 0, lateCount: 0 }
-      try {
-        await storage.save(
-          { schemaVersion: CURRENT_SCHEMA_VERSION, project },
-          { origin, progress: summary.progress, lateCount: summary.lateCount },
-        )
-        set({ current: opened, screen: { kind: 'project' }, projects: await storage.list() })
-      } catch {
-        set({ current: opened, screen: { kind: 'project' }, notice: { kind: 'storage-failed' } })
+export function createAppStore({ storage, today, newId }: AppDependencies): AppStore {
+  let toastCounter = 0
+  // Saves for one project run one after another, so an older save never lands last.
+  const saving = new Map<string, Promise<void>>()
+
+  return createStore<AppState & AppActions>()((set, get) => {
+    const toast = (message: string, action: Toast['action']): void => {
+      set({ toast: { id: (toastCounter += 1), message, action } })
+    }
+
+    const persist = (session: ProjectSession): Promise<void> => {
+      const { project, origin, fileName, analysis } = session
+      const summary = analysis.ok
+        ? summarizeProject(project, analysis.value.schedule, today())
+        : null
+      set({ saveState: 'saving' })
+      const run = async (): Promise<void> => {
+        try {
+          await storage.save(
+            { schemaVersion: CURRENT_SCHEMA_VERSION, project },
+            {
+              origin,
+              fileName,
+              progress: summary?.progress ?? 0,
+              lateCount: summary?.lateCount ?? 0,
+              nextMilestone: summary?.nextMilestone ?? null,
+              isComplete: summary?.isComplete ?? false,
+            },
+          )
+          set({ saveState: 'saved', projects: await storage.list() })
+        } catch {
+          set({ saveState: 'failed', notice: { kind: 'storage-failed' } })
+        }
       }
+      const next = (saving.get(project.id) ?? Promise.resolve()).then(run)
+      saving.set(project.id, next)
+      return next
+    }
+
+    const show = (session: ProjectSession): void => {
+      const { id } = session.project
+      const { tabs, sessions } = get()
+      set({
+        sessions: { ...sessions, [id]: session },
+        tabs: tabs.includes(id) ? tabs : [...tabs, id],
+        active: id,
+      })
+    }
+
+    const saveAndShow = async (session: ProjectSession): Promise<void> => {
+      show(session)
+      await persist(session)
+      await storage.markOpened(session.project.id).catch(() => undefined)
+      set({ projects: await storage.list().catch(() => get().projects) })
     }
 
     const fail = (fileName: string, error: OpenFileError): void => {
       set({ notice: { kind: 'open-failed', fileName, error } })
     }
 
+    const applyStep = (step: Step | null, message: string, action: Toast['action']): void => {
+      const { active, sessions } = get()
+      const session = active === null ? undefined : sessions[active]
+      if (!step || !session || active === null) return
+      const next = sessionOf(step.project, session.origin, session.fileName, step.history)
+      set({ sessions: { ...sessions, [active]: next } })
+      toast(message, action)
+      void persist(next)
+    }
+
     return {
-      screen: { kind: 'loading' },
+      ready: false,
       projects: [],
-      current: null,
+      sessions: {},
+      tabs: [],
+      active: null,
       pendingImport: null,
       notice: null,
+      saveState: 'idle',
+      toast: null,
 
       async start() {
-        let projects: StoredProjectSummary[]
         try {
-          projects = await storage.list()
+          set({ projects: await storage.list(), ready: true })
         } catch {
-          set({ screen: { kind: 'start' }, notice: { kind: 'storage-failed' } })
-          return
+          set({ ready: true, notice: { kind: 'storage-failed' } })
         }
-        set({ projects })
-        const latest = projects[0]
-        if (latest) await get().openProject(latest.id)
-        else set({ screen: { kind: 'start' } })
       },
 
       async openFile({ name, text }) {
@@ -161,7 +242,7 @@ export function createAppStore({ storage, today, newId }: AppDependencies): AppS
             return
           }
           set({ notice: null })
-          await saveAndShow(loaded.value.project, 'rentang')
+          await saveAndShow(sessionOf(loaded.value.project, 'rentang', name))
         } else {
           fail(name, { type: 'unsupported-file' })
         }
@@ -171,7 +252,7 @@ export function createAppStore({ storage, today, newId }: AppDependencies): AppS
         const pending = get().pendingImport
         if (!pending) return
         set({ pendingImport: null })
-        await saveAndShow(pending.project, 'gan')
+        await saveAndShow(sessionOf(pending.project, 'gan', pending.fileName))
       },
 
       cancelImport() {
@@ -179,37 +260,106 @@ export function createAppStore({ storage, today, newId }: AppDependencies): AppS
       },
 
       async openProject(id) {
-        const loaded = await storage.load(id).catch(() => null)
-        if (!loaded) {
-          set({ screen: { kind: 'start' }, notice: { kind: 'storage-failed' } })
-          return
+        const open = get().sessions[id]
+        if (open) {
+          show(open)
+        } else {
+          const loaded = await storage.load(id).catch(() => null)
+          if (!loaded) {
+            set({ notice: { kind: 'storage-failed' } })
+            return
+          }
+          if (!loaded.ok) {
+            const name = get().projects.find((summary) => summary.id === id)?.name ?? id
+            fail(name, loaded.error)
+            return
+          }
+          const summary = get().projects.find((candidate) => candidate.id === id)
+          show(
+            sessionOf(
+              loaded.value.project,
+              summary?.origin ?? 'rentang',
+              summary?.fileName ?? null,
+            ),
+          )
         }
-        if (!loaded.ok) {
-          set({
-            screen: { kind: 'start' },
-            notice: { kind: 'open-failed', fileName: id, error: loaded.error },
-          })
-          return
-        }
-        const origin = get().projects.find((summary) => summary.id === id)?.origin ?? 'rentang'
-        set({
-          current: open(loaded.value.project, origin),
-          screen: { kind: 'project' },
-          notice: null,
-        })
+        set({ notice: null })
+        await storage.markOpened(id).catch(() => undefined)
+        set({ projects: await storage.list().catch(() => get().projects) })
       },
 
       async openDemo() {
         set({ notice: null })
-        await saveAndShow(createDemoProject(today()), 'demo')
+        await saveAndShow(sessionOf(createDemoProject(today()), 'demo', null))
       },
 
-      showStart() {
-        set({ screen: { kind: 'start' } })
+      async createProject(name, area) {
+        set({ notice: null })
+        await saveAndShow(sessionOf(createProject(newId(), name.trim(), area), 'new', null))
       },
+
+      closeTab(id) {
+        const { tabs, sessions, active } = get()
+        const index = tabs.indexOf(id)
+        if (index === -1) return
+        const remaining = tabs.filter((tab) => tab !== id)
+        const { [id]: _closed, ...rest } = sessions
+        const neighbour = remaining[Math.min(index, remaining.length - 1)]
+        set({
+          tabs: remaining,
+          sessions: rest,
+          active: active === id ? (neighbour ?? null) : active,
+        })
+      },
+
+      showList() {
+        set({ active: null })
+      },
+
+      edit(label, recipe) {
+        const { active, sessions } = get()
+        const session = active === null ? undefined : sessions[active]
+        if (!session) return 'unchanged'
+        const step = record(session.project, session.history, label, recipe)
+        if (!step) return 'unchanged'
+        const valid = projectSchema.safeParse(step.project)
+        if (!valid.success) {
+          set({
+            notice: {
+              kind: 'edit-rejected',
+              issues: valid.error.issues.map((issue) => issue.message),
+            },
+          })
+          return 'rejected'
+        }
+        applyStep(step, label, 'undo')
+        return 'applied'
+      },
+
+      undo() {
+        const { active, sessions } = get()
+        const session = active === null ? undefined : sessions[active]
+        if (!session) return
+        const step = undo(session.project, session.history)
+        if (step) applyStep(step, `Dibatalkan: ${step.entry.label}`, 'redo')
+      },
+
+      redo() {
+        const { active, sessions } = get()
+        const session = active === null ? undefined : sessions[active]
+        if (!session) return
+        const step = redo(session.project, session.history)
+        if (step) applyStep(step, `Diulang: ${step.entry.label}`, 'undo')
+      },
+
+      createId: newId,
 
       dismissNotice() {
         set({ notice: null })
+      },
+
+      dismissToast() {
+        set({ toast: null })
       },
     }
   })

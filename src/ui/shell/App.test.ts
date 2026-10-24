@@ -57,9 +57,9 @@ describe('App', () => {
   it('switches the time scale', async () => {
     await renderApp()
     await fireEvent.click(await screen.findByRole('button', { name: 'Coba dengan proyek demo' }))
-    const month = await screen.findByRole('button', { name: 'Bulan' })
-    await fireEvent.click(month)
-    expect(month).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'Minggu' })).toHaveAttribute('aria-pressed', 'false')
+    const zoomOut = await screen.findByRole('button', { name: 'Perkecil skala waktu' })
+    await fireEvent.click(zoomOut)
+    expect(zoomOut).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Perbesar skala waktu' })).toBeEnabled()
   })
 })

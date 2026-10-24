@@ -1,0 +1,228 @@
+<script lang="ts">
+  import type { TaskInput } from '../../app/edits/project-edits.ts'
+  import { isIsoDate, type IsoDate } from '../../core/dates.ts'
+  import { TASK_TYPES, type Task, type TaskType } from '../../core/model.ts'
+  import Dialog from '../dialog/Dialog.svelte'
+  import Icon from '../icons/Icon.svelte'
+  import { TYPE_LABELS } from '../labels.ts'
+  import { slide } from '../motion.ts'
+  import TypeChip from '../table/TypeChip.svelte'
+
+  type Props = {
+    open: boolean
+    /** The task being edited, or null to add a new one. */
+    task: Task | null
+    /** How many subtasks the task has; a summary task's dates come from them. */
+    subtaskCount: number
+    defaultStart: IsoDate
+    onClose: () => void
+    onSubmit: (input: TaskInput) => void
+    onDelete: () => void
+  }
+  let { open, task, subtaskCount, defaultStart, onClose, onSubmit, onDelete }: Props = $props()
+
+  const PROGRESS_STEPS = [0, 25, 50, 75, 100]
+
+  let name = $state('')
+  let type: TaskType | null = $state(null)
+  let start: string = $state('')
+  let duration = $state(1)
+  let isMilestone = $state(false)
+  let progress = $state(0)
+  let confirmDelete = $state(false)
+  let nameInput: HTMLInputElement | undefined = $state()
+
+  const isSummary = $derived(subtaskCount > 0)
+  const valid = $derived(
+    name.trim().length > 0 && isIsoDate(start) && (isMilestone || duration >= 1),
+  )
+
+  // Reset the form every time the dialog opens.
+  $effect(() => {
+    if (!open) return
+    name = task?.name ?? ''
+    type = task?.type ?? null
+    start = task?.start ?? defaultStart
+    duration = task && !task.isMilestone ? task.duration : 1
+    isMilestone = task?.isMilestone ?? false
+    progress = task?.progress ?? 0
+    confirmDelete = false
+  })
+
+  function submit(event: SubmitEvent): void {
+    event.preventDefault()
+    if (!valid || !isIsoDate(start)) return
+    onSubmit({ name, type, start, duration, isMilestone, progress })
+  }
+</script>
+
+<Dialog
+  {open}
+  onOpenChange={(next) => {
+    if (!next) onClose()
+  }}
+  title={task ? 'Ubah tugas' : 'Tugas baru'}
+  width={520}
+  initialFocus={() => nameInput}
+>
+  {#snippet description()}
+    {#if isSummary}
+      Tugas induk: tanggal dan kemajuannya dihitung dari {subtaskCount} subtugas.
+    {:else}
+      Tanggal selesai dihitung dari mulai, durasi hari kerja, dan dependensi.
+    {/if}
+  {/snippet}
+
+  <form id="task-form" class="flex flex-col gap-4" onsubmit={submit}>
+    <div class="flex flex-col gap-1.5">
+      <label for="task-name" class="label">Nama tugas</label>
+      <input
+        bind:this={nameInput}
+        id="task-name"
+        class="field"
+        bind:value={name}
+        required
+        autocomplete="off"
+      />
+    </div>
+
+    <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
+      <legend class="label mb-1.5">Jenis</legend>
+      <div class="flex flex-wrap gap-1.5">
+        <label class={['type-option', type === null && 'type-on']}>
+          <input type="radio" name="task-type" value={null} bind:group={type} class="sr-only" />
+          Tanpa jenis
+        </label>
+        {#each TASK_TYPES as option (option)}
+          <label class={['type-option', type === option && 'type-on']}>
+            <input type="radio" name="task-type" value={option} bind:group={type} class="sr-only" />
+            <TypeChip type={option} />
+            <span class="max-sm:hidden" aria-hidden="true">{TYPE_LABELS[option]}</span>
+          </label>
+        {/each}
+      </div>
+    </fieldset>
+
+    {#if !isSummary}
+      <div transition:slide class="flex flex-col gap-4">
+        <label class="flex items-center gap-3 text-[13px]">
+          <span class="relative inline-flex">
+            <input type="checkbox" role="switch" bind:checked={isMilestone} class="peer sr-only" />
+            <span
+              class="h-[18px] w-[30px] rounded-full bg-line-strong transition-colors duration-200 peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus"
+            ></span>
+            <span
+              class="absolute top-[2px] left-[2px] size-[14px] rounded-full bg-knob shadow-[0_1px_2px_rgb(0_0_0/25%)] transition-transform duration-200 ease-(--ease-spring) peer-checked:translate-x-3"
+            ></span>
+          </span>
+          <span class="flex items-center gap-1.5"
+            ><Icon name="diamond" size={14} /> Milestone (titik waktu, tanpa durasi)</span
+          >
+        </label>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="flex flex-col gap-1.5">
+            <label for="task-start" class="label">{isMilestone ? 'Tanggal' : 'Mulai'}</label>
+            <input id="task-start" type="date" class="field mono" bind:value={start} required />
+          </div>
+          {#if !isMilestone}
+            <div transition:slide={{ axis: 'x' }} class="flex flex-col gap-1.5">
+              <label for="task-duration" class="label">Durasi (hari kerja)</label>
+              <input
+                id="task-duration"
+                type="number"
+                min="1"
+                max="999"
+                class="field mono"
+                bind:value={duration}
+                required
+              />
+            </div>
+          {/if}
+        </div>
+
+        <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
+          <legend class="label mb-1.5">Kemajuan</legend>
+          <div class="grid grid-cols-5 gap-1.5">
+            {#each PROGRESS_STEPS as step (step)}
+              <label class={['progress-option mono', progress === step && 'progress-on']}>
+                <input
+                  type="radio"
+                  name="task-progress"
+                  value={step}
+                  bind:group={progress}
+                  class="sr-only"
+                />
+                {step}%
+              </label>
+            {/each}
+          </div>
+        </fieldset>
+      </div>
+    {/if}
+  </form>
+
+  {#snippet footer()}
+    {#if task}
+      {#if confirmDelete}
+        <span
+          class="mr-auto flex flex-wrap items-center gap-2 text-[13px] text-danger"
+          transition:slide={{ axis: 'x' }}
+        >
+          Hapus{subtaskCount > 0 ? ` beserta ${String(subtaskCount)} subtugas` : ''}?
+          <button type="button" class="btn-danger h-9 border border-danger/40" onclick={onDelete}
+            >Ya, hapus</button
+          >
+        </span>
+      {:else}
+        <button type="button" class="btn-danger mr-auto" onclick={() => (confirmDelete = true)}>
+          <Icon name="trash" /> Hapus tugas
+        </button>
+      {/if}
+    {/if}
+    <button type="button" class="btn h-10" onclick={onClose}>Batal</button>
+    <button type="submit" form="task-form" class="btn-primary h-10 px-4" disabled={!valid}>
+      {task ? 'Simpan' : 'Tambah tugas'}
+    </button>
+  {/snippet}
+</Dialog>
+
+<style>
+  .type-option,
+  .progress-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: var(--color-text-2);
+    transition:
+      background-color 160ms var(--ease-out),
+      border-color 160ms var(--ease-out),
+      transform 120ms var(--ease-out);
+  }
+  .type-option:hover,
+  .progress-option:hover {
+    border-color: var(--color-text-3);
+  }
+  .type-option:active,
+  .progress-option:active {
+    transform: scale(0.96);
+  }
+  .type-option:has(:focus-visible),
+  .progress-option:has(:focus-visible) {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  .type-on,
+  .progress-on {
+    border-color: var(--color-accent-border);
+    background: var(--color-accent-soft);
+    color: var(--color-text);
+    font-weight: 600;
+  }
+</style>

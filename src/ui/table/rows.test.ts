@@ -95,6 +95,30 @@ describe('buildTaskRows', () => {
     })
   })
 
+  it('carries the task type and assigned people', () => {
+    const [first] = buildTaskRows({
+      project: {
+        tasks: project.tasks.map((task) =>
+          task.id === '1' ? { ...task, type: 'DOC' as const } : task,
+        ),
+        resources: [{ id: 'r', name: 'Sari Wulandari' }],
+        assignments: [
+          { id: 'a', taskId: '1', resourceId: 'r' },
+          { id: 'b', taskId: '1', resourceId: 'gone' },
+        ],
+      },
+      analysis: null,
+      progress: new Map(),
+      collapsed: new Set(),
+      today,
+    })
+    expect(first).toMatchObject({
+      type: 'DOC',
+      people: [{ id: 'r', name: 'Sari Wulandari', initials: 'SW' }],
+    })
+    expect(rows()[1]).toMatchObject({ type: null, people: [] })
+  })
+
   it('leaves out collapsed subtrees', () => {
     const visible = rows(['1', '9'])
     expect(visible.map((row) => row.wbs)).toEqual(['1', '2', '2.1', '2.2', '2.3', '3'])

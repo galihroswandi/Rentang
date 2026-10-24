@@ -1,102 +1,172 @@
 /*
- * Rentang design tokens. Source: the "Contoh Desain Pelacak Gantt" design canvas.
- * Light and dark only swap token values; components never hard-code colors.
- * Theme follows the OS unless <html data-theme="light|dark"> overrides it.
+ * Rentang design tokens. Source: the "Sketsa Daftar Proyek Rentang" design canvas
+ * (page "Desain"). Light and dark only swap token values; components never hard-code
+ * colors. Theme follows the OS unless <html data-theme="light|dark"> overrides it.
  */
 
 :root {
   color-scheme: light;
 
-  /* Color: light */
-  --color-bg: #f7f6f3;
+  /* Surfaces and lines */
+  --color-bg: #f6f5f2;
   --color-surface: #ffffff;
-  --color-line: #e4e1da;
+  --color-surface-2: #faf9f6;
+  --color-tab-bar: #e9e6e0;
+  --color-line: #e7e3dc;
+  --color-line-strong: #d6d1c8;
+
+  /* Text */
   --color-text: #1c1b19;
-  --color-text-2: #57534e;
-  --color-text-3: #6b665f;
-  --color-amber: #f59e0b;
+  --color-text-2: #57524b;
+  --color-text-3: #736d64;
+
+  /* Accent (amber) */
+  --color-accent: #f59e0b;
+  --color-accent-border: #dd8d06;
+  --color-on-accent: #1c1b19;
   --color-accent-text: #b45309;
-  --color-critical: #d97706;
-  --color-bar: #d3cec4;
-  --color-bar-border: #8a847b;
-  --color-bar-fill: #44403c;
-  --color-weekend: #f1efea;
-  --color-late: #b91c1c;
+  --color-accent-soft: #fef4de;
   --color-focus: #b45309;
-  /* From the Proyek › Gantt artboard */
-  --color-sidebar: #f3f1ec;
-  --color-selected: #fef3c7;
-  --color-selected-row: rgb(245 158 11 / 12%);
+
+  /* Controls */
+  --color-seg-on: #ffffff;
+  --color-track: #ece8e1;
+  --color-knob: #ffffff;
+  --color-danger: #b42318;
+
+  /* Gantt */
+  --color-weekend: #f3f1ec;
   --color-today: #d97706;
-  --color-summary-bar: #1c1b19;
-  --color-on-amber: #1c1b19;
+  --color-bar-track: #fcebc7;
+  --color-bar-border: #e3a33a;
+  --color-bar-fill: #f59e0b;
+  --color-summary-bar: #57524b;
+  --color-selected-row: rgb(245 158 11 / 10%);
+  --color-critical: #d92d20;
+
+  /* Task type chips: background and text */
+  --chip-imp-bg: #e5eeff;
+  --chip-imp-text: #1e4fc2;
+  --chip-doc-bg: #ddf2ec;
+  --chip-doc-text: #0b6b5f;
+  --chip-dsg-bg: #efe7ff;
+  --chip-dsg-text: #6a2cd0;
+  --chip-bug-bg: #fde6e3;
+  --chip-bug-text: #b42318;
+  --chip-fix-bg: #ffedd8;
+  --chip-fix-text: #a3440a;
+  --chip-rev-bg: #eaedf1;
+  --chip-rev-text: #475467;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgb(28 27 25 / 5%);
+  --shadow-seg: 0 1px 2px rgb(28 27 25 / 12%);
+  --shadow-pop: 0 12px 32px rgb(28 27 25 / 14%), 0 2px 6px rgb(28 27 25 / 8%);
+  --shadow-lift: 0 6px 18px rgb(28 27 25 / 9%), 0 1px 3px rgb(28 27 25 / 6%);
 
   /* Typography */
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-md: 13px;
-  --text-lg: 18px;
-  --text-xl: 24px;
 
-  /* Size and spacing (multiples of 4px) */
+  /* Size */
   --row-height: 36px;
-  --day-width: 15px;
-  --target-min: 40px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --critical-border: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --color-bg: #131211;
-    --color-surface: #1b1a18;
-    --color-line: #33302b;
-    --color-text: #f2efe9;
-    --color-text-2: #b5afa6;
-    --color-text-3: #918b82;
+    --color-bg: #121110;
+    --color-surface: #1a1917;
+    --color-surface-2: #1f1e1b;
+    --color-tab-bar: #0a0909;
+    --color-line: #2c2a26;
+    --color-line-strong: #3a3732;
+    --color-text: #f1eee8;
+    --color-text-2: #c2bcb2;
+    --color-text-3: #9c958b;
+    --color-accent-border: #f7b23a;
     --color-accent-text: #fbbf24;
-    --color-critical: #fbbf24;
-    --color-bar: #4a463f;
-    --color-bar-fill: #d9d4ca;
-    --color-weekend: #22201d;
-    --color-late: #f87171;
+    --color-accent-soft: #2a2316;
     --color-focus: #fbbf24;
-    --color-sidebar: #171614;
-    --color-selected: #2b2417;
-    --color-selected-row: rgb(251 191 36 / 10%);
+    --color-seg-on: #2b2926;
+    --color-track: #2e2c28;
+    --color-knob: #f1eee8;
+    --color-danger: #fda29b;
+    --color-weekend: #151412;
     --color-today: #fbbf24;
-    --color-summary-bar: #e7e2d9;
+    --color-bar-track: #3b3019;
+    --color-bar-border: #9a7426;
+    --color-bar-fill: #f5a524;
+    --color-summary-bar: #c2bcb2;
+    --color-selected-row: rgb(245 158 11 / 10%);
+    --color-critical: #f97066;
+    --chip-imp-bg: #1b2740;
+    --chip-imp-text: #9db8ff;
+    --chip-doc-bg: #14302b;
+    --chip-doc-text: #7fd6c2;
+    --chip-dsg-bg: #2a2142;
+    --chip-dsg-text: #c7b3ff;
+    --chip-bug-bg: #3a1e1b;
+    --chip-bug-text: #ffa59c;
+    --chip-fix-bg: #3a2715;
+    --chip-fix-text: #fdba74;
+    --chip-rev-bg: #262a31;
+    --chip-rev-text: #b9c1cc;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+    --shadow-seg: 0 1px 2px rgb(0 0 0 / 45%);
+    --shadow-pop: 0 12px 32px rgb(0 0 0 / 55%), 0 2px 6px rgb(0 0 0 / 40%);
+    --shadow-lift: 0 8px 22px rgb(0 0 0 / 45%), 0 1px 3px rgb(0 0 0 / 35%);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --color-bg: #131211;
-  --color-surface: #1b1a18;
-  --color-line: #33302b;
-  --color-text: #f2efe9;
-  --color-text-2: #b5afa6;
-  --color-text-3: #918b82;
+  --color-bg: #121110;
+  --color-surface: #1a1917;
+  --color-surface-2: #1f1e1b;
+  --color-tab-bar: #0a0909;
+  --color-line: #2c2a26;
+  --color-line-strong: #3a3732;
+  --color-text: #f1eee8;
+  --color-text-2: #c2bcb2;
+  --color-text-3: #9c958b;
+  --color-accent-border: #f7b23a;
   --color-accent-text: #fbbf24;
-  --color-critical: #fbbf24;
-  --color-bar: #4a463f;
-  --color-bar-fill: #d9d4ca;
-  --color-weekend: #22201d;
-  --color-late: #f87171;
+  --color-accent-soft: #2a2316;
   --color-focus: #fbbf24;
-  --color-sidebar: #171614;
-  --color-selected: #2b2417;
-  --color-selected-row: rgb(251 191 36 / 10%);
+  --color-seg-on: #2b2926;
+  --color-track: #2e2c28;
+  --color-knob: #f1eee8;
+  --color-danger: #fda29b;
+  --color-weekend: #151412;
   --color-today: #fbbf24;
-  --color-summary-bar: #e7e2d9;
+  --color-bar-track: #3b3019;
+  --color-bar-border: #9a7426;
+  --color-bar-fill: #f5a524;
+  --color-summary-bar: #c2bcb2;
+  --color-selected-row: rgb(245 158 11 / 10%);
+  --color-critical: #f97066;
+  --chip-imp-bg: #1b2740;
+  --chip-imp-text: #9db8ff;
+  --chip-doc-bg: #14302b;
+  --chip-doc-text: #7fd6c2;
+  --chip-dsg-bg: #2a2142;
+  --chip-dsg-text: #c7b3ff;
+  --chip-bug-bg: #3a1e1b;
+  --chip-bug-text: #ffa59c;
+  --chip-fix-bg: #3a2715;
+  --chip-fix-text: #fdba74;
+  --chip-rev-bg: #262a31;
+  --chip-rev-text: #b9c1cc;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+  --shadow-seg: 0 1px 2px rgb(0 0 0 / 45%);
+  --shadow-pop: 0 12px 32px rgb(0 0 0 / 55%), 0 2px 6px rgb(0 0 0 / 40%);
+  --shadow-lift: 0 8px 22px rgb(0 0 0 / 45%), 0 1px 3px rgb(0 0 0 / 35%);
 }

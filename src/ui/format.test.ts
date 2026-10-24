@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toIsoDate } from '../core/dates.ts'
-import { formatLongDate, formatShortDate, formatWorkingDays } from './format.ts'
+import { formatLongDate, formatRange, formatShortDate, formatWorkingDays } from './format.ts'
 
 describe('date labels', () => {
   it('formats short and long dates in Indonesian', () => {
@@ -24,5 +24,15 @@ describe('formatWorkingDays', () => {
     [[1, 2], 'Senin, Selasa'],
   ])('%j reads %s', (days, text) => {
     expect(formatWorkingDays(days)).toBe(text)
+  })
+})
+
+describe('formatRange', () => {
+  it.each([
+    ['2026-10-12', '2026-10-18', '12 – 18 Okt'],
+    ['2026-10-26', '2026-11-01', '26 Okt – 1 Nov'],
+    ['2026-11-02', '2026-11-02', '2 Nov'],
+  ])('%s to %s reads %s', (from, to, text) => {
+    expect(formatRange(toIsoDate(from), toIsoDate(to))).toBe(text)
   })
 })

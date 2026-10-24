@@ -11,6 +11,8 @@ function row(
   return {
     id,
     name: id,
+    type: null,
+    people: [],
     wbs: id,
     level: parentId === null ? 1 : 2,
     parentId,

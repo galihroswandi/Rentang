@@ -1,5 +1,4 @@
-import type { Area } from '../core/model.ts'
-import type { TaskStatus } from '../core/summary.ts'
+import type { Area, TaskType } from '../core/model.ts'
 
 export const AREA_LABELS: Readonly<Record<Area, string>> = {
   work: 'Kerja',
@@ -9,9 +8,11 @@ export const AREA_LABELS: Readonly<Record<Area, string>> = {
 
 export const AREA_ORDER: readonly Area[] = ['work', 'finance', 'career']
 
-export const STATUS_LABELS: Readonly<Record<TaskStatus, string>> = {
-  'not-started': 'Belum mulai',
-  'in-progress': 'Berjalan',
-  done: 'Selesai',
-  late: 'Terlambat',
+export const TYPE_LABELS: Readonly<Record<TaskType, string>> = {
+  IMP: 'Implementasi',
+  DOC: 'Dokumentasi',
+  DSG: 'Desain',
+  BUG: 'Bug',
+  FIX: 'Perbaikan',
+  REV: 'Review',
 }

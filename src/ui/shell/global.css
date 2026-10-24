@@ -10,54 +10,277 @@
   --color-*: initial;
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
-  --color-sidebar: var(--color-sidebar);
+  --color-surface-2: var(--color-surface-2);
+  --color-tab-bar: var(--color-tab-bar);
   --color-line: var(--color-line);
+  --color-line-strong: var(--color-line-strong);
   --color-text: var(--color-text);
   --color-text-2: var(--color-text-2);
   --color-text-3: var(--color-text-3);
-  --color-amber: var(--color-amber);
-  --color-on-amber: var(--color-on-amber);
+  --color-accent: var(--color-accent);
+  --color-accent-border: var(--color-accent-border);
+  --color-on-accent: var(--color-on-accent);
   --color-accent-text: var(--color-accent-text);
-  --color-critical: var(--color-critical);
-  --color-bar: var(--color-bar);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-focus: var(--color-focus);
+  --color-seg-on: var(--color-seg-on);
+  --color-track: var(--color-track);
+  --color-knob: var(--color-knob);
+  --color-danger: var(--color-danger);
+  --color-weekend: var(--color-weekend);
+  --color-today: var(--color-today);
+  --color-bar-track: var(--color-bar-track);
   --color-bar-border: var(--color-bar-border);
   --color-bar-fill: var(--color-bar-fill);
   --color-summary-bar: var(--color-summary-bar);
-  --color-weekend: var(--color-weekend);
-  --color-late: var(--color-late);
-  --color-focus: var(--color-focus);
-  --color-selected: var(--color-selected);
   --color-selected-row: var(--color-selected-row);
-  --color-today: var(--color-today);
+  --color-critical: var(--color-critical);
 
   --font-*: initial;
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 
-  --text-md: var(--text-md);
-
   --radius-*: initial;
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
+
+  --shadow-*: initial;
+  --shadow-sm: var(--shadow-sm);
+  --shadow-seg: var(--shadow-seg);
+  --shadow-pop: var(--shadow-pop);
+  --shadow-lift: var(--shadow-lift);
+
+  --ease-out: var(--ease-out);
+  --ease-spring: var(--ease-spring);
+
+  --animate-fade-in: fade-in 240ms var(--ease-out) backwards;
+  --animate-spin: spin 0.9s linear infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes today-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 55%);
+  }
+  100% {
+    box-shadow: 0 0 0 9px rgb(245 158 11 / 0%);
+  }
 }
 
 @layer base {
   html {
     font-family: var(--font-sans);
-    font-size: var(--text-md);
-    line-height: 1.5;
     color: var(--color-text);
     background: var(--color-bg);
+    -webkit-font-smoothing: antialiased;
   }
 
+  /* The root keeps the browser's 16px so rem-based sizes match the design's pixels. */
   body {
     margin: 0;
-    min-height: 100vh;
+    min-height: 100dvh;
+    font-size: 14px;
+    line-height: 1.45;
   }
 
   :focus-visible {
     outline: 2px solid var(--color-focus);
     outline-offset: 2px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  button:not(:disabled),
+  select,
+  label:has(input[type='checkbox']),
+  label:has(input[type='radio']) {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: rgb(245 158 11 / 30%);
+  }
+}
+
+/* Every control gives a little on press and eases its colours. */
+@utility press {
+  transition:
+    transform 120ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    filter 160ms var(--ease-out);
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+@layer components {
+  .btn {
+    @apply press inline-flex h-9 items-center justify-center gap-[7px] rounded-md border border-line-strong bg-surface px-3 text-[13px] font-medium whitespace-nowrap text-text;
+  }
+  .btn:hover:not(:disabled) {
+    @apply border-text-3 bg-surface-2;
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+  .btn-primary {
+    @apply press inline-flex h-9 items-center justify-center gap-[7px] rounded-md border border-accent-border bg-accent px-3 text-[13px] font-semibold whitespace-nowrap text-on-accent;
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.06);
+    box-shadow: 0 3px 12px rgb(245 158 11 / 35%);
+  }
+  .btn-primary:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+  .btn-icon {
+    @apply press inline-flex size-9 flex-none items-center justify-center rounded-md border border-line-strong bg-surface text-text-2;
+  }
+  .btn-icon:hover:not(:disabled) {
+    @apply border-text-3 bg-surface-2 text-text;
+  }
+  .btn-ghost {
+    @apply press inline-flex items-center justify-center gap-[7px] rounded-md text-text-2;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    @apply bg-surface-2 text-text;
+  }
+  .btn-danger {
+    @apply press inline-flex h-9 items-center gap-[7px] rounded-md px-2.5 text-[13px] font-medium text-danger;
+  }
+  .btn-danger:hover {
+    background: color-mix(in oklab, var(--color-danger) 10%, transparent);
+  }
+
+  .field {
+    @apply h-[38px] w-full rounded-md border border-line-strong bg-surface px-3 text-sm text-text;
+    transition:
+      border-color 160ms var(--ease-out),
+      box-shadow 160ms var(--ease-out);
+  }
+  .field:hover:not(:disabled) {
+    @apply border-text-3;
+  }
+  .field:focus-visible {
+    outline: none;
+    border-color: var(--color-accent-border);
+    box-shadow: 0 0 0 3px rgb(245 158 11 / 25%);
+  }
+  .field:disabled {
+    @apply opacity-60;
+  }
+
+  .label {
+    @apply text-xs font-semibold text-text-2;
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Items enter one after another; --i on each item sets its place in the queue. */
+  .stagger {
+    animation: fade-up 420ms var(--ease-out) backwards;
+    animation-delay: calc(min(var(--i, 0), 16) * 32ms);
+  }
+
+  /* Progress grows in from the left once it is on screen. */
+  .grow-x {
+    transform-origin: left center;
+    animation: grow-x 760ms var(--ease-out) backwards;
+    animation-delay: calc(140ms + min(var(--i, 0), 16) * 32ms);
+  }
+
+  .pop {
+    animation: pop 420ms var(--ease-out) backwards;
+  }
+
+  .today-pulse {
+    animation: today-pulse 1.6s var(--ease-out) 600ms 2;
+  }
+}
+
+/* Theme switch: the new theme grows out of the toggle as a circle. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: theme-reveal 560ms var(--ease-out);
+}
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--reveal-x, 100%) var(--reveal-y, 0));
+  }
+  to {
+    clip-path: circle(var(--reveal-r, 150vmax) at var(--reveal-x, 100%) var(--reveal-y, 0));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }

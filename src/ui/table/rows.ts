@@ -4,12 +4,20 @@
  */
 import type { CriticalPath } from '../../core/critical-path.ts'
 import type { IsoDate } from '../../core/dates.ts'
-import type { Project, Task, TaskId } from '../../core/model.ts'
+import type { Project, Task, TaskId, TaskType } from '../../core/model.ts'
 import { taskStatus, type TaskStatus } from '../../core/summary.ts'
+import { initialsOf } from '../resource/people.ts'
 
 export type TaskRow = {
   readonly id: TaskId
   readonly name: string
+  readonly type: TaskType | null
+  /** People assigned to the task. */
+  readonly people: readonly {
+    readonly id: string
+    readonly name: string
+    readonly initials: string
+  }[]
   /** Outline number such as "2.1". */
   readonly wbs: string
   /** 1 for top-level tasks. */
@@ -31,7 +39,7 @@ export type TaskRow = {
 }
 
 export type RowInput = {
-  readonly project: Pick<Project, 'tasks'>
+  readonly project: Pick<Project, 'tasks'> & Partial<Pick<Project, 'resources' | 'assignments'>>
   readonly analysis: CriticalPath | null
   readonly progress: ReadonlyMap<TaskId, number>
   readonly collapsed: ReadonlySet<TaskId>
@@ -54,6 +62,17 @@ export function buildTaskRows({
   }
   for (const siblings of childrenOf.values()) siblings.sort((a, b) => a.order - b.order)
 
+  const names = new Map((project.resources ?? []).map((resource) => [resource.id, resource.name]))
+  const peopleOf = new Map<TaskId, { id: string; name: string; initials: string }[]>()
+  for (const assignment of project.assignments ?? []) {
+    const name = names.get(assignment.resourceId)
+    if (name === undefined) continue
+    const person = { id: assignment.resourceId, name, initials: initialsOf(name) }
+    const list = peopleOf.get(assignment.taskId)
+    if (list) list.push(person)
+    else peopleOf.set(assignment.taskId, [person])
+  }
+
   const rows: TaskRow[] = []
   const visit = (parentId: TaskId | null, prefix: string, level: number): void => {
     const siblings = childrenOf.get(parentId) ?? []
@@ -66,6 +85,8 @@ export function buildTaskRows({
       rows.push({
         id: task.id,
         name: task.name,
+        type: task.type ?? null,
+        people: peopleOf.get(task.id) ?? [],
         wbs,
         level,
         parentId,

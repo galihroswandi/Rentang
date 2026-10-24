@@ -71,3 +71,14 @@ export function formatWorkingDays(workingDays: readonly number[]): string {
     .map(name)
     .join(', ')
 }
+
+/** "12 – 18 Okt", "26 Okt – 1 Nov", or a single "12 Okt" when both are the same day. */
+export function formatRange(from: IsoDate, to: IsoDate): string {
+  const a = partsOf(from)
+  const b = partsOf(to)
+  if (from === to) return formatShortDate(from)
+  if (a.month === b.month && a.year === b.year) {
+    return `${String(a.day)} – ${String(b.day)} ${SHORT_MONTHS[b.month - 1] ?? ''}`
+  }
+  return `${formatShortDate(from)} – ${formatShortDate(to)}`
+}

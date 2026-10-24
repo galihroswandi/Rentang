@@ -27,6 +27,9 @@ export function describeOpenError(error: OpenFileError): string {
 }
 
 export function describeNotice(notice: Notice): string {
+  if (notice.kind === 'edit-rejected') {
+    return `Perubahan tidak disimpan karena membuat proyek tidak valid (${notice.issues.join('; ')}).`
+  }
   if (notice.kind === 'storage-failed') {
     return 'Penyimpanan browser tidak bisa dipakai, jadi perubahan tidak tersimpan. Periksa izin situs atau mode penjelajahan pribadi.'
   }

@@ -14,21 +14,22 @@ import {
   type IsoDate,
 } from '../../core/dates.ts'
 import type { Dependency } from '../../core/model.ts'
-import { formatShortDate, SHORT_MONTHS } from '../format.ts'
+import { formatRange, formatShortDate, MONTHS } from '../format.ts'
 import type { TaskRow } from '../table/rows.ts'
 
 export type Zoom = 'day' | 'week' | 'month'
 
-export const DAY_WIDTH: Readonly<Record<Zoom, number>> = { day: 32, week: 15, month: 4 }
+export const ZOOMS: readonly Zoom[] = ['day', 'week', 'month']
+export const DAY_WIDTH: Readonly<Record<Zoom, number>> = { day: 32, week: 20, month: 6 }
 export const ROW_HEIGHT = 36
-export const HEADER_ROW_HEIGHT = 28
+export const HEADER_ROW_HEIGHT = 26
 const BAR_HEIGHT = 18
 const SUMMARY_HEIGHT = 13
 const MILESTONE_HALF = 7
 const LINK_GAP = 6
 
-/** Weekday initials, indexed from Sunday (Minggu). */
-const WEEKDAY_INITIALS = ['M', 'S', 'S', 'R', 'K', 'J', 'S'] as const
+/** Below this x a milestone label would run off the chart, so it goes to the right. */
+const LABEL_ROOM = 180
 
 export type GanttBar =
   | {
@@ -48,8 +49,11 @@ export type GanttBar =
       readonly cx: number
       readonly cy: number
       readonly critical: boolean
-      readonly label: string
+      readonly name: string
+      readonly date: string
+      /** Where the label starts (right side) or ends (left side). */
       readonly labelX: number
+      readonly labelSide: 'left' | 'right'
     }
 
 export type GanttLink = { readonly id: string; readonly d: string; readonly critical: boolean }
@@ -74,6 +78,8 @@ export type GanttLayout = {
   readonly links: readonly GanttLink[]
   /** Runs of non-working days, merged. */
   readonly offDays: readonly { readonly x: number; readonly width: number }[]
+  /** x of each week start inside the range, for the faint week separators. */
+  readonly weekLines: readonly number[]
   readonly top: readonly HeaderCell[]
   readonly bottom: readonly HeaderCell[]
   readonly todayX: number
@@ -143,14 +149,17 @@ export function layoutGantt({
     const right = xOf(row.end) + dayWidth
     if (row.isMilestone) {
       const cx = x + dayWidth / 2
+      const labelSide = cx > LABEL_ROOM ? 'left' : 'right'
       bars.push({
         kind: 'milestone',
         id: row.id,
         cx,
         cy: top + ROW_HEIGHT / 2,
         critical: row.critical,
-        label: `${row.name} · ${formatShortDate(row.start)}`,
-        labelX: cx + MILESTONE_HALF + 6,
+        name: row.name,
+        date: formatShortDate(row.start),
+        labelX: labelSide === 'left' ? cx - MILESTONE_HALF - 7 : cx + MILESTONE_HALF + 7,
+        labelSide,
       })
       anchors.set(row.id, {
         index,
@@ -217,60 +226,64 @@ export function layoutGantt({
   }
 
   const offDays: { x: number; width: number }[] = []
+  const weekLines: number[] = []
   const bottom: HeaderCell[] = []
   const top: HeaderCell[] = []
   for (let offset = 0; offset < dayCount; offset++) {
     const date = addDays(start, offset)
     const x = offset * dayWidth
     const isOff = !calendar.isWorkday(date)
-    // Weekend stripes of a few pixels only add noise when zoomed out to months.
-    if (isOff && zoom !== 'month') {
+    const parts = parseIsoDate(date) ?? { year: 0, month: 1, day: 1 }
+    const weekStart = dayOfWeek(date) === 1
+    if (weekStart && offset > 0) weekLines.push(x)
+
+    if (zoom === 'month') {
+      if (weekStart || offset === 0) {
+        const weekEnd = minDate(addDays(mondayOnOrBefore(date), 6), end)
+        bottom.push({
+          key: date,
+          x,
+          width: (diffDays(date, weekEnd) + 1) * dayWidth,
+          label: String(parts.day),
+          isToday: today >= date && today <= weekEnd,
+          isOff: false,
+        })
+      }
+      if (parts.day === 1 || offset === 0) {
+        const monthEnd = minDate(addDays(nextMonthStart(date), -1), end)
+        top.push({
+          key: date,
+          x,
+          width: (diffDays(date, monthEnd) + 1) * dayWidth,
+          label: `${MONTHS[parts.month - 1] ?? ''} ${String(parts.year)}`,
+          isToday: false,
+          isOff: false,
+        })
+      }
+      continue
+    }
+
+    if (isOff) {
       const last = offDays.at(-1)
       if (last && last.x + last.width === x) last.width += dayWidth
       else offDays.push({ x, width: dayWidth })
     }
-    const parts = parseIsoDate(date) ?? { year: 0, month: 1, day: 1 }
-    const weekday = dayOfWeek(date)
-
-    if (zoom === 'day' || zoom === 'week') {
-      bottom.push({
-        key: date,
-        x,
-        width: dayWidth,
-        label: zoom === 'day' ? String(parts.day) : WEEKDAY_INITIALS[weekday],
-        isToday: date === today,
-        isOff,
-      })
-    } else if (weekday === 1 || offset === 0) {
+    bottom.push({
+      key: date,
+      x,
+      width: dayWidth,
+      label: String(parts.day),
+      isToday: date === today,
+      isOff,
+    })
+    if (weekStart || offset === 0) {
+      // Each week carries its own range, so the month stays readable while scrolling.
       const weekEnd = minDate(addDays(mondayOnOrBefore(date), 6), end)
-      bottom.push({
+      top.push({
         key: date,
         x,
         width: (diffDays(date, weekEnd) + 1) * dayWidth,
-        label: String(parts.day),
-        isToday: today >= date && today <= weekEnd,
-        isOff: false,
-      })
-    }
-
-    if (zoom !== 'month' && (weekday === 1 || offset === 0)) {
-      // Each week carries its own label, so the month stays readable while scrolling.
-      top.push({
-        key: date,
-        x,
-        width: Math.min(7, dayCount - offset) * dayWidth,
-        label:
-          zoom === 'day' ? `${formatShortDate(date)} ${String(parts.year)}` : formatShortDate(date),
-        isToday: false,
-        isOff: false,
-      })
-    } else if (zoom === 'month' && (parts.day === 1 || offset === 0)) {
-      const monthEnd = minDate(addDays(nextMonthStart(date), -1), end)
-      top.push({
-        key: date,
-        x,
-        width: (diffDays(date, monthEnd) + 1) * dayWidth,
-        label: `${SHORT_MONTHS[parts.month - 1] ?? ''} ${String(parts.year)}`,
+        label: formatRange(date, weekEnd),
         isToday: false,
         isOff: false,
       })
@@ -287,6 +300,7 @@ export function layoutGantt({
     bars,
     links,
     offDays,
+    weekLines,
     top,
     bottom,
     todayX: xOf(today) + dayWidth / 2,
