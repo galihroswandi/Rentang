@@ -212,12 +212,10 @@ describe('demo and navigation', () => {
       ],
     }
     const { store } = setup()
-    await store
-      .getState()
-      .openFile({
-        name: 'loop.rentang',
-        text: JSON.stringify({ schemaVersion: 1, project: cyclic }),
-      })
+    await store.getState().openFile({
+      name: 'loop.rentang',
+      text: JSON.stringify({ schemaVersion: 1, project: cyclic }),
+    })
     const analysis = store.getState().current?.analysis
     expect(analysis?.ok).toBe(false)
     expect(store.getState().projects).toMatchObject([{ progress: 0, lateCount: 0 }])
