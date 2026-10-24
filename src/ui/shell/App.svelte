@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AppStore } from '../../app/store/app-store.ts'
   import type { IsoDate } from '../../core/dates.ts'
+  import { watchDayChange } from '../today.ts'
   import Icon from '../icons/Icon.svelte'
   import { describeNotice } from '../import/error-text.ts'
   import ImportReportDialog from '../import/ImportReportDialog.svelte'
@@ -14,9 +15,16 @@
   import Toast from './Toast.svelte'
   import type { FileKind } from './ui-state.svelte.ts'
 
-  let { store, today }: { store: AppStore; today: () => IsoDate } = $props()
+  let { store, today: readToday }: { store: AppStore; today: () => IsoDate } = $props()
 
   // The store and clock are fixed for the app's lifetime, so capturing them once is intended.
+  // svelte-ignore state_referenced_locally
+  const clock = readToday
+  // Views call `today()` while rendering; reading state here makes them redraw at midnight.
+  let currentDay = $state(clock())
+  const today = (): IsoDate => currentDay
+  $effect(() => watchDayChange(clock, (date) => (currentDay = date)))
+
   // svelte-ignore state_referenced_locally
   const { app, ui } = provideApp(store, today)
 

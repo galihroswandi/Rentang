@@ -5,8 +5,14 @@
  * guard against producing an invalid project; the store refuses the result instead.
  */
 import type { Draft } from 'immer'
-import type { IsoDate } from '../../core/dates.ts'
-import type { Area, Project, Task, TaskType } from '../../core/model.ts'
+import { clampDate, type IsoDate } from '../../core/dates.ts'
+import {
+  MAX_DURATION,
+  type Area,
+  type Project,
+  type Task,
+  type TaskType,
+} from '../../core/model.ts'
 
 export type Recipe = (draft: Draft<Project>) => void
 
@@ -35,14 +41,19 @@ export function createProject(id: string, name: string, area: Area): Project {
   }
 }
 
+/** Whole workdays, at least one and at most the longest the model allows. */
+function workdaysOf(duration: number): number {
+  return Math.min(MAX_DURATION, Math.max(1, Math.round(duration)))
+}
+
 function applyTaskInput(task: Draft<Task>, input: TaskInput, isSummary: boolean): void {
   task.name = input.name.trim()
   if (input.type === null) delete task.type
   else task.type = input.type
   if (isSummary) return
-  task.start = input.start
+  task.start = clampDate(input.start)
   task.isMilestone = input.isMilestone
-  task.duration = input.isMilestone ? 0 : Math.max(1, Math.round(input.duration))
+  task.duration = input.isMilestone ? 0 : workdaysOf(input.duration)
   task.progress = Math.min(100, Math.max(0, Math.round(input.progress)))
 }
 
@@ -61,7 +72,7 @@ export function addTask(id: string, input: TaskInput, afterId: string | null): R
     const task: Draft<Task> = {
       id,
       name: '',
-      start: input.start,
+      start: clampDate(input.start),
       duration: 1,
       progress: 0,
       isMilestone: false,
@@ -87,8 +98,8 @@ export function reschedule(id: string, start: IsoDate, duration: number): Recipe
   return (draft) => {
     const task = draft.tasks.find((candidate) => candidate.id === id)
     if (!task || draft.tasks.some((candidate) => candidate.parentId === id)) return
-    task.start = start
-    task.duration = task.isMilestone ? 0 : Math.max(1, Math.round(duration))
+    task.start = clampDate(start)
+    task.duration = task.isMilestone ? 0 : workdaysOf(duration)
   }
 }
 

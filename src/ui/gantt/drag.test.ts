@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createWorkCalendar } from '../../core/calendar.ts'
-import { toIsoDate } from '../../core/dates.ts'
+import { MAX_DATE, MIN_DATE, toIsoDate } from '../../core/dates.ts'
 import { changed, daysFromPixels, resolveDrag, type DragInput } from './drag.ts'
 
 const d = toIsoDate
@@ -105,6 +105,21 @@ describe('resizing', () => {
       isMilestone: true,
     }
     expect(resize(1, milestone)).toEqual({ start: '2026-11-05', end: '2026-11-05', duration: 0 })
+  })
+})
+
+describe('limits', () => {
+  it('keeps a move inside the supported dates', () => {
+    const far = resolveDrag({ ...task, mode: 'move', deltaDays: 10_000_000 })
+    const near = resolveDrag({ ...task, mode: 'move', deltaDays: -10_000_000 })
+    expect(far.start).toBe(MAX_DATE)
+    expect(near.start).toBe(MIN_DATE)
+  })
+
+  it('caps the length of a resize', () => {
+    const result = resolveDrag({ ...task, mode: 'resize', deltaDays: 10_000_000 })
+    expect(result.duration).toBeLessThanOrEqual(3650)
+    expect(result.end <= MAX_DATE).toBe(true)
   })
 })
 

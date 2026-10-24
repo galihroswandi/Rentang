@@ -146,6 +146,12 @@ describe('years after the last one', () => {
     expect(one.bottom.at(-1)?.key).toBe('2027-12-31')
     expect(one.bottom.find((cell) => cell.key === '2027-01-01')?.x).toBe(365 * 20)
   })
+
+  it('never reaches past the last supported year, however many are asked for', () => {
+    const far = withYears(1_000_000)
+    expect(far.end).toBe('2100-12-31')
+    expect(withYears(40).end).toBe('2066-12-31')
+  })
 })
 
 describe('other zooms', () => {

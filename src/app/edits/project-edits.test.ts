@@ -232,6 +232,19 @@ describe('reschedule', () => {
   })
 })
 
+describe('limits', () => {
+  it('clamps lengths and start dates to what the model accepts', () => {
+    const project = apply(
+      coffeeShopProject(),
+      reschedule('7', toIsoDate('2999-01-01'), 2_000_000_000),
+      reschedule('8', toIsoDate('1900-01-01'), 3),
+    )
+    expect(byId(project, '7')).toMatchObject({ start: '2100-12-31', duration: 3650 })
+    expect(byId(project, '8')).toMatchObject({ start: '1970-01-01', duration: 3 })
+    expect(projectSchema.safeParse(project).success).toBe(true)
+  })
+})
+
 describe('people and roles', () => {
   it('adds, edits and removes people and their assignments', () => {
     let project = apply(

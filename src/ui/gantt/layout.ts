@@ -5,8 +5,10 @@
 import type { WorkCalendar } from '../../core/calendar.ts'
 import {
   addDays,
+  clampDate,
   dayOfWeek,
   diffDays,
+  MAX_DATE,
   maxDate,
   minDate,
   parseIsoDate,
@@ -150,8 +152,13 @@ function rangeOf(rows: readonly TaskRow[], today: IsoDate, extraYears: number): 
   }
   // Whole calendar years, January to December, at every zoom level: the dates never run out
   // inside the year, and the header never starts or ends in the middle of one.
-  const first = parseIsoDate(low)?.year ?? 1970
-  const last = (parseIsoDate(high)?.year ?? first) + extraYears
+  // Never beyond the supported window, however many years are asked for.
+  const lastSupported = parseIsoDate(MAX_DATE)?.year ?? 2100
+  const first = parseIsoDate(clampDate(low))?.year ?? 1970
+  const last = Math.max(
+    first,
+    Math.min((parseIsoDate(clampDate(high))?.year ?? first) + extraYears, lastSupported),
+  )
   return [
     formatIsoDate({ year: first, month: 1, day: 1 }),
     formatIsoDate({ year: last, month: 12, day: 31 }),

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { TaskInput } from '../../app/edits/project-edits.ts'
-  import { isIsoDate, type IsoDate } from '../../core/dates.ts'
-  import { TASK_TYPES, type Task, type TaskType } from '../../core/model.ts'
+  import { isIsoDate, isSupportedDate, MAX_DATE, MIN_DATE, type IsoDate } from '../../core/dates.ts'
+  import { MAX_DURATION, TASK_TYPES, type Task, type TaskType } from '../../core/model.ts'
   import Dialog from '../dialog/Dialog.svelte'
   import Icon from '../icons/Icon.svelte'
   import { TYPE_LABELS } from '../labels.ts'
@@ -34,7 +34,10 @@
 
   const isSummary = $derived(subtaskCount > 0)
   const valid = $derived(
-    name.trim().length > 0 && isIsoDate(start) && (isMilestone || duration >= 1),
+    name.trim().length > 0 &&
+      isIsoDate(start) &&
+      isSupportedDate(start) &&
+      (isMilestone || (Number.isInteger(duration) && duration >= 1 && duration <= MAX_DURATION)),
   )
 
   // Reset the form every time the dialog opens.
@@ -123,7 +126,15 @@
         <div class="grid grid-cols-2 gap-3">
           <div class="flex flex-col gap-1.5">
             <label for="task-start" class="label">{isMilestone ? 'Tanggal' : 'Mulai'}</label>
-            <input id="task-start" type="date" class="field mono" bind:value={start} required />
+            <input
+              id="task-start"
+              type="date"
+              class="field mono"
+              bind:value={start}
+              min={MIN_DATE}
+              max={MAX_DATE}
+              required
+            />
           </div>
           {#if !isMilestone}
             <div transition:slide={{ axis: 'x' }} class="flex flex-col gap-1.5">
@@ -132,7 +143,7 @@
                 id="task-duration"
                 type="number"
                 min="1"
-                max="999"
+                max={MAX_DURATION}
                 class="field mono"
                 bind:value={duration}
                 required

@@ -124,6 +124,12 @@ export function addDays(date: IsoDate, days: number): IsoDate {
   return fromDayNumber(toDayNumber(date) + days)
 }
 
+/** Like {@link addDays}, but stops at the edge of the supported window instead of throwing. */
+export function addDaysClamped(date: IsoDate, days: number): IsoDate {
+  const target = toDayNumber(date) + days
+  return fromDayNumber(Math.min(Math.max(target, toDayNumber(MIN_DATE)), toDayNumber(MAX_DATE)))
+}
+
 /** Calendar days from `from` to `to`; negative when `to` is earlier. */
 export function diffDays(from: IsoDate, to: IsoDate): number {
   return toDayNumber(to) - toDayNumber(from)

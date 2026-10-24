@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
+  addDaysClamped,
   clampDate,
   compareDates,
   dayOfWeek,
@@ -125,6 +126,12 @@ describe('supported window', () => {
     expect(isSupportedDate(MAX_DATE)).toBe(true)
     expect(isSupportedDate(d('1969-12-31'))).toBe(false)
     expect(isSupportedDate(d('2101-01-01'))).toBe(false)
+  })
+
+  it('adds days without leaving the window, however far', () => {
+    expect(addDaysClamped(d('2026-11-02'), 3)).toBe('2026-11-05')
+    expect(addDaysClamped(d('2026-11-02'), 1e12)).toBe(MAX_DATE)
+    expect(addDaysClamped(d('2026-11-02'), -1e12)).toBe(MIN_DATE)
   })
 
   it('clamps to the nearest edge', () => {

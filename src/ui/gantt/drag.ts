@@ -4,7 +4,8 @@
  * task never gets shorter than one workday.
  */
 import type { WorkCalendar } from '../../core/calendar.ts'
-import { addDays, type IsoDate } from '../../core/dates.ts'
+import { addDaysClamped, type IsoDate } from '../../core/dates.ts'
+import { MAX_DURATION } from '../../core/model.ts'
 import { endOf } from '../../core/schedule.ts'
 
 export type DragMode = 'move' | 'resize'
@@ -41,14 +42,17 @@ export function resolveDrag(input: DragInput): DragResult {
 
   if (mode === 'resize' && !isMilestone) {
     // The new last day: snapped back to a workday, and never before the start.
-    const lastDay = calendar.previousWorkday(addDays(end, deltaDays))
+    const lastDay = calendar.previousWorkday(addDaysClamped(end, deltaDays))
     const length = lastDay <= start ? 1 : calendar.workdaysBetween(start, lastDay) + 1
+    if (length > MAX_DURATION) {
+      return { start, end: endOf(calendar, start, MAX_DURATION), duration: MAX_DURATION }
+    }
     return { start, end: endOf(calendar, start, length), duration: length }
   }
 
   // Dragging forward lands on the next workday, backward on the previous one, so a bar
   // never jumps against the direction it is being pulled.
-  const moved = addDays(start, deltaDays)
+  const moved = addDaysClamped(start, deltaDays)
   const newStart = deltaDays < 0 ? calendar.previousWorkday(moved) : calendar.nextWorkday(moved)
   const length = isMilestone ? 0 : duration
   return { start: newStart, end: endOf(calendar, newStart, length), duration: length }
