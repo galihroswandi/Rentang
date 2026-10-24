@@ -1,6 +1,6 @@
 # 0002. Pilihan stack
 
-- **Status:** Diterima
+- **Status:** Diterima; bagian UI (React) digantikan oleh [ADR 0003](0003-svelte-untuk-ui.md)
 - **Tanggal:** 2026-10-17
 
 ## Konteks

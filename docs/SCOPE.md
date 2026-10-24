@@ -21,7 +21,7 @@ Aplikasi web pelacak proyek **local-first**:
 
 ## Stack
 
-Vite, React, TypeScript `strict`, Dexie (IndexedDB), Zod, Vitest + fake-indexeddb, Playwright (satu alur utama), ESLint + Prettier, GitHub Actions. Timeline dirender dengan SVG.
+Vite, Svelte 5, TypeScript `strict`, Dexie (IndexedDB), Zod, Vitest + fake-indexeddb, Playwright (satu alur utama), ESLint + Prettier, GitHub Actions. Timeline dirender dengan SVG.
 
 ## Model data (skema versi 1)
 

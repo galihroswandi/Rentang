@@ -22,8 +22,8 @@ Aplikasi terbuka di <http://localhost:5173>.
 | `npm run dev`          | Server pengembangan Vite dengan hot reload                                        |
 | `npm run build`        | Typecheck lalu build produksi ke `dist/`                                          |
 | `npm run preview`      | Menyajikan hasil build secara lokal                                               |
-| `npm run lint`         | ESLint (type-aware, aturan React Hooks dan aksesibilitas `jsx-a11y`)              |
-| `npm run typecheck`    | Pemeriksaan tipe TypeScript (`tsc -b`) untuk kode, test, dan konfigurasi          |
+| `npm run lint`         | ESLint (type-aware, `eslint-plugin-svelte`)                                       |
+| `npm run typecheck`    | Pemeriksaan tipe (`svelte-check` dan `tsc -b`) untuk kode, test, dan konfigurasi  |
 | `npm run test`         | Test unit dengan Vitest, sekali jalan                                             |
 | `npm run test:watch`   | Vitest dalam mode watch                                                           |
 | `npm run format`       | Memformat seluruh berkas dengan Prettier                                          |
@@ -34,9 +34,9 @@ Aplikasi terbuka di <http://localhost:5173>.
 
 ```text
 src/
-  domain/    Skema, tipe, dan fungsi murni (tanpa React, tanpa IndexedDB)
+  domain/    Skema, tipe, dan fungsi murni (tanpa Svelte, tanpa IndexedDB)
   db/        Lapisan akses data (Dexie)
-  features/  Tampilan: tabel, kanban, timeline
+  features/  Tampilan Svelte: tabel, kanban, timeline
   ui/        Komponen UI generik
 tests/       Test unit dan komponen
 docs/        Ruang lingkup dan ADR

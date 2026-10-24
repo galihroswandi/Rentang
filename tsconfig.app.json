@@ -4,8 +4,7 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "esnext",
-    "types": ["vite/client"],
-    "allowArbitraryExtensions": true,
+    "types": ["svelte", "vite/client"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -14,7 +13,6 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "jsx": "react-jsx",
 
     /* Type safety */
     "strict": true,
@@ -26,5 +24,5 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts", "src/**/*.svelte"]
 }
