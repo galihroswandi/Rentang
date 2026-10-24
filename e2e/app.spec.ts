@@ -293,6 +293,31 @@ test('sideways scrolling snaps to column edges, by wheel step or by dragging the
   expect(await left()).toBe(before)
 })
 
+test('"Hari ini" starts the chart at today, right against the table', async ({ page }) => {
+  await openDemo(page)
+  const scroller = page.locator('[data-gantt-scroller]')
+  const left = () => scroller.evaluate((el) => el.scrollLeft)
+  const zoomIn = page.getByRole('button', { name: 'Perbesar skala waktu' })
+
+  // The three scales where a column is a day: 20, 32 and 64 px wide.
+  for (const dayWidth of [20, 32, 64]) {
+    await page.waitForTimeout(900)
+    // Today's circle sits in the middle of its column, so the column starts half a day before.
+    const todayEdge = await page
+      .locator('circle.today-dot')
+      .evaluate((circle, width) => Number(circle.getAttribute('cx')) - width / 2, dayWidth)
+
+    // Go well away from today, then ask for it.
+    await scroller.evaluate((el) => {
+      el.scrollLeft = 0
+    })
+    await expect.poll(left).toBe(0)
+    await page.getByRole('button', { name: 'Hari ini' }).click()
+    await expect.poll(left, { timeout: 4000 }).toBe(todayEdge)
+    if (dayWidth !== 64) await zoomIn.click()
+  }
+})
+
 test('the table toolbar filters tasks, reorders them and sets columns', async ({ page }) => {
   await openDemo(page)
   const grid = page.getByRole('treegrid')

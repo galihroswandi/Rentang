@@ -7,7 +7,7 @@
   import type { IsoDate } from '../../core/dates.ts'
   import type { Project } from '../../core/model.ts'
   import GanttChart, { type Reschedule } from '../gantt/GanttChart.svelte'
-  import { layoutGantt, type Zoom } from '../gantt/layout.ts'
+  import { HEADER_HEIGHT, layoutGantt, type Zoom } from '../gantt/layout.ts'
   import { isSideways, nearestSnap, sidewaysDelta, snapPoints, stepSnap } from '../gantt/snap.ts'
   import { prefersReducedMotion } from '../motion.ts'
   import Icon from '../icons/Icon.svelte'
@@ -112,6 +112,9 @@
       : null,
   )
   const counts = $derived(countTypes(project.tasks))
+  const endRoom = $derived(
+    Math.max(0, containerWidth - shownWidth - SPLITTER - (layout?.dayWidth ?? 0)),
+  )
 
   // The neighbours the selected task can swap places with: siblings that are showing.
   const neighbours = $derived.by(() => {
@@ -135,8 +138,8 @@
   /** What the chart showed before the last zoom change, to keep the same date in view. */
   let previous: { start: IsoDate; dayWidth: number; scrollLeft: number } | null = null
 
-  // Centre today when the chart first appears and on every "Hari ini"; when only the zoom
-  // changes, keep the date that was in the middle of the screen in the middle.
+  // Start the chart at today when it first appears and on every "Hari ini"; when only the
+  // zoom changes, keep the date that was in the middle of the screen in the middle.
   $effect(() => {
     const requested = todayRequest !== handledRequest
     const behavior: ScrollBehavior = requested ? 'smooth' : 'instant'
@@ -154,7 +157,11 @@
         scroller.scrollTo({ left: Math.max(0, left - visible / 2), behavior })
         return
       }
-      scroller.scrollTo({ left: Math.max(0, layout.todayX - visible / 2), behavior })
+      // Today's column becomes the first one against the table: its left edge is the cell's.
+      const todayEdge =
+        layout.bottom.find((cell) => cell.isToday)?.x ?? layout.todayX - layout.dayWidth / 2
+      const furthest = scroller.scrollWidth - scroller.clientWidth
+      scroller.scrollTo({ left: Math.min(Math.max(0, todayEdge), Math.max(0, furthest)), behavior })
     })
   })
 
@@ -433,6 +440,16 @@
             {onOpen}
             {onReschedule}
           />
+        </div>
+        <!--
+          Room after the last day, as wide as the screen, so any date can be scrolled to the
+          start, "Hari ini" included, even when the project ends before then.
+        -->
+        <div aria-hidden="true" class="flex-none" style:width={`${String(endRoom)}px`}>
+          <div
+            class="border-b border-line-strong bg-surface-2"
+            style:height={`${String(HEADER_HEIGHT)}px`}
+          ></div>
         </div>
       {/if}
     </div>
