@@ -11,6 +11,7 @@ import {
   assign,
   createProject,
   deleteTask,
+  moveTask,
   removeHoliday,
   removeResource,
   setWorkingDays,
@@ -132,6 +133,43 @@ describe('tasks', () => {
 
   it('finds a subtree', () => {
     expect([...subtreeOf(coffeeShopProject(), '9')].sort()).toEqual(['10', '11', '12', '13', '9'])
+  })
+})
+
+describe('moveTask', () => {
+  it('moves a task before or after a sibling and renumbers the group', () => {
+    const down = apply(coffeeShopProject(), moveTask('6', '7', 'after'))
+    expect(ordered(down, '5')).toEqual(['7', '6', '8'])
+    expect(
+      down.tasks
+        .filter((task) => task.parentId === '5')
+        .map((task) => task.order)
+        .sort(),
+    ).toEqual([0, 1, 2])
+    expect(ordered(apply(down, moveTask('8', '7', 'before')), '5')).toEqual(['8', '7', '6'])
+    expect(ordered(apply(coffeeShopProject(), moveTask('9', '1', 'before')))).toEqual([
+      '9',
+      '1',
+      '5',
+    ])
+  })
+
+  it('takes a summary task with its subtasks', () => {
+    const project = apply(coffeeShopProject(), moveTask('1', '9', 'after'))
+    expect(ordered(project)).toEqual(['5', '9', '1'])
+    expect(ordered(project, '1')).toEqual(['2', '3', '4'])
+  })
+
+  it('refuses a move to itself, to another group or to a task that is not there', () => {
+    const before = coffeeShopProject()
+    const unchanged = apply(
+      before,
+      moveTask('6', '6', 'after'),
+      moveTask('6', '2', 'after'),
+      moveTask('6', 'nope', 'before'),
+      moveTask('nope', '7', 'before'),
+    )
+    expect(unchanged).toEqual(before)
   })
 })
 

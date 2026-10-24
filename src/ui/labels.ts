@@ -1,5 +1,6 @@
-import type { Area, TaskType } from '../core/model.ts'
+import type { Area } from '../core/model.ts'
 import type { Zoom } from './gantt/layout.ts'
+import type { TypeKey } from './table/rows.ts'
 
 export const AREA_LABELS: Readonly<Record<Area, string>> = {
   work: 'Kerja',
@@ -9,13 +10,14 @@ export const AREA_LABELS: Readonly<Record<Area, string>> = {
 
 export const AREA_ORDER: readonly Area[] = ['work', 'finance', 'career']
 
-export const TYPE_LABELS: Readonly<Record<TaskType, string>> = {
+export const TYPE_LABELS: Readonly<Record<TypeKey, string>> = {
   IMP: 'Implementasi',
   DOC: 'Dokumentasi',
   DSG: 'Desain',
   BUG: 'Bug',
   FIX: 'Perbaikan',
   REV: 'Review',
+  MS: 'Milestone',
 }
 
 export const ZOOM_LABELS: Readonly<Record<Zoom, string>> = {

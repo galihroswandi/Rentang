@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { TaskType } from '../../core/model.ts'
+  import type { TypeKey } from './rows.ts'
   import { TYPE_LABELS } from '../labels.ts'
 
-  let { type }: { type: TaskType } = $props()
+  let { type }: { type: TypeKey } = $props()
 </script>
 
 <span

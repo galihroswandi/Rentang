@@ -241,6 +241,66 @@ test('bars can be dragged to move or resize a task, and the drag undone', async 
   expect(await dates()).toEqual(afterResize)
 })
 
+test('the table toolbar filters tasks, reorders them and sets columns', async ({ page }) => {
+  await openDemo(page)
+  const grid = page.getByRole('treegrid')
+  const count = async () => (await grid.getByRole('row').count()) - 1
+  expect(await count()).toBe(13)
+
+  // Filter by type: the table and the chart follow, and the badge counts what is on.
+  await page.getByRole('button', { name: 'Filter tugas' }).click()
+  await expectNoSeriousViolations(page)
+  await page.getByRole('checkbox', { name: 'Dokumentasi' }).uncheck()
+  await page.getByRole('checkbox', { name: 'Milestone' }).uncheck()
+  await expect.poll(count).toBe(9)
+  await expect(page.getByRole('button', { name: 'Filter tugas, 2 aktif' })).toBeVisible()
+  await expect(grid.getByRole('row', { name: /Survei lokasi/ })).toHaveCount(0)
+  await expect(page.locator('svg g[data-id="2"]')).toHaveCount(0)
+
+  await page.getByLabel('Sembunyikan tugas selesai').check()
+  await expect(page.getByRole('button', { name: 'Filter tugas, 3 aktif' })).toBeVisible()
+  await page.getByRole('button', { name: 'Reset' }).click()
+  await expect.poll(count).toBe(13)
+
+  for (const name of [
+    'Dokumentasi',
+    'Desain',
+    'Implementasi',
+    'Bug',
+    'Perbaikan',
+    'Review',
+    'Milestone',
+  ]) {
+    await page.getByRole('checkbox', { name }).uncheck()
+  }
+  await expect(page.getByText('Tidak ada tugas yang cocok dengan filter.')).toBeVisible()
+  await page.getByRole('button', { name: 'Reset' }).click()
+  await page.keyboard.press('Escape')
+
+  // Reorder within a group; the neighbours are the siblings that show, and it can be undone.
+  const up = page.getByRole('button', { name: 'Pindahkan tugas ke atas' })
+  const down = page.getByRole('button', { name: 'Pindahkan tugas ke bawah' })
+  await expect(up).toBeDisabled()
+  await expect(down).toBeDisabled()
+  await grid.getByRole('row', { name: /Desain interior/ }).click()
+  await expect(up).toBeDisabled()
+  await down.click()
+  const order = async () =>
+    (await grid.getByRole('row').allInnerTexts()).flatMap(
+      (text) => text.match(/Desain interior|Pengerjaan ruang|Pasang mesin espresso/) ?? [],
+    )
+  await expect.poll(order).toEqual(['Pengerjaan ruang', 'Desain interior', 'Pasang mesin espresso'])
+  await expect(up).toBeEnabled()
+  await page.getByRole('button', { name: 'Urungkan' }).click()
+  await expect.poll(order).toEqual(['Desain interior', 'Pengerjaan ruang', 'Pasang mesin espresso'])
+
+  // The column menu now sits in this toolbar.
+  await page.getByRole('button', { name: 'Atur kolom tabel' }).click()
+  await page.getByRole('checkbox', { name: 'Durasi' }).check()
+  await expect(grid.getByRole('columnheader', { name: 'Durasi' })).toBeVisible()
+  await page.keyboard.press('Escape')
+})
+
 test('the time scale zooms from daily detail out to whole years', async ({ page }) => {
   await openDemo(page)
   const zoomIn = page.getByRole('button', { name: 'Perbesar skala waktu' })

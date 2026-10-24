@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import type { Project } from '../../core/model.ts'
 import { analyzeCriticalPath, type CriticalPath } from '../../core/critical-path.ts'
 import { toIsoDate } from '../../core/dates.ts'
-import type { Project } from '../../core/model.ts'
 import { rollUpProgress } from '../../core/summary.ts'
 import { coffeeShopProject } from '../../core/test-utils/coffee-shop.ts'
-import { buildTaskRows } from './rows.ts'
+import {
+  activeFilters,
+  buildTaskRows,
+  countTypes,
+  NO_FILTER,
+  typeKeyOf,
+  type RowFilter,
+} from './rows.ts'
 
 function analysed(project: Project): CriticalPath {
   const result = analyzeCriticalPath(project)
@@ -27,8 +34,9 @@ const project: Project = {
     ),
 }
 
-function rows(collapsed: string[] = []) {
+function rows(collapsed: string[] = [], filter: RowFilter = NO_FILTER) {
   return buildTaskRows({
+    filter,
     project,
     analysis: analysed(project),
     progress: rollUpProgress(project),
@@ -140,5 +148,74 @@ describe('buildTaskRows', () => {
       critical: false,
       progress: 0,
     })
+  })
+})
+
+describe('filtering', () => {
+  const only = (hiddenTypes: RowFilter['hiddenTypes'], hideDone = false): RowFilter => ({
+    hiddenTypes,
+    hideDone,
+  })
+  const outline = (filter: RowFilter) => rows([], filter).map((row) => `${row.wbs} ${row.name}`)
+
+  // Persiapan holds only DOC tasks, Renovasi a DSG and two IMP tasks.
+  const typed: Project = {
+    ...project,
+    tasks: project.tasks.map((task) => {
+      const type = { '2': 'DOC', '3': 'DOC', '4': 'DOC', '6': 'DSG', '7': 'IMP', '8': 'IMP' }[
+        task.id
+      ]
+      return type ? { ...task, type: type as 'DOC' | 'DSG' | 'IMP' } : task
+    }),
+  }
+  const outlineOf = (hidden: RowFilter['hiddenTypes']) =>
+    buildTaskRows({
+      project: typed,
+      analysis: null,
+      progress: new Map(),
+      collapsed: new Set(),
+      today,
+      filter: only(hidden),
+    }).map((row) => `${row.wbs} ${row.name}`)
+
+  it('hides tasks of a type, keeping the numbers of the ones left', () => {
+    const list = outlineOf(new Set(['DSG']))
+    expect(list).not.toContain('2.1 Desain interior')
+    expect(list).toContain('2.2 Pengerjaan ruang')
+    expect(outlineOf(new Set(['MS']))).not.toContain('3.4 Soft opening')
+  })
+
+  it('drops a summary task once nothing below it is left', () => {
+    const list = outlineOf(new Set(['DOC']))
+    expect(list).not.toContain('1 Persiapan')
+    expect(list.some((entry) => entry.startsWith('1.'))).toBe(false)
+    expect(list).toContain('2 Renovasi')
+    expect(outlineOf(new Set(['DSG', 'IMP']))).not.toContain('2 Renovasi')
+  })
+
+  it('hides finished tasks but keeps milestones, and drops summaries that are all done', () => {
+    const done = outline(only(new Set(), true))
+    expect(done).not.toContain('1.1 Survei lokasi')
+    expect(done).toContain('1.2 Izin usaha')
+    expect(done).toContain('3.4 Soft opening')
+  })
+
+  it('numbers positions among the visible siblings for assistive technology', () => {
+    const [persiapan, first] = rows([], only(new Set(), true))
+    expect(persiapan).toMatchObject({ wbs: '1', setSize: 3 })
+    expect(first).toMatchObject({ wbs: '1.2', positionInSet: 1, setSize: 2 })
+  })
+
+  it('counts types, with every milestone as MS, and counts the settings that are on', () => {
+    const counts = countTypes([
+      { isMilestone: false, type: 'DOC' },
+      { isMilestone: false, type: 'DOC' },
+      { isMilestone: true, type: 'IMP' },
+      { isMilestone: false },
+    ])
+    expect(counts).toEqual({ IMP: 0, DOC: 2, DSG: 0, BUG: 0, FIX: 0, REV: 0, MS: 1 })
+    expect(typeKeyOf({ isMilestone: false })).toBeNull()
+    expect(activeFilters(NO_FILTER)).toBe(0)
+    expect(activeFilters(only(new Set(['DOC', 'MS']), true))).toBe(3)
   })
 })

@@ -12,7 +12,13 @@
     type DragMode,
     type DragResult,
   } from './drag.ts'
-  import { HEADER_ROW_HEIGHT, ROW_HEIGHT, type GanttLayout } from './layout.ts'
+  import {
+    HEADER_BOTTOM_HEIGHT,
+    HEADER_HEIGHT,
+    HEADER_TOP_HEIGHT,
+    ROW_HEIGHT,
+    type GanttLayout,
+  } from './layout.ts'
 
   export type Reschedule = {
     readonly id: string
@@ -153,16 +159,12 @@
 
 <!-- The table carries the same information in text, so the chart is decorative for screen readers. -->
 <div class="sticky top-0 z-10 bg-surface-2" aria-hidden="true">
-  <svg
-    width={layout.width}
-    height={HEADER_ROW_HEIGHT * 2}
-    class="block border-b border-line-strong"
-  >
+  <svg width={layout.width} height={HEADER_HEIGHT} class="block border-b border-line-strong">
     <line
       x1="0"
       x2={layout.width}
-      y1={HEADER_ROW_HEIGHT - 0.5}
-      y2={HEADER_ROW_HEIGHT - 0.5}
+      y1={HEADER_TOP_HEIGHT - 0.5}
+      y2={HEADER_TOP_HEIGHT - 0.5}
       class="stroke-line"
     />
     {#each layout.top as cell, index (cell.key)}
@@ -171,27 +173,27 @@
           x1={cell.x + 0.5}
           x2={cell.x + 0.5}
           y1="0"
-          y2={HEADER_ROW_HEIGHT}
+          y2={HEADER_TOP_HEIGHT}
           class="stroke-line"
         />
       {/if}
-      <text x={cell.x + 8} y="17" class="fill-text-2 text-[11.5px] font-semibold">{cell.label}</text
+      <text x={cell.x + 8} y="22" class="fill-text-2 text-[11.5px] font-semibold">{cell.label}</text
       >
     {/each}
     {#each layout.bottom as cell (cell.key)}
       {#if cell.isOff}
         <rect
           x={cell.x}
-          y={HEADER_ROW_HEIGHT}
+          y={HEADER_TOP_HEIGHT}
           width={cell.width}
-          height={HEADER_ROW_HEIGHT}
+          height={HEADER_BOTTOM_HEIGHT}
           class="fill-weekend"
         />
       {/if}
       {#if cell.isToday && layout.dayWidth >= 14}
         <circle
           cx={cell.x + cell.width / 2}
-          cy={HEADER_ROW_HEIGHT + 13}
+          cy={HEADER_TOP_HEIGHT + 14}
           r="9.5"
           class="today-dot fill-accent"
         />
@@ -199,7 +201,7 @@
       {#if cell.width >= 12}
         <text
           x={cell.x + cell.width / 2}
-          y={HEADER_ROW_HEIGHT + 17}
+          y={HEADER_TOP_HEIGHT + 18}
           text-anchor="middle"
           class={[
             'mono text-[11px]',

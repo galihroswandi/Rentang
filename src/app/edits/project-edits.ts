@@ -122,6 +122,23 @@ export function removeHoliday(date: IsoDate): Recipe {
   }
 }
 
+/**
+ * Puts a task right before or after one of its siblings, and renumbers the group. Its own
+ * subtasks stay under it, so moving a summary task moves the whole branch.
+ */
+export function moveTask(id: string, targetId: string, place: 'before' | 'after'): Recipe {
+  return (draft) => {
+    const task = draft.tasks.find((candidate) => candidate.id === id)
+    const target = draft.tasks.find((candidate) => candidate.id === targetId)
+    if (!task || !target || id === targetId || task.parentId !== target.parentId) return
+    const others = siblingsOf(draft, task.parentId).filter((sibling) => sibling.id !== id)
+    others.splice(others.indexOf(target) + (place === 'after' ? 1 : 0), 0, task)
+    others.forEach((sibling, index) => {
+      sibling.order = index
+    })
+  }
+}
+
 /** Ids of a task and everything below it. */
 export function subtreeOf(project: Pick<Project, 'tasks'>, id: string): Set<string> {
   const ids = new Set([id])

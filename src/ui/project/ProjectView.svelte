@@ -4,6 +4,7 @@
   import {
     addTask,
     deleteTask,
+    moveTask as reorderTask,
     reschedule,
     subtreeOf,
     updateTask,
@@ -14,11 +15,11 @@
   import Icon from '../icons/Icon.svelte'
   import { fade, fly } from '../motion.ts'
   import { prefs, type Columns } from '../prefs.ts'
+  import { NO_FILTER, type RowFilter } from '../table/rows.ts'
   import ResourceView from '../resource/ResourceView.svelte'
   import { useApp } from '../shell/context.ts'
   import Segmented from '../shell/Segmented.svelte'
   import CalendarDialog from './CalendarDialog.svelte'
-  import ColumnMenu from './ColumnMenu.svelte'
   import GanttView from './GanttView.svelte'
   import TaskDialog from './TaskDialog.svelte'
 
@@ -36,6 +37,7 @@
   let addPersonRequest = $state(0)
   let rolesOpen = $state(false)
   let calendarOpen = $state(false)
+  let filter: RowFilter = $state(NO_FILTER)
   let dialog: { readonly kind: 'new' } | { readonly kind: 'edit'; readonly id: string } | null =
     $state(null)
 
@@ -174,13 +176,6 @@
           <Icon name="calendar-days" />
           <span class="max-sm:sr-only">Kalender</span>
         </button>
-        <ColumnMenu
-          {columns}
-          onChange={(next: Columns) => {
-            columns = next
-            prefs.setColumns(next)
-          }}
-        />
         <button
           type="button"
           role="switch"
@@ -262,6 +257,17 @@
           }}
           onReschedule={moveTask}
           onZoomStep={stepZoom}
+          {filter}
+          onFilter={(next: RowFilter) => {
+            filter = next
+          }}
+          onColumns={(next: Columns) => {
+            columns = next
+            prefs.setColumns(next)
+          }}
+          onReorder={(id: string, targetId: string, place: 'before' | 'after') => {
+            store.getState().edit('Urutan tugas diubah', reorderTask(id, targetId, place))
+          }}
           onOpen={(id: string) => {
             selectedId = id
             dialog = { kind: 'edit', id }

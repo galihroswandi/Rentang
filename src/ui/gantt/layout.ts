@@ -43,7 +43,10 @@ export function headerMode(zoom: Zoom): HeaderMode {
 /** A day is wide enough to carry its weekday name as well as its number. */
 const WEEKDAY_NAME_WIDTH = 48
 export const ROW_HEIGHT = 36
-export const HEADER_ROW_HEIGHT = 26
+/** The chart header is 64 px: a 36 px row on top and a 28 px row under it, as in the design. */
+export const HEADER_TOP_HEIGHT = 36
+export const HEADER_BOTTOM_HEIGHT = 28
+export const HEADER_HEIGHT = HEADER_TOP_HEIGHT + HEADER_BOTTOM_HEIGHT
 const BAR_HEIGHT = 18
 const SUMMARY_HEIGHT = 13
 const MILESTONE_HALF = 7

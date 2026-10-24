@@ -20,19 +20,17 @@
 
 <Popover.Root bind:open>
   <Popover.Trigger
+    aria-label="Atur kolom tabel"
+    title="Atur kolom"
     class={[
-      'btn pr-2.5',
-      open && 'border-accent-border bg-accent-soft hover:border-accent-border hover:bg-accent-soft',
+      'press inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-md px-[7px]',
+      open ? 'bg-accent-soft text-accent-text' : 'text-text-2 hover:bg-surface hover:text-text',
     ]}
   >
     <Icon name="columns" />
-    <span class="max-sm:sr-only">Kolom</span>
-    <span class={['flex transition-transform duration-200', open && 'rotate-180']}>
-      <Icon name="chevron-down" size={14} strokeWidth={2} />
-    </span>
   </Popover.Trigger>
   <Popover.Portal>
-    <Popover.Content forceMount sideOffset={6} align="start" collisionPadding={12}>
+    <Popover.Content forceMount sideOffset={6} align="end" collisionPadding={12}>
       {#snippet child({ wrapperProps, props, open: visible })}
         {#if visible}
           <div {...wrapperProps}>

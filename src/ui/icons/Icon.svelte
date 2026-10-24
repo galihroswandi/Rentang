@@ -1,5 +1,7 @@
 <script lang="ts" module>
   // The Lucide icons the design canvas uses, under the names the components ask for.
+  import ArrowDown from '@lucide/svelte/icons/arrow-down'
+  import ArrowUp from '@lucide/svelte/icons/arrow-up'
   import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right'
   import CalendarCheck from '@lucide/svelte/icons/calendar-check'
   import CalendarDays from '@lucide/svelte/icons/calendar-days'
@@ -10,11 +12,12 @@
   import Clock from '@lucide/svelte/icons/clock'
   import CloudAlert from '@lucide/svelte/icons/cloud-alert'
   import CloudCheck from '@lucide/svelte/icons/cloud-check'
-  import Columns3 from '@lucide/svelte/icons/columns-3'
+  import Columns3Cog from '@lucide/svelte/icons/columns-3-cog'
   import Diamond from '@lucide/svelte/icons/diamond'
   import File from '@lucide/svelte/icons/file'
   import FileInput from '@lucide/svelte/icons/file-input'
   import Flag from '@lucide/svelte/icons/flag'
+  import Funnel from '@lucide/svelte/icons/funnel'
   import FolderOpen from '@lucide/svelte/icons/folder-open'
   import GripVertical from '@lucide/svelte/icons/grip-vertical'
   import LayoutGrid from '@lucide/svelte/icons/layout-grid'
@@ -40,6 +43,8 @@
   import ZoomOut from '@lucide/svelte/icons/zoom-out'
 
   const ICONS = {
+    'arrow-down': ArrowDown,
+    'arrow-up': ArrowUp,
     'arrow-up-right': ArrowUpRight,
     'calendar-check': CalendarCheck,
     'calendar-days': CalendarDays,
@@ -50,11 +55,12 @@
     clock: Clock,
     'cloud-alert': CloudAlert,
     'cloud-check': CloudCheck,
-    columns: Columns3,
+    columns: Columns3Cog,
     diamond: Diamond,
     file: File,
     'file-import': FileInput,
     flag: Flag,
+    filter: Funnel,
     'folder-open': FolderOpen,
     grip: GripVertical,
     cards: LayoutGrid,

@@ -73,9 +73,9 @@
     {#if columns.duration}<col class="w-[64px]" />{/if}
     {#if columns.progress}<col class="w-[52px]" />{/if}
   </colgroup>
-  <thead class="sticky top-0 z-10">
+  <thead class="sticky top-9 z-10">
     <tr
-      class="h-[52px] border-b border-line-strong bg-surface-2 text-left text-xs font-semibold text-text-2"
+      class="h-7 border-b border-line-strong bg-surface-2 text-left text-xs font-semibold text-text-2"
     >
       <th scope="col" class="pl-3.5 font-semibold">Nama</th>
       {#if columns.resource}<th scope="col" class="font-semibold">Resource</th>{/if}

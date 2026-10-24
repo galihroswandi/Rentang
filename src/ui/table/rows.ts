@@ -38,12 +38,45 @@ export type TaskRow = {
   readonly critical: boolean
 }
 
+/** What the type filter calls a task: its type, or "MS" for any milestone. */
+export type TypeKey = TaskType | 'MS'
+
+export type RowFilter = {
+  readonly hiddenTypes: ReadonlySet<TypeKey>
+  /** Hides finished tasks; milestones stay, since reaching one is worth seeing. */
+  readonly hideDone: boolean
+}
+
+export const NO_FILTER: RowFilter = { hiddenTypes: new Set(), hideDone: false }
+
+export function typeKeyOf(task: Pick<Task, 'isMilestone' | 'type'>): TypeKey | null {
+  return task.isMilestone ? 'MS' : (task.type ?? null)
+}
+
+/** How many tasks carry each type, for the counts beside the filter's checkboxes. */
+export function countTypes(
+  tasks: readonly Pick<Task, 'isMilestone' | 'type'>[],
+): Record<TypeKey, number> {
+  const counts: Record<TypeKey, number> = { IMP: 0, DOC: 0, DSG: 0, BUG: 0, FIX: 0, REV: 0, MS: 0 }
+  for (const task of tasks) {
+    const key = typeKeyOf(task)
+    if (key) counts[key] += 1
+  }
+  return counts
+}
+
+/** How many filter settings are on, for the badge on the filter button. */
+export function activeFilters(filter: RowFilter): number {
+  return filter.hiddenTypes.size + (filter.hideDone ? 1 : 0)
+}
+
 export type RowInput = {
   readonly project: Pick<Project, 'tasks'> & Partial<Pick<Project, 'resources' | 'assignments'>>
   readonly analysis: CriticalPath | null
   readonly progress: ReadonlyMap<TaskId, number>
   readonly collapsed: ReadonlySet<TaskId>
   readonly today: IsoDate
+  readonly filter?: RowFilter
 }
 
 export function buildTaskRows({
@@ -52,6 +85,7 @@ export function buildTaskRows({
   progress,
   collapsed,
   today,
+  filter = NO_FILTER,
 }: RowInput): TaskRow[] {
   const childrenOf = new Map<string | null, Task[]>()
   for (const task of project.tasks) {
@@ -73,10 +107,32 @@ export function buildTaskRows({
     else peopleOf.set(assignment.taskId, [person])
   }
 
+  // A task stays when it passes the filter itself; a summary task stays while anything
+  // below it does, so a visible task never loses its place in the outline.
+  const shown = new Map<TaskId, boolean>()
+  const isShown = (task: Task): boolean => {
+    const known = shown.get(task.id)
+    if (known !== undefined) return known
+    const children = childrenOf.get(task.id)
+    let result: boolean
+    if (children) {
+      result = children.some(isShown)
+    } else {
+      const key = typeKeyOf(task)
+      const done = !task.isMilestone && (progress.get(task.id) ?? task.progress) >= 100
+      result = !(key && filter.hiddenTypes.has(key)) && !(filter.hideDone && done)
+    }
+    shown.set(task.id, result)
+    return result
+  }
+
   const rows: TaskRow[] = []
   const visit = (parentId: TaskId | null, prefix: string, level: number): void => {
-    const siblings = childrenOf.get(parentId) ?? []
-    siblings.forEach((task, index) => {
+    const all = childrenOf.get(parentId) ?? []
+    // Outline numbers come from the full list, so a task keeps its number while filtered.
+    const siblings = all.filter(isShown)
+    siblings.forEach((task, shownIndex) => {
+      const index = all.indexOf(task)
       const wbs = `${prefix}${String(index + 1)}`
       const isSummary = childrenOf.has(task.id)
       const dates = analysis?.schedule.tasks.get(task.id)
@@ -90,7 +146,7 @@ export function buildTaskRows({
         wbs,
         level,
         parentId,
-        positionInSet: index + 1,
+        positionInSet: shownIndex + 1,
         setSize: siblings.length,
         isSummary,
         isMilestone: task.isMilestone,

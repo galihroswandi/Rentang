@@ -10,8 +10,9 @@
   import { layoutGantt, type Zoom } from '../gantt/layout.ts'
   import Icon from '../icons/Icon.svelte'
   import { prefs, type ColumnKey, type Columns } from '../prefs.ts'
-  import { buildTaskRows } from '../table/rows.ts'
+  import { buildTaskRows, countTypes, type RowFilter } from '../table/rows.ts'
   import TaskTable from '../table/TaskTable.svelte'
+  import TableToolbar from './TableToolbar.svelte'
 
   type Props = {
     project: Project
@@ -27,6 +28,11 @@
     onSelect: (id: string | null) => void
     onOpen: (id: string) => void
     onReschedule: (change: Reschedule) => void
+    filter: RowFilter
+    onFilter: (filter: RowFilter) => void
+    onColumns: (columns: Columns) => void
+    /** Puts the selected task before or after a sibling that is showing. */
+    onReorder: (id: string, targetId: string, place: 'before' | 'after') => void
     /** Ctrl or Cmd with the mouse wheel: -1 closer, +1 wider. */
     onZoomStep: (direction: -1 | 1) => void
   }
@@ -44,6 +50,10 @@
     onOpen,
     onReschedule,
     onZoomStep,
+    filter,
+    onFilter,
+    onColumns,
+    onReorder,
   }: Props = $props()
 
   const DEFAULT_TABLE = 452
@@ -92,13 +102,31 @@
     ),
   )
 
-  const rows = $derived(buildTaskRows({ project, analysis, progress, collapsed, today }))
+  const rows = $derived(buildTaskRows({ project, analysis, progress, collapsed, today, filter }))
   const calendar = $derived(createWorkCalendar(project.calendar))
   const layout = $derived(
     analysis
       ? layoutGantt({ rows, dependencies: project.dependencies, calendar, zoom, today })
       : null,
   )
+  const counts = $derived(countTypes(project.tasks))
+
+  // The neighbours the selected task can swap places with: siblings that are showing.
+  const neighbours = $derived.by(() => {
+    const index = rows.findIndex((row) => row.id === selectedId)
+    const row = rows[index]
+    if (!row) return { before: null, after: null }
+    const siblings = rows.filter((candidate) => candidate.parentId === row.parentId)
+    const at = siblings.indexOf(row)
+    return { before: siblings[at - 1]?.id ?? null, after: siblings[at + 1]?.id ?? null }
+  })
+
+  function moveSelected(direction: -1 | 1): void {
+    if (selectedId === null) return
+    const target = direction < 0 ? neighbours.before : neighbours.after
+    if (target) onReorder(selectedId, target, direction < 0 ? 'before' : 'after')
+  }
+
   const selectedIndex = $derived(rows.findIndex((row) => row.id === selectedId))
 
   let handledRequest = 0
@@ -205,7 +233,7 @@
     dragging && 'cursor-col-resize select-none',
   ]}
 >
-  {#if rows.length === 0}
+  {#if project.tasks.length === 0}
     <div
       class="flex h-full min-h-60 flex-col items-center justify-center gap-2 p-8 text-center text-text-2"
     >
@@ -225,10 +253,23 @@
         <div
           style:width={`${String(shownWidth)}px`}
           class={[
-            'overflow-hidden',
+            // Clipped, not hidden: a hidden overflow would stop the header from sticking.
+            'overflow-clip',
             !dragging && 'transition-[width] duration-200 ease-(--ease-out)',
           ]}
         >
+          <div class="sticky top-0 z-20">
+            <TableToolbar
+              canMoveUp={neighbours.before !== null}
+              canMoveDown={neighbours.after !== null}
+              onMove={moveSelected}
+              {filter}
+              {counts}
+              {onFilter}
+              {columns}
+              {onColumns}
+            />
+          </div>
           <TaskTable
             {rows}
             columns={visibleColumns}
@@ -238,6 +279,11 @@
             {onOpen}
             onToggle={toggle}
           />
+          {#if rows.length === 0}
+            <p class="m-0 px-4 py-5 text-[13px] text-text-3">
+              Tidak ada tugas yang cocok dengan filter.
+            </p>
+          {/if}
         </div>
         <div
           role="slider"
