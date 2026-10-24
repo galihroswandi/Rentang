@@ -241,6 +241,58 @@ test('bars can be dragged to move or resize a task, and the drag undone', async 
   expect(await dates()).toEqual(afterResize)
 })
 
+test('sideways scrolling snaps to column edges, by wheel step or by dragging the chart', async ({
+  page,
+}) => {
+  await openDemo(page)
+  const scroller = page.locator('[data-gantt-scroller]')
+  const left = () => scroller.evaluate((el) => el.scrollLeft)
+  // At the week scale a day is 20 px, and a column edge at scroll x sits against the table.
+  const onEdge = async () => expect.poll(async () => (await left()) % 20, { timeout: 4000 }).toBe(0)
+
+  // Whatever position the page opens at settles on a column edge.
+  await onEdge()
+
+  // Shift with the wheel moves one column per step.
+  await page.mouse.move(900, 450)
+  const start = await left()
+  await page.keyboard.down('Shift')
+  await page.mouse.wheel(0, 120)
+  await page.keyboard.up('Shift')
+  await expect.poll(left).toBe(start + 20)
+  await page.keyboard.down('Shift')
+  await page.mouse.wheel(0, -120)
+  await page.keyboard.up('Shift')
+  await expect.poll(left).toBe(start)
+
+  // A sideways swipe works the same way.
+  await page.waitForTimeout(150)
+  await page.mouse.wheel(120, 0)
+  await expect.poll(left).toBe(start + 20)
+
+  // Dragging the background pans the view, and letting go settles on a column edge.
+  await page.waitForTimeout(150)
+  await page.mouse.move(900, 600)
+  await page.mouse.down()
+  await page.mouse.move(870, 600, { steps: 4 })
+  await page.mouse.move(843, 600, { steps: 4 })
+  await expect.poll(left).toBeGreaterThan(start + 20 + 40)
+  await page.mouse.up()
+  await onEdge()
+  expect(await left()).toBeGreaterThan(start + 20)
+
+  // Dragging a bar still moves the task, not the view.
+  const before = await left()
+  const bar = await page.locator('svg g[data-id="7"] rect').first().boundingBox()
+  if (!bar) throw new Error('bar not found')
+  await page.mouse.move(bar.x + bar.width / 2, bar.y + 9)
+  await page.mouse.down()
+  await page.mouse.move(bar.x + bar.width / 2 + 40, bar.y + 9, { steps: 5 })
+  await page.mouse.up()
+  await expect(page.getByText('Tugas dipindah')).toBeVisible()
+  expect(await left()).toBe(before)
+})
+
 test('the table toolbar filters tasks, reorders them and sets columns', async ({ page }) => {
   await openDemo(page)
   const grid = page.getByRole('treegrid')

@@ -8,6 +8,8 @@
   import type { Project } from '../../core/model.ts'
   import GanttChart, { type Reschedule } from '../gantt/GanttChart.svelte'
   import { layoutGantt, type Zoom } from '../gantt/layout.ts'
+  import { isSideways, nearestSnap, sidewaysDelta, snapPoints, stepSnap } from '../gantt/snap.ts'
+  import { prefersReducedMotion } from '../motion.ts'
   import Icon from '../icons/Icon.svelte'
   import { prefs, type ColumnKey, type Columns } from '../prefs.ts'
   import { buildTaskRows, countTypes, type RowFilter } from '../table/rows.ts'
@@ -156,26 +158,130 @@
     })
   })
 
-  // Ctrl or Cmd with the wheel zooms, like a map. Needs a non-passive listener to stop the
-  // browser's own page zoom, so it is attached by hand.
+  const scrollBehavior = (): ScrollBehavior => (prefersReducedMotion() ? 'instant' : 'smooth')
+
+  /**
+   * Where sideways scrolling may come to rest: the left edge of each header cell (a day,
+   * a week start, a month or a quarter). A cell edge at scroll position x sits exactly
+   * against the right edge of the sticky table, so a column is never cut in half there.
+   */
+  function stops(element: HTMLElement): number[] {
+    const edges = layout?.bottom.map((cell) => cell.x) ?? []
+    return snapPoints(edges, element.scrollWidth - element.clientWidth)
+  }
+
+  let panning = $state(false)
+  /** Where a run of wheel steps is heading, so quick steps add up instead of repeating. */
+  let stepTarget: number | null = null
+
+  // When scrolling stops, a column slides the last bit against the table's edge, like a magnet.
   $effect(() => {
     const element = scroller
     if (!element) return
-    let wheelRest = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const onScroll = (): void => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        if (panning) return
+        const target = nearestSnap(stops(element), element.scrollLeft)
+        if (Math.abs(target - element.scrollLeft) > 0.5) {
+          element.scrollTo({ left: target, behavior: scrollBehavior() })
+        }
+      }, 140)
+    }
+    element.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      clearTimeout(timer)
+      element.removeEventListener('scroll', onScroll)
+    }
+  })
+
+  // Wheel: Ctrl or Cmd zooms, like a map; Shift with the wheel, or a sideways swipe, moves one
+  // column per step. Both need a non-passive listener to stop the browser's own behaviour, so
+  // it is attached by hand.
+  $effect(() => {
+    const element = scroller
+    if (!element) return
+    let zoomRest = 0
+    let sideRest = 0
+    let lastStep = 0
+    let restTimer: ReturnType<typeof setTimeout> | undefined
+    let targetTimer: ReturnType<typeof setTimeout> | undefined
     const onWheel = (event: WheelEvent): void => {
-      if (!event.ctrlKey && !event.metaKey) return
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault()
+        // A notch of a mouse wheel or a stretch of trackpad pinch makes one step.
+        zoomRest += event.deltaY
+        if (Math.abs(zoomRest) < 40) return
+        onZoomStep(zoomRest > 0 ? 1 : -1)
+        zoomRest = 0
+        return
+      }
+      if (!isSideways(event)) return
       event.preventDefault()
-      // A notch of a mouse wheel or a stretch of trackpad pinch makes one step.
-      wheelRest += event.deltaY
-      if (Math.abs(wheelRest) < 40) return
-      onZoomStep(wheelRest > 0 ? 1 : -1)
-      wheelRest = 0
+      sideRest += sidewaysDelta(event)
+      clearTimeout(restTimer)
+      restTimer = setTimeout(() => {
+        sideRest = 0
+      }, 200)
+      const now = performance.now()
+      // Enough travel for a step, and a short pause between steps so a swipe stays readable.
+      if (Math.abs(sideRest) < 30 || now - lastStep < 90) return
+      lastStep = now
+      const direction = sideRest > 0 ? 1 : -1
+      sideRest = 0
+      const next = stepSnap(stops(element), stepTarget ?? element.scrollLeft, direction)
+      stepTarget = next
+      element.scrollTo({ left: next, behavior: scrollBehavior() })
+      clearTimeout(targetTimer)
+      targetTimer = setTimeout(() => {
+        stepTarget = null
+      }, 350)
     }
     element.addEventListener('wheel', onWheel, { passive: false })
     return () => {
+      clearTimeout(restTimer)
+      clearTimeout(targetTimer)
       element.removeEventListener('wheel', onWheel)
     }
   })
+
+  /** Dragging the chart's background with the mouse moves the view; letting go snaps it. */
+  function startPan(event: PointerEvent & { currentTarget: HTMLDivElement }): void {
+    const element = scroller
+    if (!element || event.pointerType !== 'mouse' || event.button !== 0) return
+    // Bars handle their own drag.
+    if (event.target instanceof Element && event.target.closest('[data-id]')) return
+    const handle = event.currentTarget
+    handle.setPointerCapture(event.pointerId)
+    stepTarget = null
+    const startX = event.clientX
+    const startY = event.clientY
+    const startLeft = element.scrollLeft
+    const startTop = element.scrollTop
+    let moved = false
+    const move = (moveEvent: PointerEvent): void => {
+      const dx = moveEvent.clientX - startX
+      const dy = moveEvent.clientY - startY
+      if (!moved && Math.hypot(dx, dy) < 4) return
+      moved = true
+      panning = true
+      element.scrollLeft = startLeft - dx
+      element.scrollTop = startTop - dy
+    }
+    const stop = (): void => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', stop)
+      handle.removeEventListener('pointercancel', stop)
+      if (!moved) return
+      panning = false
+      const target = nearestSnap(stops(element), element.scrollLeft)
+      element.scrollTo({ left: target, behavior: scrollBehavior() })
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', stop)
+    handle.addEventListener('pointercancel', stop)
+  }
 
   function toggle(id: string, expanded: boolean): void {
     if (expanded) collapsed.delete(id)
@@ -227,6 +333,7 @@
 
 <div
   bind:this={scroller}
+  data-gantt-scroller
   bind:clientWidth={containerWidth}
   class={[
     'relative min-h-0 flex-1 overflow-auto bg-surface',
@@ -308,7 +415,12 @@
         </div>
       </div>
       {#if layout}
-        <div class="flex-none">
+        <!-- Panning is a mouse shortcut; the chart is decorative for assistive technology. -->
+        <div
+          role="presentation"
+          class={['flex-none', panning ? 'cursor-grabbing select-none' : 'cursor-grab']}
+          onpointerdown={startPan}
+        >
           <GanttChart
             {layout}
             {rows}
