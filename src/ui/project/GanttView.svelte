@@ -7,7 +7,7 @@
   import type { IsoDate } from '../../core/dates.ts'
   import type { Project } from '../../core/model.ts'
   import GanttChart, { type Reschedule } from '../gantt/GanttChart.svelte'
-  import { HEADER_HEIGHT, layoutGantt, type Zoom } from '../gantt/layout.ts'
+  import { layoutGantt, type GanttLayout, type Zoom } from '../gantt/layout.ts'
   import { isSideways, nearestSnap, sidewaysDelta, snapPoints, stepSnap } from '../gantt/snap.ts'
   import { prefersReducedMotion } from '../motion.ts'
   import Icon from '../icons/Icon.svelte'
@@ -106,15 +106,28 @@
 
   const rows = $derived(buildTaskRows({ project, analysis, progress, collapsed, today, filter }))
   const calendar = $derived(createWorkCalendar(project.calendar))
+  /**
+   * Whole years added after the project's last one. It starts at one, so December is always
+   * followed by a January, and grows by itself as you scroll toward the end.
+   */
+  let extraYears = $state(1)
+  const MAX_EXTRA_YEARS = 40
+  /** "Hari ini" asked for a date the chart does not reach yet; scroll again once it does. */
+  let todayPending: ScrollBehavior | null = null
+
   const layout = $derived(
     analysis
-      ? layoutGantt({ rows, dependencies: project.dependencies, calendar, zoom, today })
+      ? layoutGantt({
+          rows,
+          dependencies: project.dependencies,
+          calendar,
+          zoom,
+          today,
+          extraYears,
+        })
       : null,
   )
   const counts = $derived(countTypes(project.tasks))
-  const endRoom = $derived(
-    Math.max(0, containerWidth - shownWidth - SPLITTER - (layout?.dayWidth ?? 0)),
-  )
 
   // The neighbours the selected task can swap places with: siblings that are showing.
   const neighbours = $derived.by(() => {
@@ -157,11 +170,47 @@
         scroller.scrollTo({ left: Math.max(0, left - visible / 2), behavior })
         return
       }
-      // Today's column becomes the first one against the table: its left edge is the cell's.
-      const todayEdge =
-        layout.bottom.find((cell) => cell.isToday)?.x ?? layout.todayX - layout.dayWidth / 2
-      const furthest = scroller.scrollWidth - scroller.clientWidth
-      scroller.scrollTo({ left: Math.min(Math.max(0, todayEdge), Math.max(0, furthest)), behavior })
+      scrollToToday(scroller, layout, behavior)
+    })
+  })
+
+  /**
+   * Today's column becomes the first one against the table: its left edge is the cell's.
+   * When the chart is too short for that, more years are added first and the scroll follows.
+   */
+  function scrollToToday(
+    element: HTMLElement,
+    current: GanttLayout,
+    behavior: ScrollBehavior,
+  ): void {
+    const todayEdge =
+      current.bottom.find((cell) => cell.isToday)?.x ?? current.todayX - current.dayWidth / 2
+    const furthest = Math.max(0, element.scrollWidth - element.clientWidth)
+    if (todayEdge > furthest + 0.5 && extraYears < MAX_EXTRA_YEARS) {
+      todayPending = behavior
+      extraYears += 1
+      return
+    }
+    todayPending = null
+    element.scrollTo({ left: Math.min(Math.max(0, todayEdge), furthest), behavior })
+  }
+
+  /** Keeps at least a screen and a half of dates ahead of the view, adding a year when not. */
+  function ensureDatesAhead(element: HTMLElement): void {
+    const ahead = element.scrollWidth - element.clientWidth - element.scrollLeft
+    if (ahead < element.clientWidth * 1.5 && extraYears < MAX_EXTRA_YEARS) extraYears += 1
+  }
+
+  // After the chart grows (a new year, a zoom, a resize), check that dates still lie ahead,
+  // and finish a "Hari ini" that was waiting for them.
+  $effect(() => {
+    const element = scroller
+    const current = layout
+    const width = containerWidth
+    if (!element || !current || width === 0) return
+    untrack(() => {
+      if (todayPending) scrollToToday(element, current, todayPending)
+      else ensureDatesAhead(element)
     })
   })
 
@@ -187,6 +236,9 @@
     if (!element) return
     let timer: ReturnType<typeof setTimeout> | undefined
     const onScroll = (): void => {
+      untrack(() => {
+        ensureDatesAhead(element)
+      })
       clearTimeout(timer)
       timer = setTimeout(() => {
         if (panning) return
@@ -440,16 +492,6 @@
             {onOpen}
             {onReschedule}
           />
-        </div>
-        <!--
-          Room after the last day, as wide as the screen, so any date can be scrolled to the
-          start, "Hari ini" included, even when the project ends before then.
-        -->
-        <div aria-hidden="true" class="flex-none" style:width={`${String(endRoom)}px`}>
-          <div
-            class="border-b border-line-strong bg-surface-2"
-            style:height={`${String(HEADER_HEIGHT)}px`}
-          ></div>
         </div>
       {/if}
     </div>

@@ -18,6 +18,18 @@ async function expectNoSeriousViolations(page: Page): Promise<void> {
   expect(serious).toEqual([])
 }
 
+/** The chart opens at today, so a bar from before it must be scrolled into view first. */
+async function revealBar(page: Page, id: string): Promise<void> {
+  await page
+    .locator(`svg g[data-id="${id}"] rect`)
+    .first()
+    .evaluate((rect) => {
+      const scroller = rect.closest('[data-gantt-scroller]')
+      if (scroller) scroller.scrollLeft = Math.max(0, Number(rect.getAttribute('x')) - 120)
+    })
+  await page.waitForTimeout(800)
+}
+
 async function openDemo(page: Page): Promise<void> {
   await page.goto('/')
   await page.getByRole('button', { name: 'Coba dengan proyek demo' }).click()
@@ -196,7 +208,8 @@ test('bars can be dragged to move or resize a task, and the drag undone', async 
   const before = await dates()
 
   // Wait for the bar to settle after entering, then pull it three days to the right.
-  await page.waitForTimeout(1200)
+  await revealBar(page, '7')
+  await page.waitForTimeout(600)
   const box = await bar.boundingBox()
   if (!box) throw new Error('bar not found')
   const y = box.y + box.height / 2
@@ -282,6 +295,7 @@ test('sideways scrolling snaps to column edges, by wheel step or by dragging the
   expect(await left()).toBeGreaterThan(start + 20)
 
   // Dragging a bar still moves the task, not the view.
+  await revealBar(page, '7')
   const before = await left()
   const bar = await page.locator('svg g[data-id="7"] rect').first().boundingBox()
   if (!bar) throw new Error('bar not found')
@@ -316,6 +330,41 @@ test('"Hari ini" starts the chart at today, right against the table', async ({ p
     await expect.poll(left, { timeout: 4000 }).toBe(todayEdge)
     if (dayWidth !== 64) await zoomIn.click()
   }
+})
+
+test('the chart never runs out of dates: scrolling to the end adds another year', async ({
+  page,
+}) => {
+  await openDemo(page)
+  const scroller = page.locator('[data-gantt-scroller]')
+  const widthNow = () => scroller.evaluate((el) => el.scrollWidth)
+  const first = await widthNow()
+
+  // The year is on show in full, January to December, with a year more already after it.
+  await page.waitForTimeout(600)
+  expect(first).toBeGreaterThan(2 * 365 * 20)
+
+  // Run to the far end a few times: each time the dates carry on instead of stopping.
+  let previous = first
+  for (let round = 0; round < 3; round++) {
+    await scroller.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth
+    })
+    await expect.poll(widthNow, { timeout: 4000 }).toBeGreaterThan(previous)
+    previous = await widthNow()
+  }
+
+  // Nothing blank at the end: the chart and its header are as wide as the scrollable area.
+  const widths = await page.evaluate(() => {
+    const scroller = document.querySelector('[data-gantt-scroller]')
+    const charts = [...(scroller?.querySelectorAll('svg') ?? [])]
+      .map((svg) => svg.getBoundingClientRect().width)
+      .filter((width) => width > 500)
+    return { charts, scrollWidth: scroller?.scrollWidth ?? 0 }
+  })
+  expect(widths.charts).toHaveLength(2)
+  expect(widths.charts[0]).toBe(widths.charts[1])
+  expect(widths.scrollWidth).toBeGreaterThanOrEqual(widths.charts[0] ?? Infinity)
 })
 
 test('the table toolbar filters tasks, reorders them and sets columns', async ({ page }) => {
@@ -397,7 +446,8 @@ test('the time scale zooms from daily detail out to whole years', async ({ page 
     await expect(level).toHaveText(name)
   }
   await expect(zoomOut).toBeDisabled()
-  await expect(page.getByText('K1', { exact: true })).toBeVisible()
+  // Several years show by now, each with its own K1.
+  await expect(page.getByText('K1', { exact: true }).first()).toBeVisible()
 
   // Ctrl with the wheel steps back in, and the chosen level is remembered.
   await page.mouse.move(900, 450)

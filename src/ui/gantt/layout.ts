@@ -117,15 +117,12 @@ export type LayoutInput = {
   readonly calendar: WorkCalendar
   readonly zoom: Zoom
   readonly today: IsoDate
+  /** Whole years to add after the last one; 0 ends the chart on 31 December. */
+  readonly extraYears?: number
 }
 
 function mondayOnOrBefore(date: IsoDate): IsoDate {
   return addDays(date, -((dayOfWeek(date) + 6) % 7))
-}
-
-function monthStart(date: IsoDate): IsoDate {
-  const { year, month } = parseIsoDate(date) ?? { year: 1970, month: 1 }
-  return formatIsoDate({ year, month, day: 1 })
 }
 
 function nextYearStart(date: IsoDate): IsoDate {
@@ -140,28 +137,25 @@ function nextMonthStart(date: IsoDate): IsoDate {
     : formatIsoDate({ year, month: month + 1, day: 1 })
 }
 
-/** The visible date range: the project and today, padded and aligned to the zoom's unit. */
-function rangeOf(rows: readonly TaskRow[], zoom: Zoom, today: IsoDate): [IsoDate, IsoDate] {
+/**
+ * The visible date range: the full calendar years that hold the project and today, plus
+ * `extraYears` more after them, so the dates carry on past December.
+ */
+function rangeOf(rows: readonly TaskRow[], today: IsoDate, extraYears: number): [IsoDate, IsoDate] {
   let low = today
   let high = today
   for (const row of rows) {
     if (row.start) low = minDate(low, row.start)
     if (row.end) high = maxDate(high, row.end)
   }
-  const mode = headerMode(zoom)
-  if (mode === 'months' || mode === 'quarters') {
-    // Whole years, so the header never starts or ends in the middle of one.
-    const first = parseIsoDate(low)?.year ?? 1970
-    const last = parseIsoDate(high)?.year ?? first
-    return [
-      formatIsoDate({ year: first, month: 1, day: 1 }),
-      formatIsoDate({ year: last, month: 12, day: 31 }),
-    ]
-  }
-  if (mode === 'weeks') {
-    return [monthStart(low), addDays(nextMonthStart(nextMonthStart(high)), -1)]
-  }
-  return [addDays(mondayOnOrBefore(low), -7), addDays(mondayOnOrBefore(high), 13)]
+  // Whole calendar years, January to December, at every zoom level: the dates never run out
+  // inside the year, and the header never starts or ends in the middle of one.
+  const first = parseIsoDate(low)?.year ?? 1970
+  const last = (parseIsoDate(high)?.year ?? first) + extraYears
+  return [
+    formatIsoDate({ year: first, month: 1, day: 1 }),
+    formatIsoDate({ year: last, month: 12, day: 31 }),
+  ]
 }
 
 export function layoutGantt({
@@ -170,10 +164,11 @@ export function layoutGantt({
   calendar,
   zoom,
   today,
+  extraYears = 0,
 }: LayoutInput): GanttLayout {
   const dayWidth = DAY_WIDTH[zoom]
   const mode = headerMode(zoom)
-  const [start, end] = rangeOf(rows, zoom, today)
+  const [start, end] = rangeOf(rows, today, extraYears)
   const dayCount = diffDays(start, end) + 1
   const xOf = (date: IsoDate): number => diffDays(start, date) * dayWidth
 
