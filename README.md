@@ -1,51 +1,68 @@
 # Rentang
 
-Pelacak proyek **local-first** di browser: satu sumber data tugas dengan tampilan tabel, kanban, dan timeline. Data tersimpan di perangkat Anda (IndexedDB), tanpa akun dan tanpa server.
+Aplikasi web satu halaman untuk memantau jadwal dan kemajuan semua proyek di satu tempat, dengan **Gantt** sebagai inti dan dokumen tulisan di sampingnya. Membuka berkas GanttProject (`.gan`), menyimpan ke berkas `.rentang` di komputer Anda. Tanpa akun dan tanpa server.
 
-> Status: dalam pengembangan bertahap. Lihat [ruang lingkup](docs/SCOPE.md) untuk rencana lengkap.
+> **Status: Tahap 0 (fondasi dan inti) selesai.** Belum ada antarmuka. Yang sudah ada adalah logika inti beserta test-nya: kalender kerja, penjadwalan, jalur kritis, impor `.gan`, dan migrasi format. Rencana lengkap ada di [ruang lingkup](docs/ruang-lingkup.md).
 
 ## Menjalankan
 
-Prasyarat: Node.js 22 atau lebih baru (versi yang dipakai tercatat di `.nvmrc`).
+Prasyarat: Node.js 24 (tercatat di `.nvmrc`) dan pnpm 10.
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Aplikasi terbuka di <http://localhost:5173>.
 
-## Skrip
+## Perintah
 
-| Skrip                  | Fungsi                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `npm run dev`          | Server pengembangan Vite dengan hot reload                                        |
-| `npm run build`        | Typecheck lalu build produksi ke `dist/`                                          |
-| `npm run preview`      | Menyajikan hasil build secara lokal                                               |
-| `npm run lint`         | ESLint (type-aware, `eslint-plugin-svelte`)                                       |
-| `npm run typecheck`    | Pemeriksaan tipe (`svelte-check` dan `tsc -b`) untuk kode, test, dan konfigurasi  |
-| `npm run test`         | Test unit dengan Vitest, sekali jalan                                             |
-| `npm run test:watch`   | Vitest dalam mode watch                                                           |
-| `npm run format`       | Memformat seluruh berkas dengan Prettier                                          |
-| `npm run format:check` | Memeriksa format tanpa mengubah berkas                                            |
-| `npm run check`        | Menjalankan format:check, lint, typecheck, test, dan build berurutan (dipakai CI) |
+| Perintah             | Fungsi                                                                  |
+| -------------------- | ----------------------------------------------------------------------- |
+| `pnpm dev`           | Server pengembangan dengan hot reload                                   |
+| `pnpm build`         | Typecheck lalu build produksi ke `dist/`                                |
+| `pnpm typecheck`     | `svelte-check` dan `tsc -b`                                             |
+| `pnpm lint`          | ESLint, termasuk aturan batas lapisan                                   |
+| `pnpm test`          | Test unit (Vitest)                                                      |
+| `pnpm test:coverage` | Test dengan coverage; core minimal 90%                                  |
+| `pnpm test:e2e`      | Test end-to-end dan aksesibilitas (Playwright + axe)                    |
+| `pnpm format`        | Memformat dengan Prettier                                               |
+| `pnpm check`         | Semua pemeriksaan CI: format, berkas data, lint, test + coverage, build |
 
 ## Struktur
 
 ```text
 src/
-  domain/    Skema, tipe, dan fungsi murni (tanpa Svelte, tanpa IndexedDB)
-  db/        Lapisan akses data (Dexie)
-  features/  Tampilan Svelte: tabel, kanban, timeline
-  ui/        Komponen UI generik
-tests/       Test unit dan komponen
-docs/        Ruang lingkup dan ADR
+  core/     TypeScript murni: model, tanggal, kalender, jadwal, jalur kritis, migrasi, impor .gan
+  app/      Store, suntingan, riwayat, penyimpanan (mulai Tahap 1)
+  ui/       Komponen Svelte dan entri aplikasi
+docs/
+  ruang-lingkup.md   Ruang lingkup, tahap, dan risiko
+  decisions/         Catatan keputusan arsitektur (ADR)
+  design/tokens.css  Token desain terang dan gelap
+fixtures/   Berkas .gan fiktif untuk test
+e2e/        Test Playwright
 ```
 
-## Dokumentasi
+Ketergantungan hanya ke satu arah: `ui → app → core`. Lint dan CI gagal bila aturan ini dilanggar ([ADR 002](docs/decisions/002-layers-and-dates.md)).
 
-- [Ruang lingkup](docs/SCOPE.md)
-- [Architecture Decision Records](docs/adr/README.md)
+## Tahap
+
+| Tahap | Isi                                                        | Status  |
+| ----- | ---------------------------------------------------------- | ------- |
+| 0     | Fondasi dan inti (core, lint, CI, token)                   | Selesai |
+| 1     | Penampil: shell, tabel dan Gantt hanya baca, laporan impor | —       |
+| 2     | Interaksi: seret, ubah durasi, dependensi, undo/redo       | —       |
+| 3     | Berkas, dokumen, layar Proyek, kalender kerja              | —       |
+| 4     | Rilis: demo fiktif, polesan aksesibilitas, studi kasus     | —       |
+
+Setelah Tahap 4, proyek dibekukan.
+
+## Keputusan
+
+- [001. Stack](docs/decisions/001-stack.md)
+- [002. Lapisan dan aturan tanggal](docs/decisions/002-layers-and-dates.md)
+- [003. Format simpan dan penyimpanan berkas](docs/decisions/003-save-format-and-file-storage.md)
 
 ## Lisensi
 
