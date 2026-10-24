@@ -58,8 +58,17 @@ describe('App', () => {
     await renderApp()
     await fireEvent.click(await screen.findByRole('button', { name: 'Coba dengan proyek demo' }))
     const zoomOut = await screen.findByRole('button', { name: 'Perkecil skala waktu' })
-    await fireEvent.click(zoomOut)
+    const zoomIn = screen.getByRole('button', { name: 'Perbesar skala waktu' })
+    expect(zoomIn).toBeEnabled()
+
+    // Minggu is the default; three steps out reach Tahun, where the button stops.
+    for (let step = 0; step < 3; step++) await fireEvent.click(zoomOut)
     expect(zoomOut).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Perbesar skala waktu' })).toBeEnabled()
+    expect(screen.getByText('Tahun', { selector: '.zoom-label' })).toBeInTheDocument()
+
+    // Five steps in reach Detail, where the other button stops.
+    for (let step = 0; step < 5; step++) await fireEvent.click(zoomIn)
+    expect(zoomIn).toBeDisabled()
+    expect(screen.getByText('Detail', { selector: '.zoom-label' })).toBeInTheDocument()
   })
 })

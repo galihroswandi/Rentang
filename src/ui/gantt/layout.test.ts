@@ -5,7 +5,7 @@ import { toIsoDate } from '../../core/dates.ts'
 import { rollUpProgress } from '../../core/summary.ts'
 import { coffeeShopProject } from '../../core/test-utils/coffee-shop.ts'
 import { buildTaskRows } from '../table/rows.ts'
-import { layoutGantt, type GanttBar, type Zoom } from './layout.ts'
+import { DAY_WIDTH, headerMode, layoutGantt, ZOOMS, type GanttBar, type Zoom } from './layout.ts'
 
 const today = toIsoDate('2026-11-18')
 const project = coffeeShopProject()
@@ -132,6 +132,98 @@ describe('other zooms', () => {
     expect(result.bottom[0]).toMatchObject({ x: 0, width: 6, label: '1', isToday: false })
     expect(result.bottom.find((cell) => cell.isToday)?.label).toBe('16')
     expect(result.offDays).toEqual([])
+  })
+})
+
+describe('all zoom levels', () => {
+  it('runs from the closest look to the widest, each level narrower than the one before', () => {
+    expect(ZOOMS).toEqual(['detail', 'day', 'week', 'month', 'quarter', 'year'])
+    const widths = ZOOMS.map((zoom) => DAY_WIDTH[zoom])
+    expect(widths).toEqual([...widths].sort((a, b) => b - a))
+    expect(ZOOMS.map(headerMode)).toEqual(['days', 'days', 'days', 'weeks', 'months', 'quarters'])
+  })
+
+  it('names the weekday on each day at the closest level', () => {
+    const result = layout('detail')
+    expect(result.dayWidth).toBe(64)
+    expect(result.bottom.slice(0, 3).map((cell) => cell.label)).toEqual([
+      'Sen 26',
+      'Sel 27',
+      'Rab 28',
+    ])
+    expect(result.top[0]?.label).toBe('26 Okt – 1 Nov')
+    expect(result.offDays[0]).toEqual({ x: 5 * 64, width: 128 })
+  })
+
+  it('shows months under years, over whole years, with no weekend stripes', () => {
+    const result = layout('quarter')
+    expect(result.start).toBe('2026-01-01')
+    expect(result.end).toBe('2026-12-31')
+    expect(result.width).toBe(365 * 3)
+    expect(result.top).toEqual([
+      { key: '2026-01-01', x: 0, width: 365 * 3, label: '2026', isToday: false, isOff: false },
+    ])
+    expect(result.bottom.map((cell) => cell.label)).toEqual([
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ])
+    expect(result.bottom[0]?.width).toBe(31 * 3)
+    expect(result.bottom.find((cell) => cell.isToday)?.label).toBe('Nov')
+    expect(result.offDays).toEqual([])
+    expect(result.weekLines).toEqual([])
+  })
+
+  it('shows quarters under years at the widest level, and spans several years', () => {
+    const tasks = project.tasks.map((task) =>
+      task.id === '13' ? { ...task, start: toIsoDate('2028-03-01') } : task,
+    )
+    const rows = buildTaskRows({
+      project: { tasks },
+      analysis: null,
+      progress: new Map(),
+      collapsed: new Set(),
+      today,
+    }).map((row) =>
+      row.id === '13'
+        ? { ...row, start: toIsoDate('2028-03-01'), end: toIsoDate('2028-03-01') }
+        : row,
+    )
+    const result = layoutGantt({
+      rows,
+      dependencies: [],
+      calendar: createWorkCalendar(project.calendar),
+      zoom: 'year',
+      today,
+    })
+    expect(result.start).toBe('2026-01-01')
+    expect(result.end).toBe('2028-12-31')
+    expect(result.top.map((cell) => cell.label)).toEqual(['2026', '2027', '2028'])
+    expect(result.bottom).toHaveLength(12)
+    expect(result.bottom.slice(0, 4).map((cell) => cell.label)).toEqual(['K1', 'K2', 'K3', 'K4'])
+    expect(result.bottom.filter((cell) => cell.isToday).map((cell) => cell.key)).toEqual([
+      '2026-10-01',
+    ])
+    expect(bar(result.bars, '13')).toMatchObject({ kind: 'milestone' })
+  })
+
+  it.each(ZOOMS)('lays out every task at %s zoom', (zoom: Zoom) => {
+    const result = layout(zoom)
+    expect(result.bars).toHaveLength(13)
+    expect(result.todayX).toBeGreaterThan(0)
+    expect(result.todayX).toBeLessThan(result.width)
+    for (const item of result.bars) {
+      if (item.kind === 'task') expect(item.width).toBeGreaterThanOrEqual(2)
+    }
   })
 })
 

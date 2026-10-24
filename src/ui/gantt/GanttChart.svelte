@@ -188,7 +188,7 @@
           class="fill-weekend"
         />
       {/if}
-      {#if cell.isToday && layout.zoom !== 'month'}
+      {#if cell.isToday && layout.dayWidth >= 14}
         <circle
           cx={cell.x + cell.width / 2}
           cy={HEADER_ROW_HEIGHT + 13}
@@ -203,7 +203,7 @@
           text-anchor="middle"
           class={[
             'mono text-[11px]',
-            cell.isToday && layout.zoom !== 'month'
+            cell.isToday && layout.dayWidth >= 14
               ? 'fill-on-accent font-semibold'
               : cell.isToday
                 ? 'fill-accent-text font-semibold'

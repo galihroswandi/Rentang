@@ -63,7 +63,8 @@ export const prefs = {
   setColumns: (columns: Columns) => {
     write('columns', columns)
   },
-  zoom: () => read<Zoom>('zoom', 'week', isOneOf('day', 'week', 'month')),
+  zoom: () =>
+    read<Zoom>('zoom', 'week', isOneOf('detail', 'day', 'week', 'month', 'quarter', 'year')),
   setZoom: (zoom: Zoom) => {
     write('zoom', zoom)
   },

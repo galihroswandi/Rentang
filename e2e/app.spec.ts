@@ -241,6 +241,38 @@ test('bars can be dragged to move or resize a task, and the drag undone', async 
   expect(await dates()).toEqual(afterResize)
 })
 
+test('the time scale zooms from daily detail out to whole years', async ({ page }) => {
+  await openDemo(page)
+  const zoomIn = page.getByRole('button', { name: 'Perbesar skala waktu' })
+  const zoomOut = page.getByRole('button', { name: 'Perkecil skala waktu' })
+  const level = page.locator('.zoom-label')
+  await expect(level).toHaveText('Minggu')
+
+  await zoomIn.click()
+  await zoomIn.click()
+  await expect(level).toHaveText('Detail')
+  await expect(zoomIn).toBeDisabled()
+  await expect(page.getByText(/^Sen \d+$/).first()).toBeVisible()
+  await expectNoSeriousViolations(page)
+
+  for (const name of ['Hari', 'Minggu', 'Bulan', 'Kuartal', 'Tahun']) {
+    await zoomOut.click()
+    await expect(level).toHaveText(name)
+  }
+  await expect(zoomOut).toBeDisabled()
+  await expect(page.getByText('K1', { exact: true })).toBeVisible()
+
+  // Ctrl with the wheel steps back in, and the chosen level is remembered.
+  await page.mouse.move(900, 450)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, -120)
+  await page.keyboard.up('Control')
+  await expect(level).toHaveText('Kuartal')
+  await page.reload()
+  await page.getByRole('button', { name: /Peluncuran Kedai Kopi/ }).click()
+  await expect(level).toHaveText('Kuartal')
+})
+
 test('the calendar sets working days and holidays, and the schedule follows', async ({ page }) => {
   await openDemo(page)
   const grid = page.getByRole('treegrid')

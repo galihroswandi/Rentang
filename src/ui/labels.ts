@@ -1,4 +1,5 @@
 import type { Area, TaskType } from '../core/model.ts'
+import type { Zoom } from './gantt/layout.ts'
 
 export const AREA_LABELS: Readonly<Record<Area, string>> = {
   work: 'Kerja',
@@ -15,4 +16,13 @@ export const TYPE_LABELS: Readonly<Record<TaskType, string>> = {
   BUG: 'Bug',
   FIX: 'Perbaikan',
   REV: 'Review',
+}
+
+export const ZOOM_LABELS: Readonly<Record<Zoom, string>> = {
+  detail: 'Detail',
+  day: 'Hari',
+  week: 'Minggu',
+  month: 'Bulan',
+  quarter: 'Kuartal',
+  year: 'Tahun',
 }

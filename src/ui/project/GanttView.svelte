@@ -2,6 +2,7 @@
   import { untrack } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
   import { createWorkCalendar } from '../../core/calendar.ts'
+  import { addDays, diffDays } from '../../core/dates.ts'
   import type { CriticalPath } from '../../core/critical-path.ts'
   import type { IsoDate } from '../../core/dates.ts'
   import type { Project } from '../../core/model.ts'
@@ -26,6 +27,8 @@
     onSelect: (id: string | null) => void
     onOpen: (id: string) => void
     onReschedule: (change: Reschedule) => void
+    /** Ctrl or Cmd with the mouse wheel: -1 closer, +1 wider. */
+    onZoomStep: (direction: -1 | 1) => void
   }
   let {
     project,
@@ -40,6 +43,7 @@
     onSelect,
     onOpen,
     onReschedule,
+    onZoomStep,
   }: Props = $props()
 
   const DEFAULT_TABLE = 452
@@ -98,16 +102,51 @@
   const selectedIndex = $derived(rows.findIndex((row) => row.id === selectedId))
 
   let handledRequest = 0
-  // Centre today when the chart appears, when the zoom changes, and on every "Hari ini".
+  /** What the chart showed before the last zoom change, to keep the same date in view. */
+  let previous: { start: IsoDate; dayWidth: number; scrollLeft: number } | null = null
+
+  // Centre today when the chart first appears and on every "Hari ini"; when only the zoom
+  // changes, keep the date that was in the middle of the screen in the middle.
   $effect(() => {
-    const behavior: ScrollBehavior = todayRequest === handledRequest ? 'instant' : 'smooth'
+    const requested = todayRequest !== handledRequest
+    const behavior: ScrollBehavior = requested ? 'smooth' : 'instant'
     handledRequest = todayRequest
     const visibleZoom = zoom
     untrack(() => {
       if (!scroller || layout?.zoom !== visibleZoom) return
       const visible = scroller.clientWidth - shownWidth - SPLITTER
+      const last = previous
+      previous = { start: layout.start, dayWidth: layout.dayWidth, scrollLeft: scroller.scrollLeft }
+      if (last && !requested && last.dayWidth !== layout.dayWidth) {
+        const centreDay = (last.scrollLeft + visible / 2) / last.dayWidth
+        const date = addDays(last.start, Math.round(centreDay))
+        const left = diffDays(layout.start, date) * layout.dayWidth + layout.dayWidth / 2
+        scroller.scrollTo({ left: Math.max(0, left - visible / 2), behavior })
+        return
+      }
       scroller.scrollTo({ left: Math.max(0, layout.todayX - visible / 2), behavior })
     })
+  })
+
+  // Ctrl or Cmd with the wheel zooms, like a map. Needs a non-passive listener to stop the
+  // browser's own page zoom, so it is attached by hand.
+  $effect(() => {
+    const element = scroller
+    if (!element) return
+    let wheelRest = 0
+    const onWheel = (event: WheelEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return
+      event.preventDefault()
+      // A notch of a mouse wheel or a stretch of trackpad pinch makes one step.
+      wheelRest += event.deltaY
+      if (Math.abs(wheelRest) < 40) return
+      onZoomStep(wheelRest > 0 ? 1 : -1)
+      wheelRest = 0
+    }
+    element.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      element.removeEventListener('wheel', onWheel)
+    }
   })
 
   function toggle(id: string, expanded: boolean): void {

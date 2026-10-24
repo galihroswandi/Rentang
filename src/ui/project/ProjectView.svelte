@@ -10,6 +10,7 @@
     type TaskInput,
   } from '../../app/edits/project-edits.ts'
   import { ZOOMS, type Zoom } from '../gantt/layout.ts'
+  import { ZOOM_LABELS } from '../labels.ts'
   import Icon from '../icons/Icon.svelte'
   import { fade, fly } from '../motion.ts'
   import { prefs, type Columns } from '../prefs.ts'
@@ -57,6 +58,12 @@
   const subtaskCount = $derived(editing ? subtreeOf(project, editing.id).size - 1 : 0)
   const selectedTask = $derived(project.tasks.find((task) => task.id === selectedId) ?? null)
   const zoomIndex = $derived(ZOOMS.indexOf(zoom))
+
+  /** One level closer (-1) or wider (+1); stays put at either end. */
+  function stepZoom(direction: -1 | 1): void {
+    const next = ZOOMS[zoomIndex + direction]
+    if (next) setZoom(next)
+  }
 
   function setZoom(next: Zoom): void {
     zoom = next
@@ -143,7 +150,12 @@
           >
             <Icon name="zoom-out" />
           </button>
-          <span aria-hidden="true" class="w-px bg-line-strong"></span>
+          <span
+            aria-hidden="true"
+            class="mono flex w-[66px] items-center justify-center border-x border-line-strong bg-surface-2 text-[11.5px] font-semibold text-text-2"
+          >
+            {#key zoom}<span class="zoom-label">{ZOOM_LABELS[zoom]}</span>{/key}
+          </span>
           <button
             type="button"
             aria-label="Perbesar skala waktu"
@@ -157,9 +169,7 @@
             <Icon name="zoom-in" />
           </button>
         </div>
-        <span class="sr-only" aria-live="polite"
-          >Skala: {zoom === 'day' ? 'hari' : zoom === 'week' ? 'minggu' : 'bulan'}</span
-        >
+        <span class="sr-only" aria-live="polite">Skala: {ZOOM_LABELS[zoom].toLowerCase()}</span>
         <button type="button" class="btn" onclick={() => (calendarOpen = true)}>
           <Icon name="calendar-days" />
           <span class="max-sm:sr-only">Kalender</span>
@@ -251,6 +261,7 @@
             selectedId = id
           }}
           onReschedule={moveTask}
+          onZoomStep={stepZoom}
           onOpen={(id: string) => {
             selectedId = id
             dialog = { kind: 'edit', id }
@@ -289,3 +300,10 @@
   onSubmit={submitTask}
   onDelete={removeTask}
 />
+
+<style>
+  /* The level name changes with a short slide so the step is felt. */
+  .zoom-label {
+    animation: fade-up 220ms var(--ease-out);
+  }
+</style>

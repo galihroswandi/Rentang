@@ -14,13 +14,34 @@ import {
   type IsoDate,
 } from '../../core/dates.ts'
 import type { Dependency } from '../../core/model.ts'
-import { formatRange, formatShortDate, MONTHS } from '../format.ts'
+import { formatRange, formatShortDate, MONTHS, SHORT_MONTHS, WEEKDAYS } from '../format.ts'
 import type { TaskRow } from '../table/rows.ts'
 
-export type Zoom = 'day' | 'week' | 'month'
+/** From the closest look to the widest: a day is 64 px wide at `detail`, about 1 px at `year`. */
+export type Zoom = 'detail' | 'day' | 'week' | 'month' | 'quarter' | 'year'
 
-export const ZOOMS: readonly Zoom[] = ['day', 'week', 'month']
-export const DAY_WIDTH: Readonly<Record<Zoom, number>> = { day: 32, week: 20, month: 6 }
+export const ZOOMS: readonly Zoom[] = ['detail', 'day', 'week', 'month', 'quarter', 'year']
+export const DAY_WIDTH: Readonly<Record<Zoom, number>> = {
+  detail: 64,
+  day: 32,
+  week: 20,
+  month: 6,
+  quarter: 3,
+  year: 1.2,
+}
+
+/**
+ * How the header is built, by how wide a day is: whole days under week ranges, week starts
+ * under months, months under years, or quarters under years.
+ */
+export type HeaderMode = 'days' | 'weeks' | 'months' | 'quarters'
+export function headerMode(zoom: Zoom): HeaderMode {
+  const width = DAY_WIDTH[zoom]
+  return width >= 14 ? 'days' : width >= 4 ? 'weeks' : width >= 2 ? 'months' : 'quarters'
+}
+
+/** A day is wide enough to carry its weekday name as well as its number. */
+const WEEKDAY_NAME_WIDTH = 48
 export const ROW_HEIGHT = 36
 export const HEADER_ROW_HEIGHT = 26
 const BAR_HEIGHT = 18
@@ -104,6 +125,11 @@ function monthStart(date: IsoDate): IsoDate {
   return formatIsoDate({ year, month, day: 1 })
 }
 
+function nextYearStart(date: IsoDate): IsoDate {
+  const { year } = parseIsoDate(date) ?? { year: 1970 }
+  return formatIsoDate({ year: year + 1, month: 1, day: 1 })
+}
+
 function nextMonthStart(date: IsoDate): IsoDate {
   const { year, month } = parseIsoDate(date) ?? { year: 1970, month: 1 }
   return month === 12
@@ -119,7 +145,17 @@ function rangeOf(rows: readonly TaskRow[], zoom: Zoom, today: IsoDate): [IsoDate
     if (row.start) low = minDate(low, row.start)
     if (row.end) high = maxDate(high, row.end)
   }
-  if (zoom === 'month') {
+  const mode = headerMode(zoom)
+  if (mode === 'months' || mode === 'quarters') {
+    // Whole years, so the header never starts or ends in the middle of one.
+    const first = parseIsoDate(low)?.year ?? 1970
+    const last = parseIsoDate(high)?.year ?? first
+    return [
+      formatIsoDate({ year: first, month: 1, day: 1 }),
+      formatIsoDate({ year: last, month: 12, day: 31 }),
+    ]
+  }
+  if (mode === 'weeks') {
     return [monthStart(low), addDays(nextMonthStart(nextMonthStart(high)), -1)]
   }
   return [addDays(mondayOnOrBefore(low), -7), addDays(mondayOnOrBefore(high), 13)]
@@ -133,6 +169,7 @@ export function layoutGantt({
   today,
 }: LayoutInput): GanttLayout {
   const dayWidth = DAY_WIDTH[zoom]
+  const mode = headerMode(zoom)
   const [start, end] = rangeOf(rows, zoom, today)
   const dayCount = diffDays(start, end) + 1
   const xOf = (date: IsoDate): number => diffDays(start, date) * dayWidth
@@ -249,9 +286,42 @@ export function layoutGantt({
     const isOff = !calendar.isWorkday(date)
     const parts = parseIsoDate(date) ?? { year: 0, month: 1, day: 1 }
     const weekStart = dayOfWeek(date) === 1
-    if (weekStart && offset > 0) weekLines.push(x)
+    if (weekStart && offset > 0 && dayWidth >= 4) weekLines.push(x)
 
-    if (zoom === 'month') {
+    if (mode === 'months' || mode === 'quarters') {
+      const monthStarts = parts.day === 1
+      if (monthStarts && (mode === 'months' || (parts.month - 1) % 3 === 0)) {
+        const length =
+          mode === 'months'
+            ? diffDays(date, nextMonthStart(date))
+            : diffDays(date, nextMonthStart(nextMonthStart(nextMonthStart(date))))
+        const label =
+          mode === 'months'
+            ? (SHORT_MONTHS[parts.month - 1] ?? '')
+            : `K${String(Math.floor((parts.month - 1) / 3) + 1)}`
+        bottom.push({
+          key: date,
+          x,
+          width: length * dayWidth,
+          label,
+          isToday: today >= date && today < addDays(date, length),
+          isOff: false,
+        })
+      }
+      if (parts.month === 1 && monthStarts) {
+        top.push({
+          key: date,
+          x,
+          width: diffDays(date, nextYearStart(date)) * dayWidth,
+          label: String(parts.year),
+          isToday: false,
+          isOff: false,
+        })
+      }
+      continue
+    }
+
+    if (mode === 'weeks') {
       if (weekStart || offset === 0) {
         const weekEnd = minDate(addDays(mondayOnOrBefore(date), 6), end)
         bottom.push({
@@ -277,7 +347,7 @@ export function layoutGantt({
       continue
     }
 
-    if (isOff) {
+    if (isOff && dayWidth >= 14) {
       const last = offDays.at(-1)
       if (last && last.x + last.width === x) last.width += dayWidth
       else offDays.push({ x, width: dayWidth })
@@ -286,7 +356,10 @@ export function layoutGantt({
       key: date,
       x,
       width: dayWidth,
-      label: String(parts.day),
+      label:
+        dayWidth >= WEEKDAY_NAME_WIDTH
+          ? `${WEEKDAYS[dayOfWeek(date)].slice(0, 3)} ${String(parts.day)}`
+          : String(parts.day),
       isToday: date === today,
       isOff,
     })
