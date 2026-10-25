@@ -12,14 +12,28 @@
     open: boolean
     /** The task being edited, or null to add a new one. */
     task: Task | null
+    /** For a new task: the task it is added under, or null for a top-level one. */
+    parentName?: string | null
     /** How many subtasks the task has; a summary task's dates come from them. */
     subtaskCount: number
+    /** Tasks this one can sit under, in tree order; depth indents the label. */
+    parentOptions?: readonly { id: string; label: string }[]
     defaultStart: IsoDate
     onClose: () => void
-    onSubmit: (input: TaskInput) => void
+    onSubmit: (input: TaskInput, parentId: string | null) => void
     onDelete: () => void
   }
-  let { open, task, subtaskCount, defaultStart, onClose, onSubmit, onDelete }: Props = $props()
+  let {
+    open,
+    task,
+    parentName = null,
+    subtaskCount,
+    parentOptions = [],
+    defaultStart,
+    onClose,
+    onSubmit,
+    onDelete,
+  }: Props = $props()
 
   const PROGRESS_STEPS = [0, 25, 50, 75, 100]
 
@@ -29,6 +43,7 @@
   let duration = $state(1)
   let isMilestone = $state(false)
   let progress = $state(0)
+  let parentId: string | null = $state(null)
   let confirmDelete = $state(false)
   let nameInput: HTMLInputElement | undefined = $state()
 
@@ -49,13 +64,14 @@
     duration = task && !task.isMilestone ? task.duration : 1
     isMilestone = task?.isMilestone ?? false
     progress = task?.progress ?? 0
+    parentId = task?.parentId ?? null
     confirmDelete = false
   })
 
   function submit(event: SubmitEvent): void {
     event.preventDefault()
     if (!valid || !isIsoDate(start)) return
-    onSubmit({ name, type, start, duration, isMilestone, progress })
+    onSubmit({ name, type, start, duration, isMilestone, progress }, parentId)
   }
 </script>
 
@@ -64,13 +80,15 @@
   onOpenChange={(next) => {
     if (!next) onClose()
   }}
-  title={task ? 'Ubah tugas' : 'Tugas baru'}
+  title={task ? 'Ubah tugas' : parentName ? 'Subtugas baru' : 'Tugas baru'}
   width={520}
   initialFocus={() => nameInput}
 >
   {#snippet description()}
     {#if isSummary}
       Tugas induk: tanggal dan kemajuannya dihitung dari {subtaskCount} subtugas.
+    {:else if parentName}
+      Subtugas dari "{parentName}". Tanggal selesai dihitung dari mulai dan durasi hari kerja.
     {:else}
       Tanggal selesai dihitung dari mulai, durasi hari kerja, dan dependensi.
     {/if}
@@ -88,6 +106,18 @@
         autocomplete="off"
       />
     </div>
+
+    {#if task}
+      <div class="flex flex-col gap-1.5">
+        <label for="task-parent" class="label">Tugas induk</label>
+        <select id="task-parent" class="field" bind:value={parentId}>
+          <option value={null}>Tanpa induk (tingkat atas)</option>
+          {#each parentOptions as option (option.id)}
+            <option value={option.id}>{option.label}</option>
+          {/each}
+        </select>
+      </div>
+    {/if}
 
     <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
       <legend class="label mb-1.5">Jenis</legend>

@@ -8,6 +8,9 @@
   import CalendarDays from '@lucide/svelte/icons/calendar-days'
   import ChartGantt from '@lucide/svelte/icons/chart-gantt'
   import Check from '@lucide/svelte/icons/check'
+  import CornerDownRight from '@lucide/svelte/icons/corner-down-right'
+  import IndentDecrease from '@lucide/svelte/icons/indent-decrease'
+  import IndentIncrease from '@lucide/svelte/icons/indent-increase'
   import ChevronDown from '@lucide/svelte/icons/chevron-down'
   import ChevronRight from '@lucide/svelte/icons/chevron-right'
   import Clock from '@lucide/svelte/icons/clock'
@@ -55,6 +58,9 @@
     check: Check,
     'chevron-down': ChevronDown,
     'chevron-right': ChevronRight,
+    'corner-down-right': CornerDownRight,
+    'indent-decrease': IndentDecrease,
+    'indent-increase': IndentIncrease,
     clock: Clock,
     'cloud-alert': CloudAlert,
     'cloud-check': CloudCheck,

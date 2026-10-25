@@ -17,10 +17,21 @@
     onOpen: (id: string) => void
     onToggle: (id: string, expanded: boolean) => void
     onReorder: (id: string, targetId: string, place: 'before' | 'after') => void
+    /** Drops a task onto another, making that one its parent. */
+    onNest: (id: string, parentId: string) => void
   }
 
-  let { rows, columns, selectedId, criticalOn, onSelect, onOpen, onToggle, onReorder }: Props =
-    $props()
+  let {
+    rows,
+    columns,
+    selectedId,
+    criticalOn,
+    onSelect,
+    onOpen,
+    onToggle,
+    onReorder,
+    onNest,
+  }: Props = $props()
 
   let focusedIndex = $state(0)
   const rowElements: HTMLTableRowElement[] = $state([])
@@ -32,16 +43,30 @@
     rowElements[index]?.focus()
   }
 
-  // Rows can be dragged by their grip, within the same group of siblings.
+  // Rows can be dragged by their grip. Dropped on the left half of a row, the task
+  // goes before or after it, joining that row's group; dropped on the right half of any row, it becomes a subtask.
   let dragId: string | null = $state(null)
   let armedId: string | null = $state(null)
-  let dropTarget: { id: string; place: 'before' | 'after' } | null = $state(null)
+  let dropTarget: { id: string; place: 'before' | 'after' | 'inside' } | null = $state(null)
 
-  function dropPlace(event: DragEvent, row: TaskRow): 'before' | 'after' | null {
+  function isInside(candidateId: string, ancestorId: string): boolean {
+    const byId = new Map(rows.map((row) => [row.id, row]))
+    for (let id: string | null = candidateId; id !== null; id = byId.get(id)?.parentId ?? null) {
+      if (id === ancestorId) return true
+    }
+    return false
+  }
+
+  function dropPlace(event: DragEvent, row: TaskRow): 'before' | 'after' | 'inside' | null {
     const dragged = rows.find((candidate) => candidate.id === dragId)
-    if (!dragged || dragged.id === row.id || dragged.parentId !== row.parentId) return null
+    if (!dragged || dragged.id === row.id) return null
     const box = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    return event.clientY < box.top + box.height / 2 ? 'before' : 'after'
+    const inRightHalf = event.clientX > box.left + box.width / 2
+    if (!inRightHalf && !isInside(row.id, dragged.id)) {
+      return event.clientY < box.top + box.height / 2 ? 'before' : 'after'
+    }
+    if (row.isMilestone || isInside(row.id, dragged.id) || dragged.parentId === row.id) return null
+    return 'inside'
   }
 
   function endDrag(): void {
@@ -137,7 +162,8 @@
           const place = dropPlace(event, row)
           if (place && dragId) {
             event.preventDefault()
-            onReorder(dragId, row.id, place)
+            if (place === 'inside') onNest(dragId, row.id)
+            else onReorder(dragId, row.id, place)
           }
           endDrag()
         }}
@@ -160,13 +186,15 @@
           dropTarget?.id === row.id &&
             (dropTarget.place === 'before'
               ? 'shadow-[inset_0_2px_0_var(--color-accent)]'
-              : 'shadow-[inset_0_-2px_0_var(--color-accent)]'),
+              : dropTarget.place === 'after'
+                ? 'shadow-[inset_0_-2px_0_var(--color-accent)]'
+                : 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]'),
         ]}
       >
         <td class="relative overflow-hidden pr-2 pl-3.5">
           <span
             role="presentation"
-            title="Seret untuk mengubah urutan"
+            title="Seret untuk memindah urutan (lepas di sisi kiri baris, juga untuk mengeluarkan dari induk) atau menjadikan subtugas (lepas di sisi kanan baris)"
             onpointerdown={() => {
               armedId = row.id
             }}

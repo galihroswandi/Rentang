@@ -38,6 +38,7 @@
     onColumns: (columns: Columns) => void
     /** Puts the selected task before or after a sibling that is showing. */
     onReorder: (id: string, targetId: string, place: 'before' | 'after') => void
+    onNest: (id: string, parentId: string) => void
     /** Ctrl or Cmd with the mouse wheel: -1 closer, +1 wider. */
     onZoomStep: (direction: -1 | 1) => void
   }
@@ -60,6 +61,7 @@
     onFilter,
     onColumns,
     onReorder,
+    onNest,
   }: Props = $props()
 
   const DEFAULT_TABLE = 452
@@ -465,6 +467,7 @@
             {onOpen}
             onToggle={toggle}
             {onReorder}
+            {onNest}
           />
           {#if rows.length === 0}
             <p class="m-0 px-4 py-5 text-[13px] text-text-3">

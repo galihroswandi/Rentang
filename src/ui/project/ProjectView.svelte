@@ -2,11 +2,15 @@
   import type { ProjectSession } from '../../app/store/app-store.ts'
   import type { IsoDate } from '../../core/dates.ts'
   import {
+    addSubtask,
     addTask,
+    indentTask,
+    outdentTask,
     renameProject,
     deleteTask,
-    moveTask as reorderTask,
+    placeTask as reorderTask,
     reschedule,
+    setParent,
     subtreeOf,
     updateTask,
     type TaskInput,
@@ -46,8 +50,10 @@
   let renameOpen = $state(false)
   let deleteOpen = $state(false)
   let filter: RowFilter = $state(NO_FILTER)
-  let dialog: { readonly kind: 'new' } | { readonly kind: 'edit'; readonly id: string } | null =
-    $state(null)
+  let dialog:
+    | { readonly kind: 'new'; readonly parentId: string | null }
+    | { readonly kind: 'edit'; readonly id: string }
+    | null = $state(null)
 
   const project = $derived(session.project)
   const analysis = $derived(session.analysis.ok ? session.analysis.value : null)
@@ -67,6 +73,38 @@
   })
   const subtaskCount = $derived(editing ? subtreeOf(project, editing.id).size - 1 : 0)
   const selectedTask = $derived(project.tasks.find((task) => task.id === selectedId) ?? null)
+  const newParent = $derived.by(() => {
+    const open = dialog
+    return open?.kind === 'new' && open.parentId !== null
+      ? (project.tasks.find((task) => task.id === open.parentId) ?? null)
+      : null
+  })
+  const parentOptions = $derived.by(() => {
+    const own = editing ? subtreeOf(project, editing.id) : new Set<string>()
+    const out: { id: string; label: string }[] = []
+    const walk = (parentId: string | undefined, depth: number): void => {
+      const children = project.tasks
+        .filter((task) => task.parentId === parentId)
+        .sort((a, b) => a.order - b.order)
+      for (const task of children) {
+        if (own.has(task.id)) continue
+        if (!task.isMilestone) out.push({ id: task.id, label: `${'— '.repeat(depth)}${task.name}` })
+        walk(task.id, depth + 1)
+      }
+    }
+    walk(undefined, 0)
+    return out
+  })
+  const canAddSubtask = $derived(selectedTask !== null && !selectedTask.isMilestone)
+  const canOutdent = $derived(selectedTask?.parentId !== undefined)
+  const canIndent = $derived.by(() => {
+    const task = selectedTask
+    if (!task) return false
+    const above = project.tasks
+      .filter((other) => other.parentId === task.parentId && other.order < task.order)
+      .sort((a, b) => b.order - a.order)[0]
+    return above !== undefined && !above.isMilestone
+  })
   const zoomIndex = $derived(ZOOMS.indexOf(zoom))
 
   /** One level closer (-1) or wider (+1); stays put at either end. */
@@ -80,18 +118,27 @@
     prefs.setZoom(next)
   }
 
-  function submitTask(input: TaskInput): void {
+  function submitTask(input: TaskInput, parentId: string | null): void {
     if (dialog?.kind === 'new') {
       const id = store.getState().createId()
-      if (
-        store.getState().edit('Tugas ditambahkan', addTask(id, input, selectedId)) === 'applied'
-      ) {
+      const under = dialog.parentId
+      const recipe = under === null ? addTask(id, input, selectedId) : addSubtask(id, input, under)
+      if (store.getState().edit('Tugas ditambahkan', recipe) === 'applied') {
         selectedId = id
       }
     } else if (dialog?.kind === 'edit') {
-      store.getState().edit('Tugas diubah', updateTask(dialog.id, input))
+      const { id } = dialog
+      const current = project.tasks.find((task) => task.id === id)
+      store.getState().edit('Tugas diubah', (draft) => {
+        updateTask(id, input)(draft)
+        if (current && (current.parentId ?? null) !== parentId) setParent(id, parentId)(draft)
+      })
     }
     dialog = null
+  }
+
+  function restructure(label: string, recipe: ReturnType<typeof indentTask>): void {
+    store.getState().edit(label, recipe)
   }
 
   function moveTask(change: {
@@ -153,9 +200,47 @@
 
     {#if view === 'gantt'}
       <div in:fade class="flex flex-1 flex-wrap items-center gap-2">
-        <button type="button" class="btn" onclick={() => (dialog = { kind: 'new' })}>
+        <button
+          type="button"
+          class="btn"
+          onclick={() => (dialog = { kind: 'new', parentId: null })}
+        >
           <Icon name="plus" />
           <span class="max-sm:sr-only">Tugas</span>
+        </button>
+        <button
+          type="button"
+          class="btn"
+          disabled={!canAddSubtask}
+          title="Tambah subtugas di bawah tugas yang dipilih"
+          onclick={() => (dialog = { kind: 'new', parentId: selectedId })}
+        >
+          <Icon name="corner-down-right" />
+          <span class="max-sm:sr-only">Subtugas</span>
+        </button>
+        <button
+          type="button"
+          class="btn"
+          disabled={!canIndent}
+          aria-label="Jadikan subtugas dari tugas di atasnya"
+          title="Jadikan subtugas dari tugas di atasnya"
+          onclick={() => {
+            if (selectedId) restructure('Tugas digeser ke dalam', indentTask(selectedId))
+          }}
+        >
+          <Icon name="indent-increase" />
+        </button>
+        <button
+          type="button"
+          class="btn"
+          disabled={!canOutdent}
+          aria-label="Naikkan satu tingkat"
+          title="Naikkan satu tingkat"
+          onclick={() => {
+            if (selectedId) restructure('Tugas digeser ke luar', outdentTask(selectedId))
+          }}
+        >
+          <Icon name="indent-decrease" />
         </button>
         <span aria-hidden="true" class="mx-1 h-[22px] w-px bg-line max-sm:hidden"></span>
         <button type="button" class="btn" disabled={!analysis} onclick={() => (startRequest += 1)}>
@@ -319,6 +404,9 @@
             columns = next
             prefs.setColumns(next)
           }}
+          onNest={(id: string, parentId: string) => {
+            store.getState().edit('Tugas dijadikan subtugas', setParent(id, parentId))
+          }}
           onReorder={(id: string, targetId: string, place: 'before' | 'after') => {
             store.getState().edit('Urutan tugas diubah', reorderTask(id, targetId, place))
           }}
@@ -366,7 +454,9 @@
 <TaskDialog
   open={dialog !== null}
   task={editing}
+  parentName={newParent?.name ?? null}
   {subtaskCount}
+  {parentOptions}
   defaultStart={selectedTask?.start ?? analysis?.schedule.projectStart ?? today()}
   onClose={() => {
     dialog = null
