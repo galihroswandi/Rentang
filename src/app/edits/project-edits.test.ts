@@ -7,16 +7,21 @@ import {
   addHoliday,
   addResource,
   addRole,
+  addSubtask,
   addTask,
+  indentTask,
+  outdentTask,
   assign,
   createProject,
   deleteTask,
   moveTask,
+  placeTask,
   removeHoliday,
   removeResource,
   setWorkingDays,
   removeRole,
   renameProject,
+  setParent,
   reschedule,
   renameRole,
   subtreeOf,
@@ -55,6 +60,58 @@ describe('createProject', () => {
     const project = createProject('p', 'Kebun Hidroponik', 'career')
     expect(projectSchema.safeParse(project).success).toBe(true)
     expect(project).toMatchObject({ name: 'Kebun Hidroponik', area: 'career', tasks: [] })
+  })
+})
+
+describe('subtask hierarchy', () => {
+  it('adds a subtask as the last child of a task', () => {
+    const project = apply(coffeeShopProject(), addSubtask('n', input, '5'))
+    expect(ordered(project, '5')).toEqual(['6', '7', '8', 'n'])
+    expect(byId(project, 'n')).toMatchObject({ parentId: '5', order: 3 })
+  })
+
+  it('turns a leaf into a summary task when it gets its first subtask', () => {
+    const project = apply(coffeeShopProject(), addSubtask('n', input, '9'))
+    expect(subtreeOf(project, '9').has('n')).toBe(true)
+  })
+
+  it('indents a task under the sibling above it and renumbers', () => {
+    const project = apply(coffeeShopProject(), indentTask('9'))
+    expect(byId(project, '9')?.parentId).toBe('5')
+    expect(ordered(project, '5').at(-1)).toBe('9')
+    expect(ordered(project)).toEqual(['1', '5'])
+  })
+
+  it('does not indent the first task of a group', () => {
+    const before = coffeeShopProject()
+    expect(apply(before, indentTask('1'))).toEqual(before)
+  })
+
+  it('outdents a subtask to sit right after its parent', () => {
+    const project = apply(coffeeShopProject(), outdentTask('6'))
+    expect(byId(project, '6')).not.toHaveProperty('parentId')
+    expect(ordered(project)).toEqual(['1', '5', '6', '9'])
+    expect(ordered(project, '5')).toEqual(['7', '8'])
+  })
+
+  it('moves a task under any other task, and back to the top level', () => {
+    const under = apply(coffeeShopProject(), setParent('1', '5'))
+    expect(byId(under, '1')?.parentId).toBe('5')
+    expect(ordered(under)).toEqual(['5', '9'])
+    expect(ordered(under, '5').at(-1)).toBe('1')
+    const top = apply(under, setParent('1', null))
+    expect(ordered(top).at(-1)).toBe('1')
+  })
+
+  it('refuses to move a task under itself or its own subtask', () => {
+    const before = coffeeShopProject()
+    expect(apply(before, setParent('5', '6'))).toEqual(before)
+    expect(apply(before, setParent('5', '5'))).toEqual(before)
+  })
+
+  it('does not outdent a top-level task', () => {
+    const before = coffeeShopProject()
+    expect(apply(before, outdentTask('1'))).toEqual(before)
   })
 })
 
@@ -171,6 +228,34 @@ describe('moveTask', () => {
       moveTask('nope', '7', 'before'),
     )
     expect(unchanged).toEqual(before)
+  })
+})
+
+describe('placeTask', () => {
+  it('takes a subtask out of its parent, next to a top-level task', () => {
+    const project = apply(coffeeShopProject(), placeTask('6', '9', 'before'))
+    expect(byId(project, '6')).not.toHaveProperty('parentId')
+    expect(ordered(project)).toEqual(['1', '5', '6', '9'])
+    expect(ordered(project, '5')).toEqual(['7', '8'])
+  })
+
+  it('moves a task next to a subtask of another parent', () => {
+    const project = apply(coffeeShopProject(), placeTask('9', '3', 'after'))
+    expect(byId(project, '9')?.parentId).toBe('1')
+    expect(ordered(project, '1')).toEqual(['2', '3', '9', '4'])
+  })
+
+  it('works inside one group, and refuses its own subtree or a missing task', () => {
+    const before = coffeeShopProject()
+    expect(ordered(apply(before, placeTask('8', '6', 'before')), '5')).toEqual(['8', '6', '7'])
+    expect(
+      apply(
+        before,
+        placeTask('5', '6', 'after'),
+        placeTask('5', 'nope', 'after'),
+        placeTask('nope', '1', 'after'),
+      ),
+    ).toEqual(before)
   })
 })
 

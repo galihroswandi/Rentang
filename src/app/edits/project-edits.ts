@@ -92,6 +92,81 @@ export function addTask(id: string, input: TaskInput, afterId: string | null): R
   }
 }
 
+/** Adds a task as the last subtask of `parentId`. */
+export function addSubtask(id: string, input: TaskInput, parentId: string): Recipe {
+  return (draft) => {
+    if (!draft.tasks.some((task) => task.id === parentId)) return
+    const task: Draft<Task> = {
+      id,
+      name: '',
+      start: clampDate(input.start),
+      duration: 1,
+      progress: 0,
+      isMilestone: false,
+      order: siblingsOf(draft, parentId).length,
+      parentId,
+    }
+    applyTaskInput(task, input, false)
+    draft.tasks.push(task)
+  }
+}
+
+/** Makes a task the last subtask of the sibling right above it. */
+export function indentTask(id: string): Recipe {
+  return (draft) => {
+    const task = draft.tasks.find((candidate) => candidate.id === id)
+    if (!task) return
+    const siblings = siblingsOf(draft, task.parentId)
+    const above = siblings[siblings.indexOf(task) - 1]
+    if (!above || above.isMilestone) return
+    const oldParent = task.parentId
+    task.parentId = above.id
+    task.order = siblingsOf(draft, above.id).length - 1
+    siblingsOf(draft, oldParent).forEach((sibling, index) => {
+      sibling.order = index
+    })
+  }
+}
+
+/** Moves a task, with its subtasks, to be the last child of `parentId` (null: top level). */
+export function setParent(id: string, parentId: string | null): Recipe {
+  return (draft) => {
+    const task = draft.tasks.find((candidate) => candidate.id === id)
+    const parent = draft.tasks.find((candidate) => candidate.id === parentId)
+    if (!task || (parentId !== null && (!parent || parent.isMilestone))) return
+    if (parentId !== null && subtreeOf(draft, id).has(parentId)) return
+    if (task.parentId === (parentId ?? undefined)) return
+    const oldParent = task.parentId
+    task.order = siblingsOf(draft, parentId ?? undefined).length
+    if (parentId === null) delete task.parentId
+    else task.parentId = parentId
+    siblingsOf(draft, oldParent).forEach((sibling, index) => {
+      sibling.order = index
+    })
+  }
+}
+
+/** Moves a subtask up one level, to sit right after the task it was under. */
+export function outdentTask(id: string): Recipe {
+  return (draft) => {
+    const task = draft.tasks.find((candidate) => candidate.id === id)
+    const parent = draft.tasks.find((candidate) => candidate.id === task?.parentId)
+    if (!task || !parent) return
+    const oldParent = parent.id
+    const grandParent = parent.parentId
+    const target = siblingsOf(draft, grandParent).filter((sibling) => sibling.id !== id)
+    target.splice(target.indexOf(parent) + 1, 0, task)
+    if (grandParent === undefined) delete task.parentId
+    else task.parentId = grandParent
+    target.forEach((sibling, index) => {
+      sibling.order = index
+    })
+    siblingsOf(draft, oldParent).forEach((sibling, index) => {
+      sibling.order = index
+    })
+  }
+}
+
 export function updateTask(id: string, input: TaskInput): Recipe {
   return (draft) => {
     const task = draft.tasks.find((candidate) => candidate.id === id)
@@ -155,6 +230,31 @@ export function moveTask(id: string, targetId: string, place: 'before' | 'after'
     others.forEach((sibling, index) => {
       sibling.order = index
     })
+  }
+}
+
+/**
+ * Like `moveTask`, but the target may be in another group: the task joins the target's
+ * group, so dropping a subtask next to a top-level task takes it out of its parent.
+ */
+export function placeTask(id: string, targetId: string, place: 'before' | 'after'): Recipe {
+  return (draft) => {
+    const task = draft.tasks.find((candidate) => candidate.id === id)
+    const target = draft.tasks.find((candidate) => candidate.id === targetId)
+    if (!task || !target || subtreeOf(draft, id).has(targetId)) return
+    const oldParent = task.parentId
+    if (target.parentId === undefined) delete task.parentId
+    else task.parentId = target.parentId
+    const others = siblingsOf(draft, target.parentId).filter((sibling) => sibling.id !== id)
+    others.splice(others.indexOf(target) + (place === 'after' ? 1 : 0), 0, task)
+    others.forEach((sibling, index) => {
+      sibling.order = index
+    })
+    if (oldParent !== target.parentId) {
+      siblingsOf(draft, oldParent).forEach((sibling, index) => {
+        sibling.order = index
+      })
+    }
   }
 }
 
