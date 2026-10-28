@@ -110,6 +110,11 @@ export const projectFileSchema = z.object({
   project: projectSchema,
 })
 
+/** The plain text of a task's notes; empty when it has none. */
+export function noteTextOf(task: Pick<Task, 'notes'>): string {
+  return typeof task.notes === 'string' ? task.notes : ''
+}
+
 export type Area = z.infer<typeof areaSchema>
 export type Calendar = z.infer<typeof calendarSchema>
 export type TaskType = z.infer<typeof taskTypeSchema>

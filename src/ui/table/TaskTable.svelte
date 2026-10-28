@@ -246,6 +246,12 @@
             >
               {row.name || 'Tanpa nama'}
             </span>
+            {#if row.hasNotes}
+              <span class="flex-none text-text-3" title="Ada catatan">
+                <Icon name="notes" size={13} />
+                <span class="sr-only">, ada catatan</span>
+              </span>
+            {/if}
             {#if criticalOn && row.critical}
               <span class="size-1.5 flex-none rounded-full bg-critical" aria-hidden="true"></span>
               <span class="sr-only">, jalur kritis</span>

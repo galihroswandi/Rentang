@@ -39,6 +39,7 @@ const input: TaskInput = {
   duration: 2.4,
   isMilestone: false,
   progress: 30,
+  notes: '',
 }
 
 function apply(project: Project, ...recipes: Recipe[]): Project {
@@ -151,6 +152,21 @@ describe('tasks', () => {
       progress: 100,
     })
     expect(byId(project, '7')).not.toHaveProperty('type')
+  })
+
+  it('stores trimmed notes and clears them when blank', () => {
+    const noted = apply(
+      coffeeShopProject(),
+      updateTask('7', { ...input, notes: '  Tanya tukang  ' }),
+    )
+    expect(byId(noted, '7')?.notes).toBe('Tanya tukang')
+    const cleared = apply(noted, updateTask('7', { ...input, notes: '   ' }))
+    expect(byId(cleared, '7')).not.toHaveProperty('notes')
+  })
+
+  it('lets a summary task keep notes too', () => {
+    const project = apply(coffeeShopProject(), updateTask('5', { ...input, notes: 'Induk' }))
+    expect(byId(project, '5')?.notes).toBe('Induk')
   })
 
   it('only renames and retypes a summary task, whose dates come from its subtasks', () => {

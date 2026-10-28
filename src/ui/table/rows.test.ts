@@ -127,6 +127,28 @@ describe('buildTaskRows', () => {
     expect(rows()[1]).toMatchObject({ type: null, people: [] })
   })
 
+  it('flags only tasks that have non-blank notes', () => {
+    const noted: Project = {
+      ...project,
+      tasks: project.tasks.map((task) =>
+        task.id === '2'
+          ? { ...task, notes: 'Cek izin dulu' }
+          : task.id === '4'
+            ? { ...task, notes: '   ' }
+            : task,
+      ),
+    }
+    const flagged = buildTaskRows({
+      project: noted,
+      analysis: analysed(noted),
+      progress: rollUpProgress(noted),
+      collapsed: new Set(),
+      today,
+      filter: NO_FILTER,
+    })
+    expect(flagged.filter((row) => row.hasNotes).map((row) => row.id)).toEqual(['2'])
+  })
+
   it('leaves out collapsed subtrees', () => {
     const visible = rows(['1', '9'])
     expect(visible.map((row) => row.wbs)).toEqual(['1', '2', '2.1', '2.2', '2.3', '3'])

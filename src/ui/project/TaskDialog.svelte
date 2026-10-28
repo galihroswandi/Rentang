@@ -1,7 +1,13 @@
 <script lang="ts">
   import type { TaskInput } from '../../app/edits/project-edits.ts'
   import { isIsoDate, isSupportedDate, MAX_DATE, MIN_DATE, type IsoDate } from '../../core/dates.ts'
-  import { MAX_DURATION, TASK_TYPES, type Task, type TaskType } from '../../core/model.ts'
+  import {
+    MAX_DURATION,
+    noteTextOf,
+    TASK_TYPES,
+    type Task,
+    type TaskType,
+  } from '../../core/model.ts'
   import Dialog from '../dialog/Dialog.svelte'
   import Icon from '../icons/Icon.svelte'
   import { TYPE_LABELS } from '../labels.ts'
@@ -43,6 +49,7 @@
   let duration = $state(1)
   let isMilestone = $state(false)
   let progress = $state(0)
+  let notes = $state('')
   let parentId: string | null = $state(null)
   let confirmDelete = $state(false)
   let nameInput: HTMLInputElement | undefined = $state()
@@ -64,6 +71,7 @@
     duration = task && !task.isMilestone ? task.duration : 1
     isMilestone = task?.isMilestone ?? false
     progress = task?.progress ?? 0
+    notes = task ? noteTextOf(task) : ''
     parentId = task?.parentId ?? null
     confirmDelete = false
   })
@@ -71,7 +79,7 @@
   function submit(event: SubmitEvent): void {
     event.preventDefault()
     if (!valid || !isIsoDate(start)) return
-    onSubmit({ name, type, start, duration, isMilestone, progress }, parentId)
+    onSubmit({ name, type, start, duration, isMilestone, progress, notes }, parentId)
   }
 </script>
 
@@ -135,6 +143,16 @@
         {/each}
       </div>
     </fieldset>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="task-notes" class="label">Catatan</label>
+      <textarea
+        id="task-notes"
+        class="field min-h-24 resize-y py-2 leading-snug"
+        rows="4"
+        bind:value={notes}
+        placeholder="Tulis catatan untuk tugas ini (opsional)"></textarea>
+    </div>
 
     {#if !isSummary}
       <div transition:slide class="flex flex-col gap-4">

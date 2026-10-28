@@ -236,6 +236,7 @@ describe('editing', () => {
       duration: 10,
       isMilestone: false,
       progress: 0,
+      notes: '',
     }
     state().edit('Tugas diubah', updateTask('7', input))
     const analysis = state().sessions['kedai-kopi']?.analysis
@@ -252,6 +253,7 @@ describe('editing', () => {
       duration: 1,
       isMilestone: false,
       progress: 0,
+      notes: '',
     }
     expect(state().edit('Tugas ditambahkan', addTask('x', input, '13'))).toBe('applied')
     const bad = state().edit('Rusak', (draft) => {

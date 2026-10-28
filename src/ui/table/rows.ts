@@ -4,7 +4,13 @@
  */
 import type { CriticalPath } from '../../core/critical-path.ts'
 import type { IsoDate } from '../../core/dates.ts'
-import type { Project, Task, TaskId, TaskType } from '../../core/model.ts'
+import {
+  noteTextOf,
+  type Project,
+  type Task,
+  type TaskId,
+  type TaskType,
+} from '../../core/model.ts'
 import { taskStatus, type TaskStatus } from '../../core/summary.ts'
 import { initialsOf } from '../resource/people.ts'
 
@@ -12,6 +18,7 @@ export type TaskRow = {
   readonly id: TaskId
   readonly name: string
   readonly type: TaskType | null
+  readonly hasNotes: boolean
   /** People assigned to the task. */
   readonly people: readonly {
     readonly id: string
@@ -142,6 +149,7 @@ export function buildTaskRows({
         id: task.id,
         name: task.name,
         type: task.type ?? null,
+        hasNotes: noteTextOf(task).trim() !== '',
         people: peopleOf.get(task.id) ?? [],
         wbs,
         level,
