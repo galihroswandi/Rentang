@@ -29,6 +29,8 @@
 
   type Props = {
     layout: GanttLayout
+    /** Height the chart is stretched to when the rows do not fill the viewport. */
+    minHeight?: number
     rows: readonly TaskRow[]
     calendar: WorkCalendar
     selectedIndex: number
@@ -37,8 +39,19 @@
     onOpen: (id: string) => void
     onReschedule: (change: Reschedule) => void
   }
-  let { layout, rows, calendar, selectedIndex, criticalOn, onSelect, onOpen, onReschedule }: Props =
-    $props()
+  let {
+    layout,
+    minHeight = 0,
+    rows,
+    calendar,
+    selectedIndex,
+    criticalOn,
+    onSelect,
+    onOpen,
+    onReschedule,
+  }: Props = $props()
+
+  const height = $derived(Math.max(layout.height, minHeight))
 
   /** The grab strip on a bar's right edge, in px. */
   const HANDLE = 8
@@ -223,7 +236,7 @@
 
 <svg
   width={layout.width}
-  height={layout.height}
+  {height}
   class="block select-none"
   aria-hidden="true"
   onpointerdown={startDrag}
@@ -277,10 +290,10 @@
   </defs>
 
   {#each layout.offDays as day (day.x)}
-    <rect x={day.x} y="0" width={day.width} height={layout.height} class="fill-weekend" />
+    <rect x={day.x} y="0" width={day.width} {height} class="fill-weekend" />
   {/each}
   {#each layout.weekLines as x (x)}
-    <line x1={x + 0.5} x2={x + 0.5} y1="0" y2={layout.height} class="stroke-line" />
+    <line x1={x + 0.5} x2={x + 0.5} y1="0" y2={height} class="stroke-line" />
   {/each}
   {#if selectedIndex >= 0}
     <rect
@@ -443,7 +456,7 @@
     x1={layout.todayX}
     x2={layout.todayX}
     y1="0"
-    y2={layout.height}
+    y2={height}
     stroke-width="2"
     class="today stroke-today"
   />

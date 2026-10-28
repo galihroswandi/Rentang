@@ -7,7 +7,7 @@
   import type { IsoDate } from '../../core/dates.ts'
   import type { Project } from '../../core/model.ts'
   import GanttChart, { type Reschedule } from '../gantt/GanttChart.svelte'
-  import { layoutGantt, type GanttLayout, type Zoom } from '../gantt/layout.ts'
+  import { HEADER_HEIGHT, layoutGantt, type GanttLayout, type Zoom } from '../gantt/layout.ts'
   import { scrollAfterZoom, type ChartView } from '../gantt/zoom.ts'
   import { isSideways, nearestSnap, sidewaysDelta, snapPoints } from '../gantt/snap.ts'
   import { prefersReducedMotion } from '../motion.ts'
@@ -87,6 +87,7 @@
   const collapsed = new SvelteSet<string>()
   let scroller: HTMLDivElement | undefined = $state()
   let containerWidth = $state(0)
+  let containerHeight = $state(0)
   // svelte-ignore state_referenced_locally
   let customWidth: number | null = $state(prefs.tableWidth(project.id))
   let dragging = $state(false)
@@ -415,6 +416,7 @@
   bind:this={scroller}
   data-gantt-scroller
   bind:clientWidth={containerWidth}
+  bind:clientHeight={containerHeight}
   class={[
     // scroll-pt equals the sticky header height, so a focused row never lands underneath it.
     'relative min-h-0 flex-1 scroll-pt-16 overflow-auto bg-surface',
@@ -436,7 +438,7 @@
       </p>
     </div>
   {:else}
-    <div class="flex w-max min-w-full">
+    <div class="flex min-h-full w-max min-w-full">
       <div class="sticky left-0 z-20 flex flex-none bg-surface">
         <div
           style:width={`${String(shownWidth)}px`}
@@ -515,6 +517,7 @@
         >
           <GanttChart
             {layout}
+            minHeight={Math.max(0, containerHeight - HEADER_HEIGHT)}
             {rows}
             {calendar}
             {selectedIndex}
