@@ -495,14 +495,18 @@
             title="Seret untuk mengatur lebar tabel"
             onpointerdown={startDrag}
             onkeydown={onSplitterKey}
-            class={[
-              'sticky top-1/2 z-10 flex h-8 w-full -translate-y-1/2 cursor-col-resize touch-none items-center justify-center border-x border-line text-text-3 transition-colors duration-150 hover:bg-accent-soft hover:text-accent-text',
-              dragging ? 'bg-accent-soft text-accent-text' : 'bg-surface-2',
-            ]}
+            class="absolute inset-0 z-10 cursor-col-resize touch-none"
           >
-            <span class="transition-transform duration-200 group-hover:scale-125"
-              ><Icon name="grip" size={12} strokeWidth={2} /></span
+            <span
+              class={[
+                'sticky top-1/2 flex h-8 w-full -translate-y-1/2 items-center justify-center border-x border-line text-text-3 transition-colors duration-150 group-hover:bg-accent-soft group-hover:text-accent-text',
+                dragging ? 'bg-accent-soft text-accent-text' : 'bg-surface-2',
+              ]}
             >
+              <span class="transition-transform duration-200 group-hover:scale-125"
+                ><Icon name="grip" size={12} strokeWidth={2} /></span
+              >
+            </span>
           </div>
         </div>
       </div>
