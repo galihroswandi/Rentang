@@ -19,6 +19,8 @@
     onReorder: (id: string, targetId: string, place: 'before' | 'after') => void
     /** Drops a task onto another, making that one its parent. */
     onNest: (id: string, parentId: string) => void
+    /** Delete key on a row. */
+    onDelete: (id: string) => void
   }
 
   let {
@@ -31,6 +33,7 @@
     onToggle,
     onReorder,
     onNest,
+    onDelete,
   }: Props = $props()
 
   let focusedIndex = $state(0)
@@ -81,6 +84,11 @@
     if (event.key === 'Enter') {
       event.preventDefault()
       onOpen(row.id)
+      return
+    }
+    if (event.key === 'Delete') {
+      event.preventDefault()
+      onDelete(row.id)
       return
     }
     if (event.key === ' ') {

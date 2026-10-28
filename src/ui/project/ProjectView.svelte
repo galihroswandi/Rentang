@@ -152,11 +152,15 @@
     selectedId = change.id
   }
 
+  /** Deletes a task with its subtasks; the change can be undone from the toast. */
+  function removeTaskById(id: string): void {
+    if (selectedId !== null && subtreeOf(project, id).has(selectedId)) selectedId = null
+    store.getState().edit('Tugas dihapus', deleteTask(id))
+  }
+
   function removeTask(): void {
     if (dialog?.kind !== 'edit') return
-    const { id } = dialog
-    store.getState().edit('Tugas dihapus', deleteTask(id))
-    if (selectedId !== null && subtreeOf(project, id).has(selectedId)) selectedId = null
+    removeTaskById(dialog.id)
     dialog = null
   }
 
@@ -241,6 +245,18 @@
           }}
         >
           <Icon name="indent-decrease" />
+        </button>
+        <button
+          type="button"
+          class="btn-danger disabled:pointer-events-none disabled:opacity-40"
+          disabled={selectedTask === null}
+          aria-label="Hapus tugas terpilih"
+          title="Hapus tugas terpilih (Delete)"
+          onclick={() => {
+            if (selectedId) removeTaskById(selectedId)
+          }}
+        >
+          <Icon name="trash" />
         </button>
         <span aria-hidden="true" class="mx-1 h-[22px] w-px bg-line max-sm:hidden"></span>
         <button type="button" class="btn" disabled={!analysis} onclick={() => (startRequest += 1)}>
@@ -404,6 +420,7 @@
             columns = next
             prefs.setColumns(next)
           }}
+          onDelete={removeTaskById}
           onNest={(id: string, parentId: string) => {
             store.getState().edit('Tugas dijadikan subtugas', setParent(id, parentId))
           }}
