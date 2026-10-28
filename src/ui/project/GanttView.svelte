@@ -222,8 +222,7 @@
     current: GanttLayout,
     behavior: ScrollBehavior,
   ): void {
-    const todayEdge =
-      current.bottom.find((cell) => cell.isToday)?.x ?? current.todayX - current.dayWidth / 2
+    const todayEdge = current.bottom.find((cell) => cell.isToday)?.x ?? current.todayX
     const furthest = Math.max(0, element.scrollWidth - element.clientWidth)
     if (todayEdge > furthest + 0.5 && canAddYear(current)) {
       todayPending = behavior
