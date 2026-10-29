@@ -24,6 +24,8 @@ export type TaskInput = {
   readonly duration: number
   readonly isMilestone: boolean
   readonly progress: number
+  /** Free-text notes; blank clears them. */
+  readonly notes: string
 }
 
 export function createProject(id: string, name: string, area: Area): Project {
@@ -58,6 +60,9 @@ function applyTaskInput(task: Draft<Task>, input: TaskInput, isSummary: boolean)
   task.name = input.name.trim()
   if (input.type === null) delete task.type
   else task.type = input.type
+  const notes = input.notes.trim()
+  if (notes === '') delete task.notes
+  else task.notes = notes
   if (isSummary) return
   task.start = clampDate(input.start)
   task.isMilestone = input.isMilestone

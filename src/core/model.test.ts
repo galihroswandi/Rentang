@@ -4,6 +4,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   MAX_DURATION,
   MAX_LAG,
+  noteTextOf,
   projectFileSchema,
   projectSchema,
   type Project,
@@ -148,5 +149,13 @@ describe('projectFileSchema', () => {
       projectFileSchema.safeParse({ schemaVersion: CURRENT_SCHEMA_VERSION, project }).success,
     ).toBe(true)
     expect(projectFileSchema.safeParse({ schemaVersion: 0, project }).success).toBe(false)
+  })
+})
+
+describe('noteTextOf', () => {
+  it('returns text notes and an empty string for none or non-text notes', () => {
+    expect(noteTextOf({ notes: 'Halo' })).toBe('Halo')
+    expect(noteTextOf({})).toBe('')
+    expect(noteTextOf({ notes: { type: 'doc' } })).toBe('')
   })
 })

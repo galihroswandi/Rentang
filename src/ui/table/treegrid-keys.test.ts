@@ -12,6 +12,7 @@ function row(
     id,
     name: id,
     type: null,
+    hasNotes: false,
     people: [],
     wbs: id,
     level: parentId === null ? 1 : 2,

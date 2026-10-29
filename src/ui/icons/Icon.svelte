@@ -27,6 +27,7 @@
   import GripVertical from '@lucide/svelte/icons/grip-vertical'
   import LayoutGrid from '@lucide/svelte/icons/layout-grid'
   import LayoutList from '@lucide/svelte/icons/layout-list'
+  import NotebookText from '@lucide/svelte/icons/notebook-text'
   import Moon from '@lucide/svelte/icons/moon'
   import Pencil from '@lucide/svelte/icons/pencil'
   import Plus from '@lucide/svelte/icons/plus'
@@ -76,6 +77,7 @@
     cards: LayoutGrid,
     'layout-list': LayoutList,
     moon: Moon,
+    notes: NotebookText,
     pencil: Pencil,
     plus: Plus,
     redo: Redo2,
