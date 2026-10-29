@@ -190,12 +190,19 @@
           class="fill-weekend"
         />
       {/if}
-      {#if cell.isToday && layout.dayWidth >= 14}
-        <circle
-          cx={cell.x + cell.width / 2}
-          cy={HEADER_TOP_HEIGHT + 14}
-          r="9.5"
-          class="today-dot fill-accent"
+      {#if cell.isToday}
+        <line
+          x1={cell.x}
+          x2={cell.x}
+          y1={HEADER_TOP_HEIGHT}
+          y2={HEADER_HEIGHT}
+          stroke-width="2"
+          class="today stroke-today"
+        />
+        <polygon
+          points="{cell.x - 7},{HEADER_TOP_HEIGHT} {cell.x +
+            7},{HEADER_TOP_HEIGHT} {cell.x},{HEADER_TOP_HEIGHT + 9}"
+          class="today fill-today"
         />
       {/if}
       {#if cell.width >= 12}
@@ -205,13 +212,11 @@
           text-anchor="middle"
           class={[
             'mono text-[11px]',
-            cell.isToday && layout.dayWidth >= 14
-              ? 'fill-on-accent font-semibold'
-              : cell.isToday
-                ? 'fill-accent-text font-semibold'
-                : cell.isOff
-                  ? 'fill-text-3'
-                  : 'fill-text-2',
+            cell.isToday
+              ? 'fill-accent-text font-semibold'
+              : cell.isOff
+                ? 'fill-text-3'
+                : 'fill-text-2',
           ]}
         >
           {cell.label}
@@ -500,10 +505,5 @@
   }
   .today {
     animation: fade-in 500ms var(--ease-out) 300ms backwards;
-  }
-  .today-dot {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: pop 420ms var(--ease-out) 200ms backwards;
   }
 </style>

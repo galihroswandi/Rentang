@@ -43,7 +43,7 @@ describe('week zoom', () => {
     expect(result.width).toBe(365 * 20)
     expect(result.height).toBe(13 * 36)
     // 18 November is the 322nd day of 2026.
-    expect(result.todayX).toBe(321 * 20 + 10)
+    expect(result.todayX).toBe(321 * 20)
   })
 
   it('places task bars by date with progress', () => {

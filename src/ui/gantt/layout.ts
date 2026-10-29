@@ -395,6 +395,6 @@ export function layoutGantt({
     weekLines,
     top,
     bottom,
-    todayX: xOf(today) + dayWidth / 2,
+    todayX: xOf(today),
   }
 }
