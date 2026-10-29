@@ -29,6 +29,10 @@
     todayRequest: number
     /** Incremented by the "Awal proyek" button; each change scrolls to the first task's start. */
     startRequest: number
+    /** Incremented by the "Ke atas" button; each change scrolls to the first row. */
+    topRequest: number
+    /** Incremented by the "Ke bawah" button; each change scrolls to the last row. */
+    bottomRequest: number
     selectedId: string | null
     onSelect: (id: string | null) => void
     onOpen: (id: string) => void
@@ -53,6 +57,8 @@
     today,
     todayRequest,
     startRequest,
+    topRequest,
+    bottomRequest,
     selectedId,
     onSelect,
     onOpen,
@@ -206,6 +212,22 @@
         return
       }
       scrollToToday(scroller, layout, behavior)
+    })
+  })
+
+  // The vertical buttons: the first or last row, without moving sideways.
+  // svelte-ignore state_referenced_locally
+  let handledTop = topRequest
+  // svelte-ignore state_referenced_locally
+  let handledBottom = bottomRequest
+  $effect(() => {
+    const toTop = topRequest !== handledTop
+    const toBottom = bottomRequest !== handledBottom
+    handledTop = topRequest
+    handledBottom = bottomRequest
+    if (!toTop && !toBottom) return
+    untrack(() => {
+      scroller?.scrollTo({ top: toBottom ? scroller.scrollHeight : 0, behavior: scrollBehavior() })
     })
   })
 
