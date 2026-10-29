@@ -22,6 +22,7 @@ import {
   removeRole,
   renameProject,
   setParent,
+  setPredecessors,
   reschedule,
   renameRole,
   subtreeOf,
@@ -397,5 +398,41 @@ describe('renameProject', () => {
     const base = createProject('p', 'Lama', 'work')
     expect(produce(base, renameProject('  Baru  ')).name).toBe('Baru')
     expect(produce(base, renameProject('   ')).name).toBe('Lama')
+  })
+})
+
+describe('setPredecessors', () => {
+  const apply = (recipe: Recipe): Project => produce(coffeeShopProject(), recipe)
+  const idsFor = () => {
+    let n = 0
+    return () => `new-${String((n += 1))}`
+  }
+  const waitsFor = (project: Project, id: string) =>
+    project.dependencies.filter((d) => d.to === id).map((d) => d.from)
+
+  it('replaces what a task waits for, keeping the lag of what stays', () => {
+    const before = coffeeShopProject()
+    const kept = before.dependencies.find((d) => d.to === '11' && d.from === '8')
+    const after = apply(setPredecessors('11', ['8', '2'], idsFor()))
+    expect(waitsFor(after, '11').sort()).toEqual(['2', '8'])
+    expect(after.dependencies.find((d) => d.id === kept?.id)).toEqual(kept)
+    expect(after.dependencies.find((d) => d.from === '2' && d.to === '11')).toMatchObject({
+      type: 'finish-to-start',
+      lag: 0,
+    })
+    expect(projectSchema.safeParse(after).success).toBe(true)
+  })
+
+  it('clears every predecessor with an empty list and ignores a task waiting for itself', () => {
+    expect(waitsFor(apply(setPredecessors('11', [], idsFor())), '11')).toEqual([])
+    expect(waitsFor(apply(setPredecessors('5', ['5'], idsFor())), '5')).toEqual([])
+  })
+
+  it('leaves other tasks alone', () => {
+    const before = coffeeShopProject()
+    const after = apply(setPredecessors('11', [], idsFor()))
+    expect(after.dependencies).toHaveLength(
+      before.dependencies.length - waitsFor(before, '11').length,
+    )
   })
 })
