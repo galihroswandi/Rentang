@@ -55,6 +55,14 @@
 
   /** The grab strip on a bar's right edge, in px. */
   const HANDLE = 8
+  /** How much of an off-day column is drawn (0-1), centred on it, in the chart and its header. */
+  const OFF_COLUMN_RATIO = 0.4
+  const offColumns = $derived(
+    layout.offDays.map((day) => {
+      const width = day.width * OFF_COLUMN_RATIO
+      return { x: day.x + (day.width - width) / 2, width }
+    }),
+  )
 
   type Drag = {
     readonly pointerId: number
@@ -193,16 +201,16 @@
       <text x={cell.x + 8} y="22" class="fill-text-2 text-[11.5px] font-semibold">{cell.label}</text
       >
     {/each}
+    {#each offColumns as day (day.x)}
+      <rect
+        x={day.x}
+        y={HEADER_TOP_HEIGHT}
+        width={day.width}
+        height={HEADER_BOTTOM_HEIGHT}
+        class="fill-weekend"
+      />
+    {/each}
     {#each layout.bottom as cell (cell.key)}
-      {#if cell.isOff}
-        <rect
-          x={cell.x}
-          y={HEADER_TOP_HEIGHT}
-          width={cell.width}
-          height={HEADER_BOTTOM_HEIGHT}
-          class="fill-weekend"
-        />
-      {/if}
       {#if cell.isToday}
         <line
           x1={cell.x}
@@ -294,7 +302,7 @@
     </marker>
   </defs>
 
-  {#each layout.offDays as day (day.x)}
+  {#each offColumns as day (day.x)}
     <rect x={day.x} y="0" width={day.width} {height} class="fill-weekend" />
   {/each}
   {#each layout.weekLines as x (x)}
@@ -362,8 +370,8 @@
             class="geometry fill-bar-fill"
           />
         {/if}
-        <!-- Days off inside a bar stay empty: the bar only fills working days. -->
-        {#each layout.offDays as day (day.x)}
+        <!-- Days off inside a bar stay empty, matching the narrowed off columns. -->
+        {#each offColumns as day (day.x)}
           {@const from = Math.max(day.x, bar.x + 2)}
           {@const to = Math.min(day.x + day.width, bar.x + bar.width - 2)}
           {#if to > from}
