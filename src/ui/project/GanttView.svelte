@@ -209,6 +209,18 @@
     })
   })
 
+  // A project opens at its last task, where the work of today usually is, so nobody has to
+  // scroll down by hand. It happens once per opening; later scrolling is left alone.
+  let openedAtEnd = false
+  $effect(() => {
+    if (openedAtEnd || !scroller || !layout || rows.length === 0) return
+    openedAtEnd = true
+    const element = scroller
+    untrack(() => {
+      element.scrollTo({ top: element.scrollHeight, behavior: 'instant' })
+    })
+  })
+
   /** The floating buttons: the first or last row, without moving sideways. */
   function scrollVertically(to: 'top' | 'bottom'): void {
     scroller?.scrollTo({
