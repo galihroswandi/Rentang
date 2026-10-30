@@ -74,7 +74,7 @@
             class="dialog fixed z-50 flex flex-col overflow-hidden border border-line-strong bg-surface text-text shadow-pop"
           >
             <div class="flex items-start gap-3 px-6 pt-5 pb-3 max-sm:px-5">
-              <div class="min-w-0 flex-1">
+              <div class="min-w-0 flex-1 wrap-break-word">
                 <Dialog.Title level={2} class="m-0 text-lg font-semibold tracking-[-0.01em]"
                   >{title}</Dialog.Title
                 >
@@ -94,7 +94,7 @@
               tabindex="0"
               role="region"
               aria-label={title}
-              class="min-h-0 flex-1 overflow-y-auto px-6 pb-5 focus-visible:outline-offset-[-2px] max-sm:px-5"
+              class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-6 pb-5 focus-visible:-outline-offset-2 max-sm:px-5"
             >
               {@render children()}
             </div>

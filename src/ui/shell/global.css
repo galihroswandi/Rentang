@@ -207,7 +207,7 @@
   }
 
   .field {
-    @apply h-[38px] w-full rounded-md border border-line-strong bg-surface px-3 text-sm text-text;
+    @apply h-9.5 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-sm text-text;
     transition:
       border-color 160ms var(--ease-out),
       box-shadow 160ms var(--ease-out);

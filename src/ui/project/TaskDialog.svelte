@@ -110,7 +110,7 @@
     {/if}
   {/snippet}
 
-  <form id="task-form" class="flex flex-col gap-4" onsubmit={submit}>
+  <form id="task-form" class="flex min-w-0 flex-col gap-4" onsubmit={submit}>
     <div class="flex flex-col gap-1.5">
       <label for="task-name" class="label">Nama tugas</label>
       <input
@@ -206,7 +206,7 @@
           >
         </label>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-2 gap-3 [&>*]:min-w-0">
           <div class="flex flex-col gap-1.5">
             <label for="task-start" class="label">{isMilestone ? 'Tanggal' : 'Mulai'}</label>
             <input
