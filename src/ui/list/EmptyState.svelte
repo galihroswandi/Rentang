@@ -14,7 +14,7 @@
   }[] = [
     {
       icon: 'file-import',
-      title: 'Impor dari GanttProject',
+      title: 'Impor berkas .gan',
       text: 'Buka berkas .gan. Tugas, dependensi, orang, role, dan kalender ikut masuk, lalu Anda melihat laporan impornya.',
       hint: 'Berkas .gan',
       primary: true,

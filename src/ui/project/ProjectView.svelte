@@ -200,7 +200,11 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
   <h1 class="sr-only">{project.name}</h1>
-  <div class="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2">
+  <!-- Always one row, so the bar keeps a single height: labels collapse to icons below 2xl and
+       the row scrolls sideways when even the icons do not fit (phones, small tablets). -->
+  <div
+    class="relative flex items-center gap-2 overflow-x-auto border-b border-line bg-surface px-4 py-2 [scrollbar-width:none]"
+  >
     <Segmented
       label="Tampilan proyek"
       value={view}
@@ -213,17 +217,18 @@
         view = next
       }}
     />
-    <span aria-hidden="true" class="mx-1 h-[22px] w-px bg-line"></span>
+    <span aria-hidden="true" class="mx-1 h-[22px] w-px shrink-0 bg-line"></span>
 
     {#if view === 'gantt'}
-      <div in:fade class="flex flex-1 flex-wrap items-center gap-2">
+      <div in:fade class="flex items-center gap-2 flex-1 [&>*]:flex-none">
         <button
           type="button"
           class="btn"
+          title="Tambah tugas"
           onclick={() => (dialog = { kind: 'new', parentId: null })}
         >
           <Icon name="plus" />
-          <span class="max-sm:sr-only">Tugas</span>
+          <span class="max-2xl:sr-only">Tugas</span>
         </button>
         <button
           type="button"
@@ -233,11 +238,11 @@
           onclick={() => (dialog = { kind: 'new', parentId: selectedId })}
         >
           <Icon name="corner-down-right" />
-          <span class="max-sm:sr-only">Subtugas</span>
+          <span class="max-2xl:sr-only">Subtugas</span>
         </button>
         <button
           type="button"
-          class="btn"
+          class="btn w-9 px-0"
           disabled={!canIndent}
           aria-label="Jadikan subtugas dari tugas di atasnya"
           title="Jadikan subtugas dari tugas di atasnya"
@@ -249,7 +254,7 @@
         </button>
         <button
           type="button"
-          class="btn"
+          class="btn w-9 px-0"
           disabled={!canOutdent}
           aria-label="Naikkan satu tingkat"
           title="Naikkan satu tingkat"
@@ -271,14 +276,26 @@
         >
           <Icon name="trash" />
         </button>
-        <span aria-hidden="true" class="mx-1 h-[22px] w-px bg-line max-sm:hidden"></span>
-        <button type="button" class="btn" disabled={!analysis} onclick={() => (startRequest += 1)}>
+        <span aria-hidden="true" class="mx-1 h-[22px] w-px shrink-0 bg-line"></span>
+        <button
+          type="button"
+          class="btn"
+          title="Awal proyek"
+          disabled={!analysis}
+          onclick={() => (startRequest += 1)}
+        >
           <Icon name="arrow-left-to-line" />
-          <span class="max-sm:sr-only">Awal proyek</span>
+          <span class="max-2xl:sr-only">Awal proyek</span>
         </button>
-        <button type="button" class="btn" disabled={!analysis} onclick={() => (todayRequest += 1)}>
+        <button
+          type="button"
+          class="btn"
+          title="Hari ini"
+          disabled={!analysis}
+          onclick={() => (todayRequest += 1)}
+        >
           <Icon name="calendar-check" />
-          <span class="max-sm:sr-only">Hari ini</span>
+          <span class="max-2xl:sr-only">Hari ini</span>
         </button>
         <div class="flex overflow-hidden rounded-md border border-line-strong">
           <button
@@ -313,22 +330,28 @@
           </button>
         </div>
         <span class="sr-only" aria-live="polite">Skala: {ZOOM_LABELS[zoom].toLowerCase()}</span>
-        <button type="button" class="btn" onclick={() => (calendarOpen = true)}>
+        <button
+          type="button"
+          class="btn"
+          title="Kalender kerja"
+          onclick={() => (calendarOpen = true)}
+        >
           <Icon name="calendar-days" />
-          <span class="max-sm:sr-only">Kalender</span>
+          <span class="max-2xl:sr-only">Kalender</span>
         </button>
         <button
           type="button"
           role="switch"
           aria-checked={criticalOn}
+          title="Jalur kritis"
           onclick={() => {
             criticalOn = !criticalOn
             prefs.setCritical(criticalOn)
           }}
-          class="btn ml-auto pr-2.5"
+          class="btn pr-2.5 ml-auto"
         >
           <Icon name="route" />
-          <span class="max-sm:sr-only">Jalur kritis</span>
+          <span class="max-2xl:sr-only">Jalur kritis</span>
           <span
             class={[
               'relative inline-block h-[18px] w-[30px] rounded-full transition-colors duration-200',
@@ -345,17 +368,22 @@
         </button>
       </div>
     {:else}
-      <div in:fade class="flex flex-1 flex-wrap items-center gap-2">
-        <button type="button" class="btn" onclick={() => (addPersonRequest += 1)}>
+      <div in:fade class="flex items-center gap-2 flex-1 [&>*]:flex-none">
+        <button
+          type="button"
+          class="btn"
+          title="Tambah orang"
+          onclick={() => (addPersonRequest += 1)}
+        >
           <Icon name="user-plus" />
-          <span class="max-sm:sr-only">Orang</span>
+          <span class="max-2xl:sr-only">Orang</span>
         </button>
-        <button type="button" class="btn" onclick={() => (rolesOpen = true)}>
+        <button type="button" class="btn" title="Kelola role" onclick={() => (rolesOpen = true)}>
           <Icon name="tag" />
-          <span class="max-sm:sr-only">Kelola role</span>
+          <span class="max-2xl:sr-only">Kelola role</span>
         </button>
         <label
-          class="press ml-auto flex h-9 w-[260px] max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-text-3 focus-within:border-accent-border focus-within:shadow-[0_0_0_3px_rgb(245_158_11/25%)] max-sm:ml-0 max-sm:w-full"
+          class="press flex h-9 w-[220px] items-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-text-3 focus-within:border-accent-border focus-within:shadow-[0_0_0_3px_rgb(245_158_11/25%)] sm:w-[260px] ml-auto"
         >
           <Icon name="search" />
           <span class="sr-only">Cari orang</span>
@@ -369,11 +397,11 @@
       </div>
     {/if}
 
-    <span aria-hidden="true" class="mx-1 h-[22px] w-px bg-line"></span>
+    <span aria-hidden="true" class="mx-1 h-[22px] w-px shrink-0 bg-line"></span>
     <div class="flex items-center gap-2" role="group" aria-label="Aksi proyek">
-      <button type="button" class="btn" onclick={saveToFile}>
+      <button type="button" class="btn" title="Simpan ke berkas" onclick={saveToFile}>
         <Icon name="file-down" />
-        <span class="max-lg:sr-only">Simpan ke berkas</span>
+        <span class="max-2xl:sr-only">Simpan ke berkas</span>
       </button>
       <button
         type="button"
