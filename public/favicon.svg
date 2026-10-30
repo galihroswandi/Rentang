@@ -1,6 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#1f3a5f"/>
-  <rect x="6" y="9" width="14" height="4" rx="2" fill="#f4f1ea"/>
-  <rect x="10" y="15" width="16" height="4" rx="2" fill="#f4f1ea"/>
-  <rect x="8" y="21" width="9" height="4" rx="2" fill="#f4f1ea"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2d2b26"/>
+      <stop offset="1" stop-color="#171614"/>
+    </linearGradient>
+    <linearGradient id="amber" gradientUnits="userSpaceOnUse" x1="70" y1="48" x2="190" y2="208">
+      <stop offset="0" stop-color="#ffcb52"/>
+      <stop offset="1" stop-color="#ec8c00"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="58" fill="url(#bg)"/>
+  <g fill="none" stroke="url(#amber)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M72 62V194"/>
+    <path d="M72 62H140A31 31 0 0 1 140 124H72"/>
+    <path d="M108 158H140"/>
+    <path d="M144 192H184"/>
+  </g>
 </svg>
