@@ -24,9 +24,13 @@
     subtaskCount: number
     /** Tasks this one can sit under, in tree order; depth indents the label. */
     parentOptions?: readonly { id: string; label: string }[]
+    /** Tasks this one can wait for, in tree order. */
+    predecessorChoices?: readonly { id: string; label: string }[]
+    /** Ids of the tasks it waits for now. */
+    currentPredecessors?: readonly string[]
     defaultStart: IsoDate
     onClose: () => void
-    onSubmit: (input: TaskInput, parentId: string | null) => void
+    onSubmit: (input: TaskInput, parentId: string | null, predecessors: string[]) => void
     onDelete: () => void
   }
   let {
@@ -35,6 +39,8 @@
     parentName = null,
     subtaskCount,
     parentOptions = [],
+    predecessorChoices = [],
+    currentPredecessors = [],
     defaultStart,
     onClose,
     onSubmit,
@@ -51,6 +57,7 @@
   let progress = $state(0)
   let notes = $state('')
   let parentId: string | null = $state(null)
+  let predecessors: string[] = $state([])
   let confirmDelete = $state(false)
   let nameInput: HTMLInputElement | undefined = $state()
 
@@ -73,13 +80,14 @@
     progress = task?.progress ?? 0
     notes = task ? noteTextOf(task) : ''
     parentId = task?.parentId ?? null
+    predecessors = [...currentPredecessors]
     confirmDelete = false
   })
 
   function submit(event: SubmitEvent): void {
     event.preventDefault()
     if (!valid || !isIsoDate(start)) return
-    onSubmit({ name, type, start, duration, isMilestone, progress, notes }, parentId)
+    onSubmit({ name, type, start, duration, isMilestone, progress, notes }, parentId, predecessors)
   }
 </script>
 
@@ -153,6 +161,33 @@
         bind:value={notes}
         placeholder="Tulis catatan untuk tugas ini (opsional)"></textarea>
     </div>
+
+    {#if predecessorChoices.length > 0}
+      <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
+        <legend class="label mb-1.5">Dikerjakan setelah</legend>
+        <p class="m-0 text-xs text-text-3">
+          Tugas ini baru mulai setelah tugas yang dipilih selesai. Rantai tugas yang saling
+          bergantung inilah yang membentuk jalur kritis.
+        </p>
+        <ul class="m-0 max-h-40 list-none overflow-y-auto rounded-lg border border-line-strong p-1">
+          {#each predecessorChoices as option (option.id)}
+            <li>
+              <label
+                class="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] hover:bg-surface-2"
+              >
+                <input
+                  type="checkbox"
+                  value={option.id}
+                  bind:group={predecessors}
+                  class="size-4 accent-accent"
+                />
+                <span class="min-w-0 flex-1 truncate">{option.label}</span>
+              </label>
+            </li>
+          {/each}
+        </ul>
+      </fieldset>
+    {/if}
 
     {#if !isSummary}
       <div transition:slide class="flex flex-col gap-4">
