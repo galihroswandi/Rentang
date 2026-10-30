@@ -278,6 +278,31 @@ export function subtreeOf(project: Pick<Project, 'tasks'>, id: string): Set<stri
   return ids
 }
 
+/**
+ * Makes `taskId` wait for exactly the tasks in `fromIds` (finish-to-start). Dependencies
+ * that stay keep their lag; new ones start with none.
+ */
+export function setPredecessors(
+  taskId: string,
+  fromIds: readonly string[],
+  newId: () => string,
+): Recipe {
+  return (draft) => {
+    const wanted = new Set(fromIds)
+    const kept = new Set<string>()
+    draft.dependencies = draft.dependencies.filter((dependency) => {
+      if (dependency.to !== taskId) return true
+      if (!wanted.has(dependency.from) || kept.has(dependency.from)) return false
+      kept.add(dependency.from)
+      return true
+    })
+    for (const from of wanted) {
+      if (kept.has(from) || from === taskId) continue
+      draft.dependencies.push({ id: newId(), from, to: taskId, type: 'finish-to-start', lag: 0 })
+    }
+  }
+}
+
 /** Removes a task with its subtasks, and every dependency and assignment that touched them. */
 export function deleteTask(id: string): Recipe {
   return (draft) => {

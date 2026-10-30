@@ -11,6 +11,7 @@
     placeTask as reorderTask,
     reschedule,
     setParent,
+    setPredecessors,
     subtreeOf,
     updateTask,
     type TaskInput,
@@ -30,6 +31,7 @@
   import DeleteProjectDialog from './DeleteProjectDialog.svelte'
   import { projectFileName, serializeProject } from './project-file.ts'
   import RenameProjectDialog from './RenameProjectDialog.svelte'
+  import { predecessorIds, predecessorOptions } from './predecessors.ts'
   import TaskDialog from './TaskDialog.svelte'
 
   let { session }: { session: ProjectSession } = $props()
@@ -95,6 +97,10 @@
     walk(undefined, 0)
     return out
   })
+  const predecessorChoices = $derived(
+    dialog ? predecessorOptions(project, editing?.id ?? null) : [],
+  )
+  const currentPredecessors = $derived(editing ? predecessorIds(project, editing.id) : [])
   const canAddSubtask = $derived(selectedTask !== null && !selectedTask.isMilestone)
   const canOutdent = $derived(selectedTask?.parentId !== undefined)
   const canIndent = $derived.by(() => {
@@ -118,20 +124,27 @@
     prefs.setZoom(next)
   }
 
-  function submitTask(input: TaskInput, parentId: string | null): void {
+  function submitTask(input: TaskInput, parentId: string | null, predecessors: string[]): void {
     if (dialog?.kind === 'new') {
       const id = store.getState().createId()
       const under = dialog.parentId
       const recipe = under === null ? addTask(id, input, selectedId) : addSubtask(id, input, under)
-      if (store.getState().edit('Tugas ditambahkan', recipe) === 'applied') {
+      const createId = (): string => store.getState().createId()
+      const outcome = store.getState().edit('Tugas ditambahkan', (draft) => {
+        recipe(draft)
+        if (predecessors.length > 0) setPredecessors(id, predecessors, createId)(draft)
+      })
+      if (outcome === 'applied') {
         selectedId = id
       }
     } else if (dialog?.kind === 'edit') {
       const { id } = dialog
+      const createId = (): string => store.getState().createId()
       const current = project.tasks.find((task) => task.id === id)
       store.getState().edit('Tugas diubah', (draft) => {
         updateTask(id, input)(draft)
         if (current && (current.parentId ?? null) !== parentId) setParent(id, parentId)(draft)
+        setPredecessors(id, predecessors, createId)(draft)
       })
     }
     dialog = null
@@ -474,6 +487,8 @@
   parentName={newParent?.name ?? null}
   {subtaskCount}
   {parentOptions}
+  {predecessorChoices}
+  {currentPredecessors}
   defaultStart={selectedTask?.start ?? analysis?.schedule.projectStart ?? today()}
   onClose={() => {
     dialog = null
