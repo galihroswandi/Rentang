@@ -102,7 +102,7 @@ describe('error text', () => {
       { type: 'malformed-xml', message: 'x', line: 3 },
       'Berkas ini bukan XML yang valid (baris 3).',
     ],
-    [{ type: 'not-a-gan-file' }, 'Berkas ini bukan proyek GanttProject.'],
+    [{ type: 'not-a-gan-file' }, 'Berkas ini bukan proyek .gan yang valid.'],
     [{ type: 'invalid-structure', issues: [] }, 'Struktur berkas .gan tidak bisa dibaca.'],
     [{ type: 'invalid-project', issues: [] }, 'Isi proyek tidak valid, jadi berkas tidak dibuka.'],
     [{ type: 'not-an-object' }, 'Berkas ini bukan berkas Rentang.'],
@@ -125,7 +125,7 @@ describe('error text', () => {
   it('describes notices', () => {
     expect(
       describeNotice({ kind: 'open-failed', fileName: 'a.gan', error: { type: 'not-a-gan-file' } }),
-    ).toBe('a.gan: Berkas ini bukan proyek GanttProject.')
+    ).toBe('a.gan: Berkas ini bukan proyek .gan yang valid.')
     expect(describeNotice({ kind: 'storage-failed' })).toContain('Penyimpanan browser')
   })
 })

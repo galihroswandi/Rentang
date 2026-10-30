@@ -20,7 +20,7 @@ type FilePickerWindow = {
 export type FileKind = 'gan' | 'rentang'
 
 const TYPES: Record<FileKind, PickerType> = {
-  gan: { description: 'Proyek GanttProject', accept: { 'application/xml': ['.gan'] } },
+  gan: { description: 'Proyek .gan', accept: { 'application/xml': ['.gan'] } },
   rentang: { description: 'Proyek Rentang', accept: { 'application/json': ['.rentang'] } },
 }
 

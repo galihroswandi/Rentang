@@ -20,7 +20,7 @@ describe('App', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Mulai dari mana?' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Impor dari GanttProject/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Impor berkas \.gan/ })).toBeInTheDocument()
   })
 
   it('opens the demo with a keyboard-navigable task table', async () => {

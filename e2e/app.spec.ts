@@ -83,7 +83,7 @@ test('reports a file that is not a project', async ({ page }) => {
     buffer: Buffer.from('<catatan/>'),
   })
   await expect(page.getByRole('alert')).toContainText(
-    'catatan.gan: Berkas ini bukan proyek GanttProject.',
+    'catatan.gan: Berkas ini bukan proyek .gan yang valid.',
   )
 })
 

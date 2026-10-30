@@ -5,7 +5,7 @@ export function describeOpenError(error: OpenFileError): string {
     case 'malformed-xml':
       return `Berkas ini bukan XML yang valid (baris ${String(error.line)}).`
     case 'not-a-gan-file':
-      return 'Berkas ini bukan proyek GanttProject.'
+      return 'Berkas ini bukan proyek .gan yang valid.'
     case 'invalid-structure':
       return 'Struktur berkas .gan tidak bisa dibaca.'
     case 'invalid-project':
