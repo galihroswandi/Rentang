@@ -434,7 +434,7 @@
         <Icon name="gantt" size={22} />
       </span>
       <p class="m-0 text-[15px] font-semibold text-text">Belum ada tugas</p>
-      <p class="m-0 max-w-[340px] text-[13px]">
+      <p class="m-0 max-w-85 text-[13px]">
         Tambahkan tugas pertama dengan tombol Tugas di atas.
       </p>
     </div>
