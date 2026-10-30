@@ -42,8 +42,6 @@
   let criticalOn = $state(prefs.critical())
   let todayRequest = $state(0)
   let startRequest = $state(0)
-  let topRequest = $state(0)
-  let bottomRequest = $state(0)
   let selectedId: string | null = $state(null)
   let peopleQuery = $state('')
   let addPersonRequest = $state(0)
@@ -269,26 +267,6 @@
           <Icon name="calendar-check" />
           <span class="max-sm:sr-only">Hari ini</span>
         </button>
-        <button
-          type="button"
-          class="btn"
-          aria-label="Ke tugas paling atas"
-          title="Ke tugas paling atas"
-          disabled={!analysis}
-          onclick={() => (topRequest += 1)}
-        >
-          <Icon name="arrow-up" />
-        </button>
-        <button
-          type="button"
-          class="btn"
-          aria-label="Ke tugas paling bawah"
-          title="Ke tugas paling bawah"
-          disabled={!analysis}
-          onclick={() => (bottomRequest += 1)}
-        >
-          <Icon name="arrow-down" />
-        </button>
         <div class="flex overflow-hidden rounded-md border border-line-strong">
           <button
             type="button"
@@ -428,8 +406,6 @@
           today={today()}
           {todayRequest}
           {startRequest}
-          {topRequest}
-          {bottomRequest}
           {selectedId}
           onSelect={(id: string | null) => {
             selectedId = id
