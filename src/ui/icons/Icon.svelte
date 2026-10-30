@@ -1,7 +1,9 @@
 <script lang="ts" module>
   // The Lucide icons the design canvas uses, under the names the components ask for.
   import ArrowDown from '@lucide/svelte/icons/arrow-down'
+  import ArrowDownToLine from '@lucide/svelte/icons/arrow-down-to-line'
   import ArrowLeftToLine from '@lucide/svelte/icons/arrow-left-to-line'
+  import ArrowUpToLine from '@lucide/svelte/icons/arrow-up-to-line'
   import ArrowUp from '@lucide/svelte/icons/arrow-up'
   import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right'
   import CalendarCheck from '@lucide/svelte/icons/calendar-check'
@@ -50,7 +52,9 @@
 
   const ICONS = {
     'arrow-down': ArrowDown,
+    'arrow-down-to-line': ArrowDownToLine,
     'arrow-left-to-line': ArrowLeftToLine,
+    'arrow-up-to-line': ArrowUpToLine,
     'arrow-up': ArrowUp,
     'arrow-up-right': ArrowUpRight,
     'calendar-check': CalendarCheck,

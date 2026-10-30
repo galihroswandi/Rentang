@@ -221,6 +221,14 @@
     })
   })
 
+  /** The floating buttons: the first or last row, without moving sideways. */
+  function scrollVertically(to: 'top' | 'bottom'): void {
+    scroller?.scrollTo({
+      top: to === 'top' ? 0 : scroller.scrollHeight,
+      behavior: scrollBehavior(),
+    })
+  }
+
   /** The earliest start over every task, or null when there are none. */
   function projectStart(): IsoDate | null {
     let first: IsoDate | null = null
@@ -425,129 +433,158 @@
   }
 </script>
 
-<div
-  bind:this={scroller}
-  data-gantt-scroller
-  bind:clientWidth={containerWidth}
-  bind:clientHeight={containerHeight}
-  class={[
-    // scroll-pt equals the sticky header height, so a focused row never lands underneath it.
-    'relative min-h-0 flex-1 scroll-pt-16 overflow-auto bg-surface',
-    dragging && 'cursor-col-resize select-none',
-  ]}
->
-  {#if project.tasks.length === 0}
-    <div
-      class="flex h-full min-h-60 flex-col items-center justify-center gap-2 p-8 text-center text-text-2"
-    >
-      <span
-        class="pop flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent-text"
+<div class="relative flex min-h-0 flex-1 flex-col">
+  <div
+    bind:this={scroller}
+    data-gantt-scroller
+    bind:clientWidth={containerWidth}
+    bind:clientHeight={containerHeight}
+    class={[
+      // scroll-pt equals the sticky header height, so a focused row never lands underneath it.
+      'relative min-h-0 flex-1 scroll-pt-16 overflow-auto bg-surface',
+      dragging && 'cursor-col-resize select-none',
+    ]}
+  >
+    {#if project.tasks.length === 0}
+      <div
+        class="flex h-full min-h-60 flex-col items-center justify-center gap-2 p-8 text-center text-text-2"
       >
-        <Icon name="gantt" size={22} />
-      </span>
-      <p class="m-0 text-[15px] font-semibold text-text">Belum ada tugas</p>
-      <p class="m-0 max-w-[340px] text-[13px]">
-        Tambahkan tugas pertama dengan tombol Tugas di atas.
-      </p>
-    </div>
-  {:else}
-    <div class="flex min-h-full w-max min-w-full">
-      <div class="sticky left-0 z-20 flex flex-none bg-surface">
-        <div
-          style:width={`${String(shownWidth)}px`}
-          class={[
-            // Clipped, not hidden: a hidden overflow would stop the header from sticking.
-            'overflow-clip',
-            !dragging && 'transition-[width] duration-200 ease-(--ease-out)',
-          ]}
+        <span
+          class="pop flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent-text"
         >
-          <div class="sticky top-0 z-20">
-            <TableToolbar
-              canMoveUp={neighbours.before !== null}
-              canMoveDown={neighbours.after !== null}
-              onMove={moveSelected}
-              {filter}
-              {counts}
-              {onFilter}
-              {columns}
-              {onColumns}
+          <Icon name="gantt" size={22} />
+        </span>
+        <p class="m-0 text-[15px] font-semibold text-text">Belum ada tugas</p>
+        <p class="m-0 max-w-[340px] text-[13px]">
+          Tambahkan tugas pertama dengan tombol Tugas di atas.
+        </p>
+      </div>
+    {:else}
+      <div class="flex min-h-full w-max min-w-full">
+        <div class="sticky left-0 z-20 flex flex-none bg-surface">
+          <div
+            style:width={`${String(shownWidth)}px`}
+            class={[
+              // Clipped, not hidden: a hidden overflow would stop the header from sticking.
+              'overflow-clip',
+              !dragging && 'transition-[width] duration-200 ease-(--ease-out)',
+            ]}
+          >
+            <div class="sticky top-0 z-20">
+              <TableToolbar
+                canMoveUp={neighbours.before !== null}
+                canMoveDown={neighbours.after !== null}
+                onMove={moveSelected}
+                {filter}
+                {counts}
+                {onFilter}
+                {columns}
+                {onColumns}
+              />
+            </div>
+            <TaskTable
+              {rows}
+              columns={visibleColumns}
+              {selectedId}
+              {criticalOn}
+              {onSelect}
+              {onOpen}
+              onToggle={toggle}
+              {onReorder}
+              {onNest}
+              {onDelete}
+            />
+            {#if rows.length === 0}
+              <p class="m-0 px-4 py-5 text-[13px] text-text-3">
+                Tidak ada tugas yang cocok dengan filter.
+              </p>
+            {/if}
+          </div>
+          <div class="group relative flex w-2.5 flex-none justify-center">
+            <span
+              aria-hidden="true"
+              class={[
+                'pointer-events-none absolute inset-0 border-x border-line transition-colors duration-150',
+                dragging ? 'bg-accent-soft' : 'bg-surface-2 group-hover:bg-accent-soft',
+              ]}
+            ></span>
+            <div
+              role="slider"
+              tabindex="0"
+              aria-orientation="horizontal"
+              aria-label="Lebar tabel"
+              aria-valuetext={`${String(shownWidth)} piksel`}
+              aria-valuemin={minTable}
+              aria-valuemax={Math.round(maxTable)}
+              aria-valuenow={shownWidth}
+              title="Seret untuk mengatur lebar tabel"
+              onpointerdown={startDrag}
+              onkeydown={onSplitterKey}
+              class="absolute inset-0 z-10 cursor-col-resize touch-none"
+            >
+              <span
+                class={[
+                  'sticky top-1/2 flex h-8 w-full -translate-y-1/2 items-center justify-center border-x border-line text-text-3 transition-colors duration-150 group-hover:bg-accent-soft group-hover:text-accent-text',
+                  dragging ? 'bg-accent-soft text-accent-text' : 'bg-surface-2',
+                ]}
+              >
+                <span class="transition-transform duration-200 group-hover:scale-125"
+                  ><Icon name="grip" size={12} strokeWidth={2} /></span
+                >
+              </span>
+            </div>
+          </div>
+        </div>
+        {#if layout}
+          <!-- Panning is a mouse shortcut; the chart is decorative for assistive technology. -->
+          <div
+            role="presentation"
+            class={['flex-none', panning ? 'cursor-grabbing select-none' : 'cursor-grab']}
+            onpointerdown={startPan}
+          >
+            <GanttChart
+              {layout}
+              minHeight={Math.max(0, containerHeight - HEADER_HEIGHT)}
+              {rows}
+              {calendar}
+              {selectedIndex}
+              {criticalOn}
+              onSelect={(id: string) => {
+                onSelect(id)
+              }}
+              {onOpen}
+              {onReschedule}
             />
           </div>
-          <TaskTable
-            {rows}
-            columns={visibleColumns}
-            {selectedId}
-            {criticalOn}
-            {onSelect}
-            {onOpen}
-            onToggle={toggle}
-            {onReorder}
-            {onNest}
-            {onDelete}
-          />
-          {#if rows.length === 0}
-            <p class="m-0 px-4 py-5 text-[13px] text-text-3">
-              Tidak ada tugas yang cocok dengan filter.
-            </p>
-          {/if}
-        </div>
-        <div class="group relative flex w-2.5 flex-none justify-center">
-          <span
-            aria-hidden="true"
-            class={[
-              'pointer-events-none absolute inset-0 border-x border-line transition-colors duration-150',
-              dragging ? 'bg-accent-soft' : 'bg-surface-2 group-hover:bg-accent-soft',
-            ]}
-          ></span>
-          <div
-            role="slider"
-            tabindex="0"
-            aria-orientation="horizontal"
-            aria-label="Lebar tabel"
-            aria-valuetext={`${String(shownWidth)} piksel`}
-            aria-valuemin={minTable}
-            aria-valuemax={Math.round(maxTable)}
-            aria-valuenow={shownWidth}
-            title="Seret untuk mengatur lebar tabel"
-            onpointerdown={startDrag}
-            onkeydown={onSplitterKey}
-            class="absolute inset-0 z-10 cursor-col-resize touch-none"
-          >
-            <span
-              class={[
-                'sticky top-1/2 flex h-8 w-full -translate-y-1/2 items-center justify-center border-x border-line text-text-3 transition-colors duration-150 group-hover:bg-accent-soft group-hover:text-accent-text',
-                dragging ? 'bg-accent-soft text-accent-text' : 'bg-surface-2',
-              ]}
-            >
-              <span class="transition-transform duration-200 group-hover:scale-125"
-                ><Icon name="grip" size={12} strokeWidth={2} /></span
-              >
-            </span>
-          </div>
-        </div>
+        {/if}
       </div>
-      {#if layout}
-        <!-- Panning is a mouse shortcut; the chart is decorative for assistive technology. -->
-        <div
-          role="presentation"
-          class={['flex-none', panning ? 'cursor-grabbing select-none' : 'cursor-grab']}
-          onpointerdown={startPan}
-        >
-          <GanttChart
-            {layout}
-            minHeight={Math.max(0, containerHeight - HEADER_HEIGHT)}
-            {rows}
-            {calendar}
-            {selectedIndex}
-            {criticalOn}
-            onSelect={(id: string) => {
-              onSelect(id)
-            }}
-            {onOpen}
-            {onReschedule}
-          />
-        </div>
-      {/if}
+    {/if}
+  </div>
+  {#if project.tasks.length > 0}
+    <!-- Outside the scroller, so they stay put while the chart moves under them. -->
+    <div class="pointer-events-none absolute right-5 bottom-5 z-30 flex flex-col gap-2">
+      <button
+        type="button"
+        class="btn pointer-events-auto shadow-md"
+        aria-label="Ke tugas paling atas"
+        title="Ke tugas paling atas"
+        onclick={() => {
+          scrollVertically('top')
+        }}
+      >
+        <Icon name="arrow-up-to-line" />
+      </button>
+      <button
+        type="button"
+        class="btn pointer-events-auto shadow-md"
+        aria-label="Ke tugas paling bawah"
+        title="Ke tugas paling bawah"
+        onclick={() => {
+          scrollVertically('bottom')
+        }}
+      >
+        <Icon name="arrow-down-to-line" />
+      </button>
     </div>
   {/if}
 </div>
