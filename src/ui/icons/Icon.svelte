@@ -14,6 +14,7 @@
   import Type from '@lucide/svelte/icons/type'
   import ArrowDownToLine from '@lucide/svelte/icons/arrow-down-to-line'
   import ArrowLeftToLine from '@lucide/svelte/icons/arrow-left-to-line'
+  import ArrowRightToLine from '@lucide/svelte/icons/arrow-right-to-line'
   import ArrowUpToLine from '@lucide/svelte/icons/arrow-up-to-line'
   import ArrowUp from '@lucide/svelte/icons/arrow-up'
   import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right'
@@ -76,6 +77,7 @@
     'arrow-down': ArrowDown,
     'arrow-down-to-line': ArrowDownToLine,
     'arrow-left-to-line': ArrowLeftToLine,
+    'arrow-right-to-line': ArrowRightToLine,
     'arrow-up-to-line': ArrowUpToLine,
     'arrow-up': ArrowUp,
     'arrow-up-right': ArrowUpRight,

@@ -384,15 +384,48 @@ describe('other blocks', () => {
     expect(plainTextOf(blocksOf('> [!NOTE]\n> - a\n> - b')[0])).toBe('Catatan\na\nb')
   })
 
-  it('keeps a table as a code block with its rows', () => {
+  it('reads a table as a header row and body rows', () => {
+    const cell = (type: string, value: string) => ({
+      type,
+      content: [value === '' ? { type: 'paragraph' } : paragraph(text(value))],
+    })
     expect(blocksOf('| a | b |\n|---|:-:|\n| 1 | 2 |\n\nsesudah')).toEqual([
       {
-        type: 'codeBlock',
-        attrs: { language: null },
-        content: [text('| a | b |\n|---|:-:|\n| 1 | 2 |')],
+        type: 'table',
+        content: [
+          { type: 'tableRow', content: [cell('tableHeader', 'a'), cell('tableHeader', 'b')] },
+          { type: 'tableRow', content: [cell('tableCell', '1'), cell('tableCell', '2')] },
+        ],
       },
       paragraph(text('sesudah')),
     ])
+  })
+
+  it('makes every row as wide as the header, reads escaped pipes and works without outer pipes', () => {
+    const rows = (source: string) => plainTextOf(blocksOf(source)[0]).split('\n')
+    expect(rows('a | b\n--|--\n1\n1 | 2 | 3\n x \\| y | ')).toEqual([
+      'a\tb',
+      '1\t',
+      '1\t2',
+      'x | y\t',
+    ])
+  })
+
+  it('reads inline marks in cells', () => {
+    const table = blocksOf('| **a** |\n|---|\n| `b` |')[0]
+    expect(plainTextOf(table)).toBe('a\nb')
+    expect(JSON.stringify(table)).toContain('"bold"')
+  })
+
+  it('does not take a header with a different number of cells for a table', () => {
+    expect(blocksOf('| a | b |\n|---|\n| 1 | 2 |')[0]).toEqual(
+      paragraph(text('| a | b | |---| | 1 | 2 |')),
+    )
+  })
+
+  it('ends a table at the next block', () => {
+    const blocks = blocksOf('| a |\n|---|\n| 1 |\n# Judul')
+    expect(blocks.map((block) => (block as { type: string }).type)).toEqual(['table', 'heading'])
   })
 
   it('drops HTML comments, also over several lines', () => {

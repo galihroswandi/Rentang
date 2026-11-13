@@ -17,6 +17,7 @@ import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Placeholder } from '@tiptap/extensions'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { NodeSelection, PluginKey, TextSelection } from '@tiptap/pm/state'
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import StarterKit from '@tiptap/starter-kit'
 import Suggestion, { type SuggestionProps } from '@tiptap/suggestion'
 import { mount, unmount } from 'svelte'
@@ -56,12 +57,25 @@ export type EditorOptions = {
   readonly onMenuKey: (event: KeyboardEvent) => boolean
   /** A mention chip was clicked. */
   readonly onMention: (taskId: string) => void
+  /** The table holding the caret, or null when it is elsewhere; called as the caret moves. */
+  readonly onTable: (table: HTMLElement | null) => void
   readonly onFocus: () => void
   readonly onBlur: () => void
 }
 
 /** The top-level block under the pointer, for the gutter beside it. */
 export type BlockSpot = { readonly pos: number; readonly element: HTMLElement }
+
+/** What the table bar can do to the table holding the caret. */
+export type TableAction =
+  | 'row-before'
+  | 'row-after'
+  | 'column-before'
+  | 'column-after'
+  | 'delete-row'
+  | 'delete-column'
+  | 'toggle-header'
+  | 'delete-table'
 
 export type DocumentEditor = {
   /** False when the stored content could not be read; the editor is then read-only. */
@@ -71,6 +85,8 @@ export type DocumentEditor = {
   /** New task links or highlight: mention chips draw again from them. */
   showTasks(links: ReadonlyMap<string, TaskLink>, focusedTask: string | null): void
   focus(where?: 'start' | 'end'): void
+  /** Changes the table holding the caret; the caret stays in it. */
+  tableAction(action: TableAction): void
   /** The nth heading of the document, in order, as shown. */
   headingElement(index: number): HTMLElement | null
   blockAt(x: number, y: number): BlockSpot | null
@@ -221,6 +237,9 @@ function applyBlock(editor: Editor, range: Range, kind: BlockKind): void {
     case 'callout':
       chain.setNode('callout')
       break
+    case 'table':
+      chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+      break
     case 'mention':
       chain.insertContent('@')
       break
@@ -236,6 +255,17 @@ function taskIdOf(node: ProseMirrorNode): string {
 function labelOf(node: ProseMirrorNode): string {
   const label: unknown = node.attrs['label']
   return typeof label === 'string' ? label : ''
+}
+
+/** The DOM element of the table around the caret. */
+function tableElement(editor: Editor): HTMLElement | null {
+  const { $from } = editor.state.selection
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.name !== 'table') continue
+    const element = editor.view.nodeDOM($from.before(depth))
+    return element instanceof HTMLElement ? (element.querySelector('table') ?? element) : null
+  }
+  return null
 }
 
 export function createDocumentEditor(options: EditorOptions): DocumentEditor {
@@ -377,6 +407,10 @@ export function createDocumentEditor(options: EditorOptions): DocumentEditor {
       }),
       DocumentHeading,
       Callout,
+      Table,
+      TableRow,
+      TableHeader,
+      TableCell,
       TaskList,
       TaskItem.configure({
         nested: true,
@@ -407,6 +441,9 @@ export function createDocumentEditor(options: EditorOptions): DocumentEditor {
     },
     onUpdate: ({ editor: current }) => {
       options.onChange(current.getJSON() as Json)
+    },
+    onTransaction: ({ editor: current }) => {
+      options.onTable(current.isActive('table') ? tableElement(current) : null)
     },
     onFocus: () => {
       options.onFocus()
@@ -439,6 +476,36 @@ export function createDocumentEditor(options: EditorOptions): DocumentEditor {
     },
     focus(where = 'end') {
       editor.commands.focus(where)
+    },
+    tableAction(action) {
+      const chain = editor.chain().focus()
+      switch (action) {
+        case 'row-before':
+          chain.addRowBefore()
+          break
+        case 'row-after':
+          chain.addRowAfter()
+          break
+        case 'column-before':
+          chain.addColumnBefore()
+          break
+        case 'column-after':
+          chain.addColumnAfter()
+          break
+        case 'delete-row':
+          chain.deleteRow()
+          break
+        case 'delete-column':
+          chain.deleteColumn()
+          break
+        case 'toggle-header':
+          chain.toggleHeaderRow()
+          break
+        case 'delete-table':
+          chain.deleteTable()
+          break
+      }
+      chain.run()
     },
     headingElement(index) {
       // In document order, the same order core's headingsOf reads them.

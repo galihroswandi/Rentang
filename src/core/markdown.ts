@@ -2,10 +2,9 @@
  * Markdown to the editor's JSON document (see rich-text.ts), for importing `.md` files.
  *
  * Only what the document editor can hold is produced: paragraphs, headings (level 1 and 2),
- * bullet, numbered and task lists, quotes, callouts (GitHub `> [!NOTE]` alerts), code blocks and
- * dividers, with bold, italic, strike, code and links inside text. Everything else degrades
- * instead of failing: a table becomes a code block that keeps its rows, an image becomes a link
- * to it, raw HTML stays as text and a link to anything but http(s), mailto or tel loses its
+ * bullet, numbered and task lists, quotes, callouts (GitHub `> [!NOTE]` alerts), code blocks,
+ * dividers and tables, with bold, italic, strike, code and links inside text. Everything else
+ * degrades instead of failing: a table's column alignment is dropped, an image becomes a link to it, raw HTML stays as text and a link to anything but http(s), mailto or tel loses its
  * target. The output must satisfy the editor's schema exactly, or the document would open
  * read-only; src/ui/docs/markdown-import.test.ts loads it into the real editor to guard that.
  */
@@ -454,6 +453,63 @@ function codeBlock(text: string, language: string | null): JsonObject {
     : { type: 'codeBlock', attrs: { language }, content: [{ type: 'text', text }] }
 }
 
+/**
+ * The cells of one table row: split at every `|` not written `\|`, with the outer pipes and the
+ * spaces around each cell dropped. `\|` is a pipe inside a cell.
+ */
+function splitRow(line: string): string[] {
+  let text = line.trim()
+  if (text.startsWith('|')) text = text.slice(1)
+  if (text.endsWith('|') && !text.endsWith('\\|')) text = text.slice(0, -1)
+  const cells: string[] = []
+  let cell = ''
+  for (let at = 0; at < text.length; at++) {
+    const ch = text.charAt(at)
+    if (ch === '\\' && text.charAt(at + 1) === '|') {
+      cell += '|'
+      at++
+    } else if (ch === '|') {
+      cells.push(cell.trim())
+      cell = ''
+    } else cell += ch
+  }
+  cells.push(cell.trim())
+  return cells
+}
+
+/**
+ * A GFM table at `from`: a header row, a delimiter row (`| --- | :-: |`) with as many cells, and
+ * body rows up to a blank line or the next block. Rows are padded or cut to the header's width,
+ * so the table is always rectangular. Alignment is dropped: the editor has no such setting.
+ */
+function readTable(lines: string[], from: number): { node: JsonObject; next: number } | null {
+  const head = lines[from] ?? ''
+  const rule = lines[from + 1] ?? ''
+  if (!head.includes('|') || !rule.includes('|') || !TABLE_ROW.test(rule)) return null
+  const titles = splitRow(head)
+  if (titles.length !== splitRow(rule).length) return null
+
+  const cell = (type: 'tableHeader' | 'tableCell', text: string): JsonObject => ({
+    type,
+    content: [paragraph(text)],
+  })
+  const rows: JsonObject[] = [
+    { type: 'tableRow', content: titles.map((title) => cell('tableHeader', title)) },
+  ]
+  let i = from + 2
+  while (i < lines.length) {
+    const line = lines[i] ?? ''
+    if (BLANK.test(line) || startsBlock(line)) break
+    const cells = splitRow(line)
+    rows.push({
+      type: 'tableRow',
+      content: titles.map((_, column) => cell('tableCell', cells[column] ?? '')),
+    })
+    i++
+  }
+  return { node: { type: 'table', content: rows }, next: i }
+}
+
 /** Lines of a list item's or quote's body as blocks; never empty. */
 function bodyBlocks(lines: string[], depth: number): JsonObject[] {
   const blocks = parseBlocks(lines, depth + 1)
@@ -669,14 +725,10 @@ function parseBlocks(lines: string[], depth: number): JsonObject[] {
       continue
     }
 
-    const header = lines[i + 1] ?? ''
-    if (line.includes('|') && header.includes('|') && TABLE_ROW.test(header)) {
-      const rows: string[] = []
-      while (i < lines.length && !BLANK.test(lines[i] ?? '') && (lines[i] ?? '').includes('|')) {
-        rows.push((lines[i] ?? '').trim())
-        i++
-      }
-      blocks.push(codeBlock(rows.join('\n'), null))
+    const table = readTable(lines, i)
+    if (table) {
+      blocks.push(table.node)
+      i = table.next
       continue
     }
 

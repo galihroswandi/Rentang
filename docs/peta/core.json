@@ -1513,8 +1513,8 @@
       "id": "markdown",
       "group": "core-data",
       "name": "Impor Markdown (.md)",
-      "summary": "Mengubah teks Markdown menjadi JSON dokumen editor: judul, daftar, kutipan, callout, kode, dan format di dalam teks.",
-      "description": "Berkas .md dibaca oleh pembaca kecil buatan sendiri (tanpa dependensi baru) yang hanya menghasilkan apa yang bisa dipegang editor dokumen. Yang tidak ada padanannya diturunkan, bukan ditolak: tabel menjadi blok kode berisi barisnya, gambar menjadi tautan ke gambar itu, HTML tetap berupa teks, dan tautan selain http(s), mailto, dan tel kehilangan alamatnya. Hasilnya harus sesuai skema editor persis, kalau tidak dokumen terbuka hanya-baca; test di src/ui/docs/markdown-import.test.ts memuatnya ke editor TipTap asli untuk menjaga itu.",
+      "summary": "Mengubah teks Markdown menjadi JSON dokumen editor: judul, daftar, kutipan, callout, kode, tabel, dan format di dalam teks.",
+      "description": "Berkas .md dibaca oleh pembaca kecil buatan sendiri (tanpa dependensi baru) yang hanya menghasilkan apa yang bisa dipegang editor dokumen. Yang tidak ada padanannya diturunkan, bukan ditolak: perataan kolom tabel dibuang, gambar menjadi tautan ke gambar itu, HTML tetap berupa teks, dan tautan selain http(s), mailto, dan tel kehilangan alamatnya. Hasilnya harus sesuai skema editor persis, kalau tidak dokumen terbuka hanya-baca; test di src/ui/docs/markdown-import.test.ts memuatnya ke editor TipTap asli untuk menjaga itu.",
       "files": ["src/core/markdown.ts"],
       "tests": ["src/core/markdown.test.ts", "src/ui/docs/markdown-import.test.ts"],
       "rules": [
@@ -1647,8 +1647,10 @@
                   ]
                 },
                 {
-                  "if": "Baris berisi | dan baris berikutnya pemisah |---| ?",
-                  "then": ["Tabel: barisnya disimpan apa adanya dalam blok kode"]
+                  "if": "Baris berisi | dan baris berikutnya pemisah |---| dengan jumlah sel yang sama?",
+                  "then": [
+                    "Tabel: baris pertama jadi judul kolom, baris lain disamakan lebarnya dengan judul, sel dibaca seperti teks biasa (\\| adalah garis tegak di dalam sel)"
+                  ]
                 },
                 "Selain itu paragraf: baris dikumpulkan sampai baris kosong atau awal blok lain; garis = atau - di bawahnya menjadikannya judul"
               ]

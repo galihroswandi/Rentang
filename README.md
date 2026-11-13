@@ -71,6 +71,7 @@ Setelah Tahap 4, proyek dibekukan.
 - [005. Desain baru, penyuntingan, dan skema v2](docs/decisions/005-redesign-and-editing.md)
 - [006. Peta algoritma](docs/decisions/006-peta-algoritma.md)
 - [007. Dokumen proyek](docs/decisions/007-dokumen-proyek.md)
+- [009. Tabel di dokumen](docs/decisions/009-tabel-dokumen.md)
 
 ## Lisensi
 

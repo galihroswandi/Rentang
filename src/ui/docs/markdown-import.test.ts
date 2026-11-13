@@ -75,6 +75,7 @@ function load(source: string) {
     onMenu: () => undefined,
     onMenuKey: () => false,
     onMention: () => undefined,
+    onTable: () => undefined,
     onFocus: () => undefined,
     onBlur: () => undefined,
   })
@@ -90,6 +91,8 @@ describe('an imported document in the real editor', () => {
     expect(element.querySelector('[data-type="callout"]')).not.toBeNull()
     expect(element.querySelector('pre code')).not.toBeNull()
     expect(element.querySelector('hr')).not.toBeNull()
+    expect(element.querySelectorAll('table th').length).toBe(2)
+    expect(element.querySelectorAll('table td').length).toBe(2)
     expect(element.querySelector('a[href="https://contoh.id/a_b"]')).not.toBeNull()
     editor.destroy()
   })
@@ -97,6 +100,26 @@ describe('an imported document in the real editor', () => {
   it('opens an empty file as an empty page', () => {
     const { editor } = load('')
     expect(editor.readable).toBe(true)
+    editor.destroy()
+  })
+})
+
+describe('tables in the real editor', () => {
+  it('adds and removes rows and columns where the caret is', () => {
+    const { editor, element } = load('| a | b |\n|---|---|\n| 1 | 2 |')
+    editor.focus('start')
+    editor.tableAction('row-after')
+    expect(element.querySelectorAll('tr').length).toBe(3)
+    editor.tableAction('column-after')
+    expect(element.querySelectorAll('th').length).toBe(3)
+    editor.tableAction('delete-column')
+    expect(element.querySelectorAll('th').length).toBe(2)
+    // The caret is in the header row, so that is the row that goes.
+    editor.tableAction('delete-row')
+    expect(element.querySelectorAll('tr').length).toBe(2)
+    expect(element.querySelectorAll('th').length).toBe(0)
+    editor.tableAction('delete-table')
+    expect(element.querySelector('table')).toBeNull()
     editor.destroy()
   })
 })

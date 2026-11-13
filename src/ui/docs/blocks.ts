@@ -10,6 +10,7 @@ export type BlockIcon =
   | 'list-checks'
   | 'text-quote'
   | 'lightbulb'
+  | 'table'
   | 'at-sign'
 
 export type BlockKind =
@@ -21,6 +22,7 @@ export type BlockKind =
   | 'task-list'
   | 'quote'
   | 'callout'
+  | 'table'
   | 'mention'
 
 export type BlockChoice = {
@@ -107,6 +109,15 @@ export const BLOCK_CHOICES: readonly BlockChoice[] = [
     hint: '',
     icon: 'lightbulb',
     keywords: ['callout', 'penting'],
+  },
+  {
+    kind: 'table',
+    group: 'Blok dasar',
+    label: 'Tabel',
+    description: 'Baris dan kolom, tabel Markdown ikut terbaca',
+    hint: '',
+    icon: 'table',
+    keywords: ['table', 'kolom', 'baris', 'grid'],
   },
   {
     kind: 'mention',

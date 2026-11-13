@@ -92,6 +92,8 @@ export function plainTextOf(
       return (id === null ? undefined : nameOf(id)) ?? stringAttr(node, 'label') ?? ''
     }
     const children = childrenOf(node)
+    // The cells of a table row stay on one line, a tab apart.
+    if (node.type === 'tableRow') return children.map(textOf).join('\t')
     return children.map(textOf).join(children.some(isInline) ? '' : '\n')
   }
   return textOf(content)

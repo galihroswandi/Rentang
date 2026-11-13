@@ -3,7 +3,8 @@
   import type { Json } from '../../core/rich-text.ts'
   import Icon from '../icons/Icon.svelte'
   import TypeChip from '../table/TypeChip.svelte'
-  import type { DocumentEditor, EditorMenu } from './editor.ts'
+  import type { IconName } from '../icons/Icon.svelte'
+  import type { DocumentEditor, EditorMenu, TableAction } from './editor.ts'
   import type { TaskLink } from './task-links.ts'
 
   type Props = {
@@ -44,6 +45,25 @@
   let menuElement: HTMLDivElement | undefined = $state()
   let menuPosition = $state({ left: 0, top: 0 })
   let spot: { pos: number; top: number } | null = $state(null)
+  // Where the bar of the table holding the caret goes, in the host's own coordinates.
+  let tableBar: { top: number; left: number } | null = $state(null)
+
+  const TABLE_ACTIONS: readonly { action: TableAction; label: string; icon: IconName }[] = [
+    { action: 'row-after', label: 'Tambah baris di bawah', icon: 'arrow-down-to-line' },
+    { action: 'row-before', label: 'Tambah baris di atas', icon: 'arrow-up-to-line' },
+    { action: 'column-after', label: 'Tambah kolom di kanan', icon: 'arrow-right-to-line' },
+    { action: 'column-before', label: 'Tambah kolom di kiri', icon: 'arrow-left-to-line' },
+  ]
+
+  function showTableBar(table: HTMLElement | null): void {
+    if (!table || !host) {
+      tableBar = null
+      return
+    }
+    const box = host.getBoundingClientRect()
+    const rect = table.getBoundingClientRect()
+    tableBar = { top: rect.top - box.top - 38, left: rect.left - box.left }
+  }
 
   // The content this editor agrees with: what it was opened with, or last saved.
   let known = ''
@@ -132,6 +152,7 @@
           onMention: (id) => {
             onMention(id)
           },
+          onTable: showTableBar,
           onFocus: () => {
             visit += 1
           },
@@ -295,6 +316,68 @@
       >
         <Icon name="grip" size={15} />
       </div>
+    </div>
+  {/if}
+
+  {#if tableBar}
+    <div
+      role="toolbar"
+      aria-label="Tabel"
+      class="table-bar absolute z-10 flex h-8 items-center gap-0.5 rounded-lg border border-line-strong bg-surface px-1 shadow-pop"
+      style:top={`${String(tableBar.top)}px`}
+      style:left={`${String(tableBar.left)}px`}
+    >
+      {#each TABLE_ACTIONS as item (item.action)}
+        <button
+          type="button"
+          class="btn-ghost size-6 text-text-2"
+          aria-label={item.label}
+          title={item.label}
+          onmousedown={(event) => {
+            event.preventDefault()
+          }}
+          onclick={() => editor?.tableAction(item.action)}
+        >
+          <Icon name={item.icon} size={15} />
+        </button>
+      {/each}
+      <span class="mx-1 h-4 w-px bg-line" role="presentation"></span>
+      <button
+        type="button"
+        class="btn-ghost h-6 px-1.5 text-xs text-text-2"
+        onmousedown={(event) => {
+          event.preventDefault()
+        }}
+        onclick={() => editor?.tableAction('toggle-header')}>Baris judul</button
+      >
+      <button
+        type="button"
+        class="btn-ghost h-6 px-1.5 text-xs text-text-2"
+        onmousedown={(event) => {
+          event.preventDefault()
+        }}
+        onclick={() => editor?.tableAction('delete-row')}>Hapus baris</button
+      >
+      <button
+        type="button"
+        class="btn-ghost h-6 px-1.5 text-xs text-text-2"
+        onmousedown={(event) => {
+          event.preventDefault()
+        }}
+        onclick={() => editor?.tableAction('delete-column')}>Hapus kolom</button
+      >
+      <button
+        type="button"
+        class="btn-ghost size-6 text-danger"
+        aria-label="Hapus tabel"
+        title="Hapus tabel"
+        onmousedown={(event) => {
+          event.preventDefault()
+        }}
+        onclick={() => editor?.tableAction('delete-table')}
+      >
+        <Icon name="trash" size={15} />
+      </button>
     </div>
   {/if}
 
@@ -487,6 +570,36 @@
   .editor-host :global(.doc-body .callout-text) {
     flex: 1;
     min-width: 0;
+  }
+  .editor-host :global(.doc-body .tableWrapper) {
+    margin: 8px 0;
+    overflow-x: auto;
+  }
+  .editor-host :global(.doc-body table) {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 14px;
+  }
+  .editor-host :global(.doc-body th),
+  .editor-host :global(.doc-body td) {
+    position: relative;
+    min-width: 80px;
+    padding: 6px 10px;
+    border: 1px solid var(--color-line-strong);
+    vertical-align: top;
+    text-align: left;
+  }
+  .editor-host :global(.doc-body th) {
+    background: var(--color-surface-2);
+    font-weight: 600;
+  }
+  .editor-host :global(.doc-body .selectedCell::after) {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--color-accent-soft);
+    pointer-events: none;
   }
   .editor-host :global(.doc-body code) {
     padding: 1px 5px;
