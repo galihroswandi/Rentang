@@ -28,6 +28,9 @@
     predecessorChoices?: readonly { id: string; label: string }[]
     /** Ids of the tasks it waits for now. */
     currentPredecessors?: readonly string[]
+    /** Documents that mention the task, in list order. */
+    mentionedIn?: readonly { id: string; title: string }[]
+    onOpenDocument?: (id: string) => void
     defaultStart: IsoDate
     onClose: () => void
     onSubmit: (input: TaskInput, parentId: string | null, predecessors: string[]) => void
@@ -41,6 +44,8 @@
     parentOptions = [],
     predecessorChoices = [],
     currentPredecessors = [],
+    mentionedIn = [],
+    onOpenDocument = () => undefined,
     defaultStart,
     onClose,
     onSubmit,
@@ -161,6 +166,29 @@
         bind:value={notes}
         placeholder="Tulis catatan untuk tugas ini (opsional)"></textarea>
     </div>
+
+    {#if task && mentionedIn.length > 0}
+      <div class="flex flex-col gap-1.5">
+        <span id="task-mentioned-in" class="label">Disebut di</span>
+        <ul aria-labelledby="task-mentioned-in" class="m-0 flex list-none flex-wrap gap-1.5 p-0">
+          {#each mentionedIn as document (document.id)}
+            <li>
+              <button
+                type="button"
+                class="press inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-line bg-surface-2 px-2.5 text-[12.5px] text-text hover:border-text-3"
+                title="Buka dokumen ini"
+                onclick={() => {
+                  onOpenDocument(document.id)
+                }}
+              >
+                <span class="flex text-text-3"><Icon name="file-text" size={14} /></span>
+                <span class="truncate">{document.title}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
 
     {#if predecessorChoices.length > 0}
       <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">

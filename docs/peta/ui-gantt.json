@@ -1,0 +1,506 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "groups": [{ "id": "ui-gantt", "layer": "ui", "name": "Gantt" }],
+  "modules": [
+    {
+      "id": "gantt-view",
+      "group": "ui-gantt",
+      "name": "Tampilan Gantt (tabel + pembatas + chart)",
+      "summary": "Merangkai tabel dan chart dalam satu area gulir: lebar tabel, zoom yang menjaga posisi, magnet, roda mouse, dan tanggal yang terus bertambah.",
+      "description": "Satu elemen gulir memuat tabel (menempel di kiri) dan chart. Karena itu gulir vertikal tabel dan chart selalu sejajar. Modul ini memegang semua perilaku gulir; geometrinya sendiri dihitung modul murni (layout, zoom, snap).",
+      "files": ["src/ui/project/GanttView.svelte"],
+      "tests": ["e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "lebar-tabel",
+          "name": "Lebar tabel dan pembatas",
+          "summary": "Tabel tidak pernah lebih sempit dari nama + kolom yang tampil; di ponsel hanya kolom persen; lebar disimpan per proyek.",
+          "symbols": ["minTable", "shownWidth", "resizeTo", "startDrag", "onSplitterKey"],
+          "steps": [
+            {
+              "do": "Lebar minimum = ruang nama (200) + lebar kolom yang tampil",
+              "code": "minTable"
+            },
+            {
+              "if": "Lebar wadah < 640 px (ponsel)?",
+              "then": ["Hanya kolom persen; tabel maksimal 56% lebar"]
+            },
+            {
+              "do": "Lebar tampil = lebar tersimpan, dibatasi minimum dan maksimum",
+              "code": "shownWidth"
+            },
+            {
+              "if": "Pembatas diseret atau ditekan panah/Home/End?",
+              "then": [
+                { "do": "Lebar baru dibatasi lalu disimpan untuk proyek ini", "code": "resizeTo" }
+              ]
+            },
+            { "stop": "Selesai" }
+          ]
+        },
+        {
+          "id": "zoom",
+          "name": "Zoom yang menjaga tempat baca",
+          "summary": "Sebelum zoom tergambar, posisi gulir dicatat; sesudahnya tanggal yang tadi di tengah kembali ke tengah.",
+          "symbols": ["anchor", "rendered"],
+          "steps": [
+            {
+              "do": "$effect.pre: catat { zoom, awal, lebar hari, scrollLeft } sebelum browser memotongnya",
+              "code": "anchor"
+            },
+            "Layout dibangun ulang dengan lebar hari baru",
+            {
+              "if": "Ada permintaan 'Awal proyek'?",
+              "then": [{ "stop": "Gulir ke kolom mulai paling awal" }]
+            },
+            {
+              "if": "Hanya zoom yang berubah?",
+              "then": [{ "stop": "Gulir ke scrollAfterZoom(catatan, layout baru)" }]
+            },
+            { "stop": "Gulir ke kolom hari ini", "code": "rendered" }
+          ]
+        },
+        {
+          "id": "hari-ini",
+          "name": "Gulir ke hari ini dan tanggal yang terus bertambah",
+          "summary": "Chart dimulai dari tahun awal proyek dan ditambah satu tahun setiap kali sisa tanggal di depan kurang dari 1,5 layar.",
+          "symbols": [
+            "scrollToToday",
+            "ensureDatesAhead",
+            "canAddYear",
+            "extraYears",
+            "projectStart"
+          ],
+          "steps": [
+            "Tepi kolom hari ini = tepi sel header hari ini",
+            {
+              "if": "Kolom hari ini belum tercapai dan tahun masih bisa ditambah?",
+              "then": [
+                {
+                  "stop": "Tambah satu tahun dan tunda (todayPending); efek berikutnya mengulang",
+                  "code": "scrollToToday"
+                }
+              ]
+            },
+            "Gulir ke kolom hari ini",
+            {
+              "loop": "Setiap kali digulir atau layout berubah?",
+              "next": "ya",
+              "done": "berhenti",
+              "body": [
+                {
+                  "if": "Sisa tanggal di depan < 1,5 × lebar layar, dan di bawah 40 tahun tambahan serta 2100?",
+                  "then": [{ "do": "Tambah satu tahun", "code": "ensureDatesAhead" }]
+                }
+              ]
+            },
+            { "stop": "Selesai", "code": "canAddYear" }
+          ],
+          "rules": [
+            "Proyek dibuka sekali di baris terakhir, tempat pekerjaan hari ini biasanya berada."
+          ]
+        },
+        {
+          "id": "roda",
+          "name": "Roda mouse, geser latar, dan magnet",
+          "summary": "Ctrl/Cmd + roda untuk zoom, Shift + roda atau usap samping untuk menggulir; setelah berhenti, kolom menempel ke tepi tabel.",
+          "symbols": ["onWheel", "startPan", "stops", "onScroll"],
+          "steps": [
+            {
+              "if": "Ctrl atau Cmd ditekan?",
+              "then": [
+                "Kumpulkan deltaY sampai 40 (satu takik)",
+                { "stop": "onZoomStep(±1)", "code": "onWheel" }
+              ]
+            },
+            {
+              "if": "Bukan gerakan samping (isSideways)?",
+              "then": [{ "stop": "Biarkan browser menggulir vertikal" }]
+            },
+            "Gulir samping sebesar sidewaysDelta (× 2 untuk piksel, × 40 untuk baris)",
+            {
+              "do": "140 ms setelah gulir berhenti: cari titik magnet terdekat",
+              "code": "onScroll"
+            },
+            { "do": "Titik magnet = tepi kiri setiap sel header", "code": "stops" },
+            { "stop": "Gulir halus ke titik itu (instan bila reduce motion)" }
+          ],
+          "pitfalls": [
+            "Listener roda harus non-pasif supaya preventDefault bekerja; karena itu dipasang manual, bukan lewat atribut Svelte.",
+            "Selama latar diseret (panning) magnet ditahan, baru menempel setelah dilepas.",
+            "Geser latar hanya untuk mouse dan tidak berlaku di atas bar (bar punya seretnya sendiri)."
+          ]
+        },
+        {
+          "id": "pilih",
+          "name": "Baris, tetangga, dan ciut",
+          "summary": "Baris dibangun dengan buildTaskRows; tombol atas/bawah toolbar menukar dengan saudara yang tampil.",
+          "symbols": ["rows", "layout", "neighbours", "moveSelected", "toggle", "scrollVertically"],
+          "steps": [
+            {
+              "do": "Baris = buildTaskRows(project, analysis, persen, diciutkan, hari ini, filter)",
+              "code": "rows"
+            },
+            {
+              "do": "Layout = layoutGantt(baris, dependensi, kalender, zoom, hari ini, tahun tambahan)",
+              "code": "layout"
+            },
+            {
+              "do": "Tetangga = saudara sebelum dan sesudah tugas terpilih yang sedang tampil",
+              "code": "neighbours"
+            },
+            {
+              "stop": "Pindah ke atas/bawah: onReorder(id, tetangga, before/after)",
+              "code": "moveSelected"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gantt-chart",
+      "group": "ui-gantt",
+      "name": "Chart SVG Gantt",
+      "summary": "Menggambar layout sebagai SVG dan menangani seret bar: tekan, geser dengan pratinjau, lepas.",
+      "description": "Chart hanya menggambar apa yang dikembalikan layoutGantt. Untuk pembaca layar chart bersifat dekoratif (aria-hidden), karena tabel membawa informasi yang sama dan dialog tugas adalah jalur keyboard.",
+      "files": ["src/ui/gantt/GanttChart.svelte"],
+      "tests": ["e2e/app.spec.ts"],
+      "diagrams": ["seret-bar"],
+      "algorithms": [
+        {
+          "id": "seret",
+          "name": "Seret dan ubah durasi bar",
+          "summary": "Menekan bar memulai seret; setelah 4 px menjadi pratinjau; melepas mengirim onReschedule bila hasilnya berbeda.",
+          "symbols": ["startDrag", "moveDrag", "endDrag", "idAt", "preview"],
+          "steps": [
+            { "do": "Cari bar di bawah pointer (data-id)", "code": "idAt" },
+            {
+              "if": "Bukan tombol utama, bukan bar, tugas ringkasan, atau belum terjadwal?",
+              "then": [{ "stop": "Abaikan" }]
+            },
+            {
+              "do": "Di pegangan kanan (8 px) dan bukan milestone → resize, selain itu move; tangkap pointer",
+              "code": "startDrag"
+            },
+            {
+              "loop": "Pointer bergerak?",
+              "body": [
+                {
+                  "if": "Belum bergeser 4 px?",
+                  "then": ["Masih dianggap klik"],
+                  "else": [
+                    { "do": "deltaDays = daysFromPixels(dx, lebar hari)", "code": "moveDrag" }
+                  ]
+                },
+                {
+                  "do": "Pratinjau: resolveDrag, posisi bar baru, label tanggal dan durasi",
+                  "code": "preview"
+                }
+              ]
+            },
+            {
+              "if": "Dibatalkan (pointercancel atau Escape) atau tidak pernah bergeser?",
+              "then": [{ "stop": "Selesai tanpa perubahan" }]
+            },
+            "Tahan klik yang menyusul (justDragged) supaya tidak memilih atau membuka",
+            {
+              "if": "Hasil resolveDrag mengubah mulai atau durasi?",
+              "then": [{ "stop": "onReschedule({ id, start, duration, mode })", "code": "endDrag" }]
+            },
+            { "stop": "Selesai tanpa perubahan" }
+          ],
+          "rules": ["Klik memilih tugas; klik ganda membuka dialognya."],
+          "pitfalls": [
+            "Pointer capture mengirim klik ke <svg>, bukan ke bar; karena itu id bar diingat di pressedId."
+          ]
+        },
+        {
+          "id": "gambar",
+          "name": "Kolom libur",
+          "summary": "Kolom hari libur digambar 40% lebarnya di tengah kolom, di chart dan headernya.",
+          "symbols": ["offColumns", "HANDLE", "justDragged", "pressedId"],
+          "steps": [
+            { "do": "Lebar = lebar hari × 0,4; geser ke tengah kolom", "code": "offColumns" },
+            { "stop": "Gambar di belakang bar" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gantt-layout",
+      "group": "ui-gantt",
+      "name": "Geometri Gantt",
+      "summary": "Baris terjadwal menjadi data gambar: bar, diamond milestone, bar ringkasan, panah dependensi, header, kolom libur.",
+      "description": "Fungsi murni tanpa DOM, jadi semua aturan gambar diuji tanpa browser. x sebuah tanggal = (hari sejak awal chart) × lebar hari menurut zoom. Baris ke-i berada di y = i × 36.",
+      "files": ["src/ui/gantt/layout.ts"],
+      "tests": ["src/ui/gantt/layout.test.ts"],
+      "algorithms": [
+        {
+          "id": "rentang",
+          "name": "Rentang tanggal chart",
+          "summary": "Tahun kalender penuh yang memuat proyek dan hari ini, ditambah tahun ekstra di belakang.",
+          "symbols": ["rangeOf"],
+          "steps": [
+            "Ambil tanggal paling awal dan paling akhir dari baris dan hari ini",
+            "Tahan di jendela 1970-2100",
+            {
+              "stop": "1 Januari tahun pertama sampai 31 Desember tahun terakhir + tahun ekstra",
+              "code": "rangeOf"
+            }
+          ],
+          "rules": ["Header tidak pernah mulai atau berakhir di tengah tahun, di zoom mana pun."]
+        },
+        {
+          "id": "bar",
+          "name": "Bar, milestone, dan ringkasan",
+          "summary": "Setiap baris menjadi satu bentuk, dan setiap bentuk mencatat titik kaitnya untuk panah.",
+          "symbols": ["layoutGantt", "xOf", "DAY_WIDTH"],
+          "steps": [
+            {
+              "do": "Lebar hari dari zoom: detail 64, day 32, week 20, month 6, quarter 3, year 1,2 px",
+              "code": "DAY_WIDTH"
+            },
+            {
+              "loop": "Masih ada baris terjadwal?",
+              "body": [
+                {
+                  "if": "Milestone?",
+                  "then": [
+                    "Diamond di tengah harinya; label di kiri, atau di kanan bila terlalu dekat tepi kiri (< 180 px)"
+                  ],
+                  "else": [
+                    {
+                      "if": "Ringkasan?",
+                      "then": ["Bar tipis dengan takik di kedua ujung"],
+                      "else": [
+                        {
+                          "do": "Bar 18 px dari xOf(mulai) sampai akhir hari selesai; lebar progres = lebar × persen",
+                          "code": "xOf"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "Catat titik kait (kiri, kanan, diamond) untuk panah"
+              ]
+            },
+            { "stop": "bars", "code": "layoutGantt" }
+          ]
+        },
+        {
+          "id": "panah",
+          "name": "Panah dependensi",
+          "summary": "Dari ujung kanan predecessor ke awal penerus, dengan tiga bentuk jalur.",
+          "symbols": ["layoutGantt"],
+          "steps": [
+            {
+              "loop": "Masih ada dependensi?",
+              "body": [
+                {
+                  "if": "Salah satu ujung tidak tampil (tersaring atau diciutkan)?",
+                  "then": ["Lewati"]
+                },
+                {
+                  "if": "Penerus milestone di sebelah kanan dan beda baris?",
+                  "then": ["Masuk dari atas atau bawah diamond"],
+                  "else": [
+                    {
+                      "if": "Ada ruang ≥ 12 px ke kanan?",
+                      "then": ["Turun lurus lalu masuk"],
+                      "else": ["Menyusuri tepi baris penerus lalu kembali"]
+                    }
+                  ]
+                },
+                "Kritis bila kedua ujung kritis"
+              ]
+            },
+            { "stop": "links" }
+          ]
+        },
+        {
+          "id": "header",
+          "name": "Header dan kolom libur",
+          "summary": "Bentuk header mengikuti lebar hari: hari, pekan, bulan, atau kuartal.",
+          "symbols": ["headerMode", "mondayOnOrBefore", "nextMonthStart", "nextYearStart"],
+          "steps": [
+            {
+              "do": "Mode: ≥ 14 px hari, ≥ 4 px pekan, ≥ 2 px bulan, selain itu kuartal",
+              "code": "headerMode"
+            },
+            {
+              "loop": "Masih ada hari di rentang?",
+              "body": [
+                {
+                  "if": "Mode bulan atau kuartal?",
+                  "then": ["Sel bawah per bulan (atau K1-K4), sel atas per tahun"],
+                  "else": [
+                    {
+                      "if": "Mode pekan?",
+                      "then": [
+                        {
+                          "do": "Sel bawah per pekan (mulai Senin), sel atas per bulan",
+                          "code": "mondayOnOrBefore"
+                        }
+                      ],
+                      "else": [
+                        "Sel per hari (nama hari bila ≥ 48 px), sel atas per pekan; gabungkan kolom libur berurutan"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            { "stop": "top, bottom, offDays, weekLines, todayX", "code": "nextMonthStart" }
+          ],
+          "pitfalls": [
+            "Sel hari ini (isToday) dipakai GanttView untuk menggulir ke hari ini; mengubah bentuk header bisa memengaruhi tombol Hari ini."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gantt-drag",
+      "group": "ui-gantt",
+      "name": "Arti seret bar",
+      "summary": "Piksel menjadi hari bulat, hari menjadi tanggal mulai dan durasi; hasil seret tidak pernah jatuh di hari libur.",
+      "files": ["src/ui/gantt/drag.ts"],
+      "tests": ["src/ui/gantt/drag.test.ts"],
+      "algorithms": [
+        {
+          "id": "piksel",
+          "name": "Piksel ke hari",
+          "summary": "Dibulatkan menurut besar geserannya, supaya setengah hari dibulatkan sama ke kedua arah.",
+          "symbols": ["daysFromPixels"],
+          "steps": [
+            "hari = round(|dx| / lebar hari)",
+            { "stop": "Beri tanda negatif bila dx negatif", "code": "daysFromPixels" }
+          ],
+          "examples": [
+            { "given": "dx = 30, lebar hari 20", "result": "2", "note": "1,5 dibulatkan ke 2" },
+            { "given": "dx = −30, lebar hari 20", "result": "−2", "note": "simetris" }
+          ]
+        },
+        {
+          "id": "hasil",
+          "name": "Hasil seret",
+          "summary": "Move mempertahankan durasi dan mendarat di hari kerja searah tarikan; resize mengubah durasi dari hari terakhir baru.",
+          "symbols": ["resolveDrag", "changed"],
+          "input": "Mode, mulai, selesai, durasi, milestone, deltaDays, kalender.",
+          "output": "{ start, end, duration }.",
+          "steps": [
+            {
+              "if": "Resize dan bukan milestone?",
+              "then": [
+                "Hari terakhir baru = selesai + delta, mundur ke hari kerja",
+                {
+                  "if": "Hari terakhir tidak setelah mulai?",
+                  "then": ["Durasi = 1"],
+                  "else": ["Durasi = hari kerja dari mulai sampai hari terakhir"]
+                },
+                { "stop": "Batasi 3650; selesai = endOf(mulai, durasi)" }
+              ]
+            },
+            "Mulai baru = mulai + delta",
+            {
+              "if": "Ditarik ke kiri?",
+              "then": ["Mundur ke hari kerja sebelumnya"],
+              "else": ["Maju ke hari kerja berikutnya"]
+            },
+            { "stop": "Durasi tetap (0 untuk milestone); selesai = endOf", "code": "resolveDrag" }
+          ],
+          "examples": [
+            {
+              "given": "Move tugas Jumat 2026-11-06, delta +1",
+              "result": "mulai Senin 2026-11-09",
+              "note": "Sabtu dilompati ke depan"
+            },
+            {
+              "given": "Move tugas Senin 2026-11-09, delta −1",
+              "result": "mulai Jumat 2026-11-06",
+              "note": "Minggu dilompati ke belakang"
+            }
+          ],
+          "rules": [
+            "Bar tidak pernah melompat melawan arah tarikan.",
+            "changed: hanya bila mulai atau durasi berbeda, jadi seret yang kembali ke tempat semula tidak membuat entri undo."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gantt-zoom",
+      "group": "ui-gantt",
+      "name": "Posisi gulir setelah zoom",
+      "summary": "Tanggal di tengah bagian chart yang terlihat tetap di tengah; hanya lebar hari yang berubah di sekitarnya.",
+      "files": ["src/ui/gantt/zoom.ts"],
+      "tests": ["src/ui/gantt/zoom.test.ts"],
+      "algorithms": [
+        {
+          "id": "tengah",
+          "name": "Menjaga titik tengah",
+          "summary": "Titik tengah disimpan sampai pecahan hari, supaya hari yang lebar tidak melompat ke pusatnya.",
+          "symbols": ["scrollAfterZoom"],
+          "steps": [
+            "Tengah (dalam hari) = (scrollLeft lama + lebar terlihat / 2) / lebar hari lama",
+            "Pisahkan hari bulat dan pecahannya; tanggal tengah = awal lama + hari bulat",
+            "x baru = (hari dari awal baru ke tanggal tengah + pecahan) × lebar hari baru",
+            {
+              "stop": "scrollLeft baru = max(0, x baru − lebar terlihat / 2)",
+              "code": "scrollAfterZoom"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gantt-snap",
+      "group": "ui-gantt",
+      "name": "Magnet gulir samping",
+      "summary": "Titik henti gulir di tepi kiri sel header, dan arti 'samping' untuk roda mouse.",
+      "description": "Ini snap posisi gulir, bukan snap tanggal bar. Snap tanggal bar ada di Arti seret bar (resolveDrag).",
+      "files": ["src/ui/gantt/snap.ts"],
+      "tests": ["src/ui/gantt/snap.test.ts"],
+      "algorithms": [
+        {
+          "id": "magnet",
+          "name": "Titik magnet",
+          "summary": "Tepi sel ditahan ke rentang gulir, tanpa duplikat; yang terdekat dipilih, imbang memilih yang lebih awal.",
+          "symbols": ["snapPoints", "nearestSnap", "stepSnap"],
+          "steps": [
+            {
+              "do": "Titik = {0, maks} ∪ tepi sel, ditahan ke [0, maks], diurutkan",
+              "code": "snapPoints"
+            },
+            {
+              "if": "Mencari titik terdekat?",
+              "then": [
+                { "stop": "Jarak terkecil; imbang memilih yang lebih awal", "code": "nearestSnap" }
+              ]
+            },
+            {
+              "stop": "Titik berikutnya ke satu arah, lebih dari 0,5 px dari posisi sekarang",
+              "code": "stepSnap"
+            }
+          ]
+        },
+        {
+          "id": "roda",
+          "name": "Roda yang berarti samping",
+          "summary": "Usap horizontal, atau Shift dengan roda (gerakan vertikal roda menjadi samping).",
+          "symbols": ["isSideways", "sidewaysDelta"],
+          "steps": [
+            {
+              "if": "Shift ditekan atau |deltaX| > |deltaY|?",
+              "then": ["Gerakan samping"],
+              "else": [{ "stop": "Bukan samping", "code": "isSideways" }]
+            },
+            {
+              "stop": "Besarnya: deltaX, atau deltaY bila Shift dengan roda vertikal",
+              "code": "sidewaysDelta"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

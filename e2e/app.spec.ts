@@ -589,6 +589,153 @@ test('people can be added, given a role, assigned and removed', async ({ page })
   await expect(person).toBeHidden()
 })
 
+test('documents hold blocks and task mentions, link both ways and undo like any edit', async ({
+  page,
+}) => {
+  await openDemo(page)
+  await page.getByRole('button', { name: 'Dokumen', exact: true }).click()
+  const title = page.getByRole('textbox', { name: 'Judul dokumen' })
+  const body = page.getByRole('textbox', { name: 'Isi dokumen' })
+  const side = page.getByRole('complementary', { name: 'Ringkasan dokumen' })
+  await expect(title).toHaveValue('Rencana peluncuran')
+  await expect(body.locator('.mention', { hasText: 'Soft opening' }).first()).toBeVisible()
+  await expect(side.getByRole('button', { name: /Desain interior/ })).toBeVisible()
+  await expectNoSeriousViolations(page)
+
+  // A new document: title first, then Enter moves into the page.
+  await page.getByRole('button', { name: 'Dokumen baru' }).click()
+  await expect(title).toBeFocused()
+  await title.fill('Belanja peralatan')
+  await title.press('Enter')
+  await expect(body).toBeFocused()
+  await page.keyboard.type('Datang sebelum @pasang')
+  const menu = page.getByRole('listbox', { name: 'Pilih tugas' })
+  await expect(menu.getByRole('option', { name: /Pasang mesin espresso/ })).toBeVisible()
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('/cent')
+  await page.getByRole('listbox', { name: 'Pilih jenis blok' }).getByText('Daftar centang').click()
+  await page.keyboard.type('Gelas kaca')
+  await expect(body.getByRole('checkbox', { name: 'Belum selesai: Gelas kaca' })).toBeVisible()
+  await expect(side.getByRole('button', { name: /Pasang mesin espresso/ })).toBeVisible()
+  const rail = page.getByRole('navigation', { name: 'Dokumen proyek' })
+  await expect(rail.getByRole('button', { name: /Belanja peralatan/ })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await expectNoSeriousViolations(page)
+
+  // Typing is one quiet undo step, taken back from outside the editor.
+  await rail.getByRole('heading', { name: 'Dokumen proyek' }).click()
+  await page.keyboard.press('Control+z')
+  await expect(body).not.toContainText('Gelas kaca')
+  await page.keyboard.press('Control+Shift+z')
+  await expect(body).toContainText('Gelas kaca')
+
+  // Alt and an arrow move a document in the list.
+  await rail.getByRole('button', { name: /Belanja peralatan/ }).focus()
+  await page.keyboard.press('Alt+ArrowUp')
+  await expect(rail.getByRole('listitem').nth(4)).toContainText('Belanja peralatan')
+
+  // The task shows where it is mentioned, and its progress reaches the chip.
+  await side.getByRole('button', { name: /Pasang mesin espresso/ }).click()
+  const row = page.getByRole('treegrid').getByRole('row', { name: /Pasang mesin espresso/ })
+  await expect(row).toHaveAttribute('aria-selected', 'true')
+  await row.dblclick()
+  const dialog = page.getByRole('dialog', { name: 'Ubah tugas' })
+  await expect(dialog.getByRole('button', { name: 'Rencana peluncuran' })).toBeVisible()
+  await dialog.getByText('50%', { exact: true }).click()
+  await dialog.getByRole('button', { name: 'Simpan' }).click()
+  await row.dblclick()
+  await dialog.getByRole('button', { name: 'Belanja peralatan' }).click()
+  await expect(title).toHaveValue('Belanja peralatan')
+  await expect(body.locator('.mention', { hasText: 'Pasang mesin espresso' })).toContainText('50%')
+
+  // Deleting is undone from its message, and everything stays after a reload.
+  await page.getByRole('button', { name: 'Hapus', exact: true }).click()
+  await expect(rail.getByRole('button', { name: /Belanja peralatan/ })).toBeHidden()
+  // The previous message may still be leaving, so take the button beside this one.
+  await page
+    .getByText('Dokumen dihapus')
+    .locator('..')
+    .getByRole('button', { name: 'Urungkan' })
+    .click()
+  await expect(rail.getByRole('button', { name: /Belanja peralatan/ })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'Dokumen', exact: true }).click()
+  await rail.getByRole('button', { name: /Belanja peralatan/ }).click()
+  await expect(body).toContainText('Gelas kaca')
+})
+
+test('a project without documents offers to start one', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('input[accept=".gan"]').setInputFiles(fixture)
+  await page.getByRole('button', { name: 'Simpan dan buka proyek' }).click()
+  await page.getByRole('button', { name: 'Dokumen', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Belum ada dokumen' })).toBeVisible()
+  await expectNoSeriousViolations(page)
+  await page.getByRole('main').getByRole('button', { name: 'Dokumen baru' }).click()
+  await expect(page.getByRole('textbox', { name: 'Judul dokumen' })).toBeFocused()
+  await expect(page.getByRole('textbox', { name: 'Isi dokumen' })).toBeVisible()
+})
+
+test('Markdown files import as documents, one undo takes them back, bad files are reported', async ({
+  page,
+}) => {
+  await openDemo(page)
+  await page.getByRole('button', { name: 'Dokumen', exact: true }).click()
+  const rail = page.getByRole('navigation', { name: 'Dokumen proyek' })
+  const body = page.getByRole('textbox', { name: 'Isi dokumen' })
+  const side = page.getByRole('complementary', { name: 'Ringkasan dokumen' })
+  const before = await rail.getByRole('listitem').count()
+
+  const notes = [
+    '# Catatan rapat',
+    '',
+    '## Keputusan',
+    '',
+    'Kita pakai **dua** tahap, lihat [rencana](https://contoh.id/rencana).',
+    '',
+    '- [x] Pesan bahan',
+    '- [ ] Cetak menu',
+    '',
+    '> [!WARNING]',
+    '> Jangan lupa cadangan.',
+  ].join('\n')
+  await page.locator('input[accept*=".md"]').setInputFiles([
+    { name: 'catatan.md', mimeType: 'text/markdown', buffer: Buffer.from(notes) },
+    {
+      name: 'tanpa-judul.md',
+      mimeType: 'text/markdown',
+      buffer: Buffer.from('Hanya satu paragraf.'),
+    },
+    { name: 'besar.md', mimeType: 'text/markdown', buffer: Buffer.alloc(1024 * 1024 + 1, 'a') },
+  ])
+
+  await expect(page.getByText('2 dokumen diimpor')).toBeVisible()
+  await expect(rail.getByRole('listitem')).toHaveCount(before + 2)
+  await expect(page.getByRole('alert')).toContainText('besar.md')
+  await expect(page.getByRole('textbox', { name: 'Judul dokumen' })).toHaveValue('Catatan rapat')
+  await expect(body.getByRole('heading', { name: 'Keputusan' })).toBeVisible()
+  await expect(body.getByRole('link', { name: 'rencana' })).toHaveAttribute(
+    'href',
+    'https://contoh.id/rencana',
+  )
+  await expect(body.getByRole('checkbox', { name: 'Selesai: Pesan bahan' })).toBeVisible()
+  await expect(body.getByRole('note')).toContainText('Peringatan')
+  await expect(side.getByRole('button', { name: 'Keputusan' })).toBeVisible()
+  // The imported page is a normal one: editable, not opened read-only.
+  await expect(body).toHaveAttribute('contenteditable', 'true')
+  await expectNoSeriousViolations(page)
+
+  // Without a heading of its own, the file's name is the title.
+  await rail.getByRole('button', { name: /tanpa-judul/ }).click()
+  await expect(page.getByRole('textbox', { name: 'Judul dokumen' })).toHaveValue('tanpa-judul')
+
+  await page.getByRole('button', { name: 'Urungkan' }).click()
+  await expect(rail.getByRole('listitem')).toHaveCount(before)
+})
+
 test('the project view passes accessibility checks in dark mode and on a phone', async ({
   page,
 }) => {
@@ -598,7 +745,13 @@ test('the project view passes accessibility checks in dark mode and on a phone',
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await expectNoSeriousViolations(page)
 
+  await page.getByRole('button', { name: 'Dokumen', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Isi dokumen' })).toBeVisible()
+  await expectNoSeriousViolations(page)
+
   await page.setViewportSize({ width: 390, height: 844 })
+  await expectNoSeriousViolations(page)
+  await page.getByRole('button', { name: 'Gantt', exact: true }).click()
   await expectNoSeriousViolations(page)
   await page.getByRole('button', { name: 'Resource', exact: true }).click()
   await expectNoSeriousViolations(page)

@@ -2,6 +2,7 @@ import { produce } from 'immer'
 import { describe, expect, it } from 'vitest'
 import { toIsoDate } from '../../core/dates.ts'
 import { projectSchema, type Project } from '../../core/model.ts'
+import { documentFromText } from '../../core/rich-text.ts'
 import { coffeeShopProject } from '../../core/test-utils/coffee-shop.ts'
 import {
   addHoliday,
@@ -155,19 +156,40 @@ describe('tasks', () => {
     expect(byId(project, '7')).not.toHaveProperty('type')
   })
 
-  it('stores trimmed notes and clears them when blank', () => {
+  it('stores trimmed notes as a document and clears them when blank', () => {
     const noted = apply(
       coffeeShopProject(),
-      updateTask('7', { ...input, notes: '  Tanya tukang  ' }),
+      updateTask('7', { ...input, notes: '  Tanya tukang\nCek listrik  ' }),
     )
-    expect(byId(noted, '7')?.notes).toBe('Tanya tukang')
+    expect(byId(noted, '7')?.notes).toEqual(documentFromText('Tanya tukang\nCek listrik'))
     const cleared = apply(noted, updateTask('7', { ...input, notes: '   ' }))
     expect(byId(cleared, '7')).not.toHaveProperty('notes')
   })
 
+  it('keeps stored notes, with their formatting, when the text is unchanged', () => {
+    const rich = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Tunggu ', marks: [{ type: 'bold' }] },
+            { type: 'taskMention', attrs: { id: '6', label: 'Desain interior' } },
+          ],
+        },
+      ],
+    }
+    const noted = produce(coffeeShopProject(), (draft) => {
+      const task = draft.tasks.find((candidate) => candidate.id === '7')
+      if (task) task.notes = rich
+    })
+    const project = apply(noted, updateTask('7', { ...input, notes: 'Tunggu Desain interior' }))
+    expect(byId(project, '7')?.notes).toEqual(rich)
+  })
+
   it('lets a summary task keep notes too', () => {
     const project = apply(coffeeShopProject(), updateTask('5', { ...input, notes: 'Induk' }))
-    expect(byId(project, '5')?.notes).toBe('Induk')
+    expect(byId(project, '5')?.notes).toEqual(documentFromText('Induk'))
   })
 
   it('only renames and retypes a summary task, whose dates come from its subtasks', () => {

@@ -14,9 +14,13 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "check:data-files": "node scripts/check-data-files.js",
+    "peta": "node tools/peta-algoritma/bin/peta.js dev --config docs/peta/peta.config.json",
+    "peta:build": "node tools/peta-algoritma/bin/peta.js build --config docs/peta/peta.config.json",
+    "peta:check": "node tools/peta-algoritma/bin/peta.js check --config docs/peta/peta.config.json --strict",
+    "peta:test": "node --test \"tools/peta-algoritma/test/*.test.js\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm format:check && pnpm check:data-files && pnpm lint && pnpm test:coverage && pnpm build"
+    "check": "pnpm format:check && pnpm check:data-files && pnpm peta:check && pnpm peta:test && pnpm lint && pnpm test:coverage && pnpm build"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
@@ -54,6 +58,13 @@
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@lucide/svelte": "^1.61.0",
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/extension-list": "^3.32.0",
+    "@tiptap/extension-mention": "^3.32.0",
+    "@tiptap/extensions": "^3.32.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
+    "@tiptap/suggestion": "^3.32.0",
     "bits-ui": "^2.20.2",
     "dexie": "^4.4.7",
     "fast-xml-parser": "^5.11.2",
@@ -62,5 +73,5 @@
     "zod": "^4.6.7",
     "zustand": "^5.0.16"
   },
-  "packageManager": "pnpm@10.33.3"
+  "packageManager": "pnpm@12.18.0+sha512.9d7882d5dc82147ecfc4e062aa34834e0ad0296710a1837a1115ae012127d36b7109e321ac1598a1dd0a65597681b1e99917e12ed0d749eae91187943363beb3"
 }

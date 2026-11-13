@@ -1,0 +1,1149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peta algoritma",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$comment": {
+      "type": "string"
+    },
+    "title": {
+      "description": "Judul peta.",
+      "type": "string",
+      "minLength": 1
+    },
+    "system": {
+      "description": "Nama sistem, dipakai sebagai batas diagram use case.",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "description": "Paragraf pembuka di halaman Mulai.",
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "description": "Bahasa antarmuka peta.",
+      "enum": ["id", "en"]
+    },
+    "root": {
+      "description": "Akar proyek, relatif terhadap berkas ini.",
+      "type": "string",
+      "minLength": 1
+    },
+    "output": {
+      "description": "Berkas HTML hasil, relatif terhadap akar proyek.",
+      "type": "string",
+      "minLength": 1
+    },
+    "editor": {
+      "description": "Editor bawaan untuk membuka kode.",
+      "enum": ["vscode", "cursor", "idea", "none"]
+    },
+    "repository": {
+      "description": "Repositori untuk tautan \"buka di GitHub\". Terbaca dari git bila kosong.",
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "$comment": {
+          "type": "string"
+        },
+        "url": {
+          "description": "URL repositori GitHub.",
+          "type": "string",
+          "minLength": 1
+        },
+        "branch": {
+          "description": "Cabang untuk tautan.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["url"],
+      "additionalProperties": false
+    },
+    "include": {
+      "description": "Berkas peta lain yang digabungkan, relatif terhadap berkas ini.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "$comment": {
+          "type": "string"
+        },
+        "include": {
+          "description": "Glob berkas yang wajib terpetakan, mis. \"src/**/*.ts\".",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "exclude": {
+          "description": "Glob yang dikecualikan, mis. \"**/*.test.ts\".",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": ["include"],
+      "additionalProperties": false
+    },
+    "resolve": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "$comment": {
+          "type": "string"
+        },
+        "alias": {
+          "description": "Alias impor, mis. { \"@/\": \"src/\" }.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "rules": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "$comment": {
+          "type": "string"
+        },
+        "layers": {
+          "description": "Impor yang melanggar arah lapisan.",
+          "enum": ["error", "warn", "off"]
+        },
+        "exports": {
+          "description": "Fungsi ekspor yang belum dijelaskan.",
+          "enum": ["error", "warn", "off"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "layers": {
+      "description": "Lapisan arsitektur, dari atas ke bawah.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Id lapisan.",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "description": "Nama lapisan.",
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "description": "Tanggung jawab lapisan.",
+            "type": "string",
+            "minLength": 1
+          },
+          "color": {
+            "description": "Warna CSS lapisan.",
+            "type": "string"
+          },
+          "mayUse": {
+            "description": "Lapisan yang boleh dipakai (termasuk dirinya).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            }
+          }
+        },
+        "required": ["id", "name", "summary"],
+        "additionalProperties": false
+      }
+    },
+    "groups": {
+      "description": "Grup modul di dalam lapisan.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "layer": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["id", "layer", "name"],
+        "additionalProperties": false
+      }
+    },
+    "modules": {
+      "description": "Modul (komponen UML) beserta algoritmanya.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Id unik modul.",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "group": {
+            "description": "Id grup tempat modul ini tampil.",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "description": "Nama modul.",
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "description": "Satu kalimat untuk kartu di peta.",
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "description": "Penjelasan peran modul.",
+            "type": "string",
+            "minLength": 1
+          },
+          "files": {
+            "description": "Berkas modul; yang pertama adalah berkas utama.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "tests": {
+            "description": "Berkas test yang menguji modul ini.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "rules": {
+            "description": "Aturan (invarian) modul.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "pitfalls": {
+            "description": "Jebakan di modul ini.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "diagrams": {
+            "description": "Id diagram kelas atau status yang menjelaskan modul ini.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            }
+          },
+          "algorithms": {
+            "description": "Algoritma di dalam modul.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "$schema": {
+                  "type": "string"
+                },
+                "$comment": {
+                  "type": "string"
+                },
+                "id": {
+                  "description": "Id unik di dalam modul (untuk tautan).",
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "name": {
+                  "description": "Nama algoritma.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "summary": {
+                  "description": "Satu kalimat: apa yang dilakukan.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "symbols": {
+                  "description": "Simbol kode utama (fungsi, metode, konstanta).",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "input": {
+                  "description": "Masukan.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "output": {
+                  "description": "Keluaran.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "steps": {
+                  "description": "Cara kerja, dirender sebagai diagram aktivitas UML.",
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/step"
+                  }
+                },
+                "examples": {
+                  "description": "Contoh masukan dan hasil.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "$schema": {
+                        "type": "string"
+                      },
+                      "$comment": {
+                        "type": "string"
+                      },
+                      "given": {
+                        "description": "Masukan contoh.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "result": {
+                        "description": "Hasil.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "note": {
+                        "description": "Catatan.",
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["given", "result"],
+                    "additionalProperties": false
+                  }
+                },
+                "rules": {
+                  "description": "Aturan (invarian) yang dijaga.",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "pitfalls": {
+                  "description": "Jebakan yang sering membuat bug.",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "complexity": {
+                  "description": "Kompleksitas waktu atau ruang.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": ["id", "name", "summary"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["id", "group", "name", "summary", "files"],
+        "additionalProperties": false
+      }
+    },
+    "flows": {
+      "description": "Alur (use case) yang digambar sebagai diagram urutan.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Id unik alur.",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "description": "Nama alur (use case), mis. \"Menyeret bar di Gantt\".",
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "description": "Id kategori untuk mengelompokkan use case.",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "summary": {
+            "description": "Ringkasan alur.",
+            "type": "string",
+            "minLength": 1
+          },
+          "trigger": {
+            "description": "Pemicu atau prasyarat.",
+            "type": "string",
+            "minLength": 1
+          },
+          "result": {
+            "description": "Hasil akhir yang terlihat.",
+            "type": "string",
+            "minLength": 1
+          },
+          "actors": {
+            "description": "Peserta yang bukan modul: pengguna, basis data, sistem luar.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "$schema": {
+                  "type": "string"
+                },
+                "$comment": {
+                  "type": "string"
+                },
+                "id": {
+                  "description": "Id aktor.",
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "name": {
+                  "description": "Nama aktor.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "type": {
+                  "description": "Bentuk lifeline.",
+                  "enum": ["actor", "database", "system"]
+                }
+              },
+              "required": ["id", "name"],
+              "additionalProperties": false
+            }
+          },
+          "participants": {
+            "description": "Urutan lifeline (opsional).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "messages": {
+            "description": "Pesan berurutan.",
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/message"
+            },
+            "minItems": 1
+          }
+        },
+        "required": ["id", "name", "summary", "messages"],
+        "additionalProperties": false
+      }
+    },
+    "diagrams": {
+      "description": "Diagram kelas dan diagram status.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Id unik diagram.",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "type": {
+            "description": "Jenis diagram UML.",
+            "enum": ["class", "state"]
+          },
+          "name": {
+            "description": "Judul diagram.",
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "description": "Penjelasan singkat.",
+            "type": "string",
+            "minLength": 1
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "$schema": {
+                  "type": "string"
+                },
+                "$comment": {
+                  "type": "string"
+                },
+                "id": {
+                  "description": "Id simpul di dalam diagram.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "description": "Nama yang ditampilkan.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "description": "Bentuk simpul.",
+                  "enum": ["class", "state", "initial", "final", "choice", "note"]
+                },
+                "col": {
+                  "description": "Kolom (mulai dari 1).",
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "row": {
+                  "description": "Baris (mulai dari 1).",
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "stereotype": {
+                  "description": "Stereotip, mis. \"dihitung\".",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "attributes": {
+                  "description": "Atribut kelas, mis. \"start: IsoDate\".",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "operations": {
+                  "description": "Operasi kelas.",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "text": {
+                  "description": "Baris teks tambahan (aktivitas status atau isi catatan).",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": ["id", "col", "row"],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "$schema": {
+                  "type": "string"
+                },
+                "$comment": {
+                  "type": "string"
+                },
+                "from": {
+                  "description": "Id simpul asal.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "to": {
+                  "description": "Id simpul tujuan.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "description": "Jenis relasi UML.",
+                  "enum": [
+                    "association",
+                    "navigable",
+                    "composition",
+                    "aggregation",
+                    "generalization",
+                    "dependency",
+                    "realization",
+                    "transition",
+                    "anchor"
+                  ]
+                },
+                "label": {
+                  "description": "Label di tengah garis.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "fromLabel": {
+                  "description": "Label di ujung asal (multiplisitas atau peran).",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "toLabel": {
+                  "description": "Label di ujung tujuan.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": ["from", "to"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["id", "type", "name", "nodes"],
+        "additionalProperties": false
+      }
+    },
+    "categories": {
+      "description": "Kategori untuk alur dan gejala.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["id", "name"],
+        "additionalProperties": false
+      }
+    },
+    "symptoms": {
+      "description": "Gejala masalah dan tempat memeriksanya.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Id unik gejala.",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "category": {
+            "description": "Id kategori.",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "title": {
+            "description": "Gejala seperti yang dilihat developer.",
+            "type": "string",
+            "minLength": 1
+          },
+          "checks": {
+            "description": "Tersangka, urut dari yang paling mungkin.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "$schema": {
+                  "type": "string"
+                },
+                "$comment": {
+                  "type": "string"
+                },
+                "module": {
+                  "description": "Modul yang diperiksa.",
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "code": {
+                  "description": "Simbol kode yang dicurigai.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "why": {
+                  "description": "Kenapa dicurigai.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": ["module", "why"],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          },
+          "verify": {
+            "description": "Cara memastikan, mis. perintah test.",
+            "type": "string",
+            "minLength": 1
+          },
+          "tip": {
+            "description": "Saran tambahan.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["id", "title", "checks"],
+        "additionalProperties": false
+      }
+    },
+    "glossary": {
+      "description": "Istilah.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "term": {
+            "type": "string",
+            "minLength": 1
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "modules": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            }
+          }
+        },
+        "required": ["term", "definition"],
+        "additionalProperties": false
+      }
+    },
+    "overview": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "$comment": {
+          "type": "string"
+        },
+        "intro": {
+          "description": "Pengantar.",
+          "type": "string",
+          "minLength": 1
+        },
+        "principles": {
+          "description": "Aturan emas.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "$schema": {
+                "type": "string"
+              },
+              "$comment": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["title", "text"],
+            "additionalProperties": false
+          }
+        },
+        "pipeline": {
+          "description": "Jalur data utama.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "$schema": {
+                "type": "string"
+              },
+              "$comment": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+              },
+              "caption": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["module", "caption"],
+            "additionalProperties": false
+          }
+        },
+        "readingOrder": {
+          "description": "Urutan baca modul untuk developer baru.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ignore": {
+      "description": "Berkas dalam cakupan yang sengaja tidak dipetakan, beserta alasannya.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["file", "reason"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "step": {
+      "description": "Satu langkah diagram aktivitas UML.",
+      "anyOf": [
+        {
+          "description": "Langkah (aksi) biasa.",
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "properties": {
+            "$schema": {
+              "type": "string"
+            },
+            "$comment": {
+              "type": "string"
+            },
+            "do": {
+              "description": "Aksi.",
+              "type": "string",
+              "minLength": 1
+            },
+            "code": {
+              "description": "Simbol kode yang menjalankan aksi ini.",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["do"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "$schema": {
+              "type": "string"
+            },
+            "$comment": {
+              "type": "string"
+            },
+            "stop": {
+              "description": "Aksi terakhir; alur berhenti di sini.",
+              "type": "string",
+              "minLength": 1
+            },
+            "code": {
+              "description": "Simbol kode.",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["stop"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "$schema": {
+              "type": "string"
+            },
+            "$comment": {
+              "type": "string"
+            },
+            "if": {
+              "description": "Pertanyaan atau kondisi keputusan.",
+              "type": "string",
+              "minLength": 1
+            },
+            "then": {
+              "description": "Langkah bila kondisi benar.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/step"
+              }
+            },
+            "else": {
+              "description": "Langkah bila kondisi salah (opsional).",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/step"
+              }
+            },
+            "yes": {
+              "description": "Label penjaga untuk cabang benar, mis. \"ada siklus\".",
+              "type": "string",
+              "minLength": 1
+            },
+            "no": {
+              "description": "Label penjaga untuk cabang salah.",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["if", "then"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "$schema": {
+              "type": "string"
+            },
+            "$comment": {
+              "type": "string"
+            },
+            "loop": {
+              "description": "Kondisi perulangan, mis. \"masih ada tugas berikutnya?\".",
+              "type": "string",
+              "minLength": 1
+            },
+            "body": {
+              "description": "Isi perulangan.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/step"
+              },
+              "minItems": 1
+            },
+            "next": {
+              "description": "Label penjaga untuk lanjut.",
+              "type": "string",
+              "minLength": 1
+            },
+            "done": {
+              "description": "Label penjaga untuk selesai.",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["loop", "body"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "message": {
+      "description": "Pesan diagram urutan UML atau combined fragment.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "$schema": {
+              "type": "string"
+            },
+            "$comment": {
+              "type": "string"
+            },
+            "fragment": {
+              "description": "Jenis combined fragment UML.",
+              "enum": ["alt", "opt", "loop", "par"]
+            },
+            "label": {
+              "description": "Penjaga, mis. \"berkas .gan\".",
+              "type": "string",
+              "minLength": 1
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/message"
+              },
+              "minItems": 1
+            },
+            "else": {
+              "description": "Operan lain (hanya untuk alt dan par).",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "$schema": {
+                    "type": "string"
+                  },
+                  "$comment": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "description": "Penjaga operan berikutnya.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "messages": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/message"
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": ["label", "messages"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["fragment", "label", "messages"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "$schema": {
+              "type": "string"
+            },
+            "$comment": {
+              "type": "string"
+            },
+            "from": {
+              "description": "Pengirim: id modul atau id aktor.",
+              "type": "string",
+              "minLength": 1
+            },
+            "to": {
+              "description": "Penerima: id modul atau id aktor.",
+              "type": "string",
+              "minLength": 1
+            },
+            "text": {
+              "description": "Label pesan, mis. \"resolveDrag(input)\".",
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "description": "Jenis pesan; bawaan \"call\".",
+              "enum": ["call", "async", "return", "create"]
+            },
+            "code": {
+              "description": "Simbol kode yang dipanggil (dicari di penerima, lalu pengirim).",
+              "type": "string",
+              "minLength": 1
+            },
+            "note": {
+              "description": "Penjelasan langkah untuk daftar di samping diagram.",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["from", "to", "text"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

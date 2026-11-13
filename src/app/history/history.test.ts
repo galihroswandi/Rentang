@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { coffeeShopProject } from '../../core/test-utils/coffee-shop.ts'
-import { addRole, renameRole } from '../edits/project-edits.ts'
+import { addRole, renameProject, renameRole } from '../edits/project-edits.ts'
 import { EMPTY_HISTORY, HISTORY_LIMIT, record, redo, undo } from './history.ts'
 
 describe('history', () => {
@@ -45,5 +45,54 @@ describe('history', () => {
     if (!undone) throw new Error('expected undo')
     const fresh = record(undone.project, undone.history, 'Baru', addRole('baru', 'Baru'))
     expect(fresh?.history.future).toEqual([])
+  })
+})
+
+describe('merged steps', () => {
+  const start = coffeeShopProject()
+
+  function typeNames(names: readonly string[], key: string | undefined) {
+    let project = start
+    let history = EMPTY_HISTORY
+    for (const name of names) {
+      const step = record(project, history, 'Nama proyek diubah', renameProject(name), key)
+      if (!step) throw new Error('expected a change')
+      ;({ project, history } = step)
+    }
+    return { project, history }
+  }
+
+  it('joins edits in a row with the same key into one step', () => {
+    const { project, history } = typeNames(['K', 'Ke', 'Ked'], 'nama')
+    expect(project.name).toBe('Ked')
+    expect(history.past).toHaveLength(1)
+    // The joined step stores the name once, not once per edit.
+    expect(history.past[0]?.patches).toHaveLength(1)
+    expect(undo(project, history)?.project).toEqual(start)
+  })
+
+  it('keeps separate steps without a key or with another key', () => {
+    expect(typeNames(['K', 'Ke'], undefined).history.past).toHaveLength(2)
+    const first = typeNames(['K'], 'a')
+    const second = record(first.project, first.history, 'x', renameProject('Ke'), 'b')
+    expect(second?.history.past).toHaveLength(2)
+  })
+
+  it('starts a new step after an undo', () => {
+    const typed = typeNames(['K'], 'nama')
+    const role = record(typed.project, typed.history, 'Role', addRole('k', 'Kasir'))
+    if (!role) throw new Error('expected a change')
+    const undone = undo(role.project, role.history)
+    if (!undone) throw new Error('expected undo')
+    const again = record(undone.project, undone.history, 'Nama', renameProject('Ke'), 'nama')
+    expect(again?.history.past).toHaveLength(2)
+  })
+
+  it('drops the step when the joined edits cancel out', () => {
+    const typed = typeNames(['Baru'], 'nama')
+    const back = record(typed.project, typed.history, 'Nama', renameProject(start.name), 'nama')
+    expect(back?.project.name).toBe(start.name)
+    expect(back?.history.past).toEqual([])
+    expect(back?.entry.patches).toEqual([])
   })
 })

@@ -1,6 +1,17 @@
 <script lang="ts" module>
   // The Lucide icons the design canvas uses, under the names the components ask for.
   import ArrowDown from '@lucide/svelte/icons/arrow-down'
+  import AtSign from '@lucide/svelte/icons/at-sign'
+  import FileText from '@lucide/svelte/icons/file-text'
+  import FilePlus from '@lucide/svelte/icons/file-plus'
+  import Heading1 from '@lucide/svelte/icons/heading-1'
+  import Heading2 from '@lucide/svelte/icons/heading-2'
+  import Lightbulb from '@lucide/svelte/icons/lightbulb'
+  import List from '@lucide/svelte/icons/list'
+  import ListChecks from '@lucide/svelte/icons/list-checks'
+  import ListOrdered from '@lucide/svelte/icons/list-ordered'
+  import TextQuote from '@lucide/svelte/icons/text-quote'
+  import Type from '@lucide/svelte/icons/type'
   import ArrowDownToLine from '@lucide/svelte/icons/arrow-down-to-line'
   import ArrowLeftToLine from '@lucide/svelte/icons/arrow-left-to-line'
   import ArrowUpToLine from '@lucide/svelte/icons/arrow-up-to-line'
@@ -51,6 +62,17 @@
   import ZoomOut from '@lucide/svelte/icons/zoom-out'
 
   const ICONS = {
+    'at-sign': AtSign,
+    'file-text': FileText,
+    'file-plus': FilePlus,
+    'heading-1': Heading1,
+    'heading-2': Heading2,
+    lightbulb: Lightbulb,
+    list: List,
+    'list-checks': ListChecks,
+    'list-ordered': ListOrdered,
+    'text-quote': TextQuote,
+    type: Type,
     'arrow-down': ArrowDown,
     'arrow-down-to-line': ArrowDownToLine,
     'arrow-left-to-line': ArrowLeftToLine,

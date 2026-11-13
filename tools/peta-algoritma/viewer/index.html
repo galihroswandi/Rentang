@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="{{lang}}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{{title}}</title>
+    <style>
+      /*{{style}}*/
+    </style>
+    <script>
+      try {
+        const theme = localStorage.getItem('peta.theme')
+        if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="application/json" id="peta-data">
+      "{{data}}"
+    </script>
+    <script>
+      /*{{script}}*/
+    </script>
+    <!--{{reload}}-->
+  </body>
+</html>

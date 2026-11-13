@@ -3,7 +3,8 @@
  * project is always under way on the day the demo is opened.
  */
 import { addDays, dayOfWeek, diffDays, toIsoDate, type IsoDate } from '../../core/dates.ts'
-import type { Dependency, Project, Task, TaskType } from '../../core/model.ts'
+import type { Dependency, Project, ProjectDocument, Task, TaskType } from '../../core/model.ts'
+import { TASK_MENTION, type Json } from '../../core/rich-text.ts'
 
 export const DEMO_PROJECT_ID = 'demo-kedai-kopi'
 
@@ -138,6 +139,130 @@ function paragraph(text: string) {
   return { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }
 }
 
+// Building blocks for the demo documents, in the editor's JSON shape. A string is plain text;
+// `{ task }` mentions a task by id, labelled with its name as the editor would write it.
+type Inline = string | { readonly task: string }
+
+function inline(parts: readonly Inline[]): Json[] {
+  return parts.map((part) => {
+    if (typeof part === 'string') return { type: 'text', text: part }
+    const label = rows.find((row) => row.id === part.task)?.name ?? ''
+    return { type: TASK_MENTION, attrs: { id: part.task, label, mentionSuggestionChar: '@' } }
+  })
+}
+
+const block = {
+  heading: (text: string): Json => ({
+    type: 'heading',
+    attrs: { level: 1 },
+    content: [{ type: 'text', text }],
+  }),
+  text: (...parts: Inline[]): Json => ({ type: 'paragraph', content: inline(parts) }),
+  checks: (...items: [checked: boolean, ...parts: Inline[]][]): Json => ({
+    type: 'taskList',
+    content: items.map(([checked, ...parts]) => ({
+      type: 'taskItem',
+      attrs: { checked },
+      content: [{ type: 'paragraph', content: inline(parts) }],
+    })),
+  }),
+  bullets: (...items: string[]): Json => ({
+    type: 'bulletList',
+    content: items.map((item) => ({
+      type: 'listItem',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: item }] }],
+    })),
+  }),
+  callout: (...parts: Inline[]): Json => ({ type: 'callout', content: inline(parts) }),
+  quote: (text: string): Json => ({
+    type: 'blockquote',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  }),
+}
+
+/** Fictional documents; `daysAgo` sets when each was last changed, relative to the demo's today. */
+const documents: { id: string; title: string; daysAgo: number; blocks: Json[] }[] = [
+  {
+    id: 'doc-rencana',
+    title: 'Rencana peluncuran',
+    daysAgo: 0,
+    blocks: [
+      block.heading('Tujuan'),
+      block.text(
+        'Kedai dibuka untuk umum pada ',
+        { task: '13' },
+        ' dengan menu inti yang sudah diuji.',
+      ),
+      block.heading('Keputusan minggu ini'),
+      block.checks(
+        [true, 'Lokasi B dipilih: dekat kampus, ramai pagi dan sore.'],
+        [true, 'Palet kayu hangat untuk interior, disetujui Laras.'],
+        [false, 'Pastikan ', { task: '8' }, ' selesai sebelum ', { task: '11' }, '.'],
+      ),
+      block.callout(
+        'Jika ',
+        { task: '7' },
+        ' molor, soft opening ikut mundur. Cek jalur kritis setiap Senin.',
+      ),
+      block.heading('Langkah berikutnya'),
+      block.text('Gambar kerja dari ', { task: '6' }, ' harus selesai sebelum tim renovasi masuk.'),
+    ],
+  },
+  {
+    id: 'doc-rapat',
+    title: 'Catatan rapat mingguan',
+    daysAgo: 2,
+    blocks: [
+      block.heading('Hadir'),
+      block.text('Sari, Laras, dan Bagas.'),
+      block.heading('Hasil'),
+      block.checks(
+        [true, 'Revisi desain meja bar disetujui.'],
+        [false, 'Bagas mengirim jadwal tukang paling lambat Jumat.'],
+      ),
+      block.text('Tanggal ', { task: '13' }, ' tetap, tidak digeser.'),
+    ],
+  },
+  {
+    id: 'doc-pemasok',
+    title: 'Daftar pemasok',
+    daysAgo: 4,
+    blocks: [
+      block.heading('Biji kopi'),
+      block.text('Tiga pemasok dibandingkan dari rasa, harga per kilogram, dan jadwal kirim.'),
+      block.bullets(
+        'Pemasok A: arabika, kirim setiap minggu',
+        'Pemasok B: robusta, harga paling rendah',
+        'Pemasok C: campuran, pesanan minimal 10 kg',
+      ),
+    ],
+  },
+  {
+    id: 'doc-menu',
+    title: 'Menu dan harga',
+    daysAgo: 7,
+    blocks: [
+      block.heading('Menu inti'),
+      block.text(
+        'Enam minuman inti dan dua kudapan. Harga final ditetapkan setelah ',
+        { task: '12' },
+        '.',
+      ),
+      block.bullets('Kopi susu gula aren', 'Americano', 'Cappuccino', 'Teh melati'),
+    ],
+  },
+  {
+    id: 'doc-promosi',
+    title: 'Ide promosi',
+    daysAgo: 14,
+    blocks: [
+      block.heading('Media sosial'),
+      block.text('Unggahan hitung mundur dua minggu sebelum ', { task: '13' }, '.'),
+      block.quote('Kopi hangat, kursi nyaman, dekat kampus.'),
+    ],
+  },
+]
+
 export function createDemoProject(today: IsoDate): Project {
   // Two weeks before the Monday of this week, so today falls in the second phase.
   const thisMonday = addDays(today, -((dayOfWeek(today) + 6) % 7))
@@ -188,6 +313,12 @@ export function createDemoProject(today: IsoDate): Project {
         resourceId: person.id,
       })),
     ),
-    documents: [],
+    documents: documents.map(({ id, title, daysAgo, blocks }, order): ProjectDocument => ({
+      id,
+      title,
+      content: { type: 'doc', content: blocks },
+      order,
+      updatedAt: `${addDays(today, -daysAgo)}T02:00:00.000Z`,
+    })),
   }
 }

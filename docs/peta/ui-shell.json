@@ -1,0 +1,388 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "groups": [
+    { "id": "ui-shell", "layer": "ui", "name": "Shell & bootstrap" },
+    { "id": "ui-shared", "layer": "ui", "name": "Utilitas tampilan" }
+  ],
+  "modules": [
+    {
+      "id": "bootstrap",
+      "group": "ui-shell",
+      "name": "Bootstrap dan konteks",
+      "summary": "main.ts menyalakan aplikasi; context.ts membagikan store ke semua komponen.",
+      "description": "Titik masuk aplikasi. main.ts memilih penyimpanan, menyiapkan memori tab, membuat store, lalu memasang App. Komponen tidak menerima store lewat props; mereka mengambilnya dari context Svelte dengan useApp().",
+      "files": ["src/ui/main.ts", "src/ui/shell/context.ts", "src/ui/shell/ui-state.svelte.ts"],
+      "tests": ["src/ui/shell/App.test.ts"],
+      "algorithms": [
+        {
+          "id": "nyala",
+          "name": "Menyalakan aplikasi",
+          "summary": "Dari halaman kosong sampai store berjalan dan App terpasang.",
+          "symbols": ["rootElement", "workspace", "store"],
+          "steps": [
+            "Muat font IBM Plex dan global.css",
+            {
+              "if": "Elemen #root tidak ada?",
+              "then": [{ "stop": "Lempar galat", "code": "rootElement" }]
+            },
+            "Terapkan tema tersimpan sebelum menggambar, supaya tidak berkedip",
+            {
+              "do": "Siapkan memori tab di sessionStorage (rentang.workspace); data rusak dianggap kosong",
+              "code": "workspace"
+            },
+            {
+              "if": "IndexedDB tersedia?",
+              "then": ["Penyimpanan browser (Dexie)"],
+              "else": ["Penyimpanan memori: proyek hilang saat halaman ditutup"]
+            },
+            { "do": "Buat store: today = localToday, id = crypto.randomUUID()", "code": "store" },
+            "Pasang App ke #root",
+            { "stop": "store.start(): muat daftar proyek dan pulihkan tab" }
+          ],
+          "rules": [
+            "Tab yang terbuka diingat per tab browser (sessionStorage); isi proyek tetap di IndexedDB."
+          ]
+        },
+        {
+          "id": "konteks",
+          "name": "Konteks aplikasi",
+          "summary": "Store Zustand dibungkus menjadi store Svelte ($app) dan dibagikan lewat context.",
+          "symbols": ["provideApp", "useApp", "UiState", "registerPicker", "pick"],
+          "steps": [
+            {
+              "do": "Bungkus store menjadi readable yang ikut berubah lewat subscribe",
+              "code": "provideApp"
+            },
+            "Simpan { store, app, today, ui } di context",
+            {
+              "do": "UiState: dialog Proyek baru, dan cara membuka pemilih berkas yang didaftarkan App",
+              "code": "registerPicker"
+            },
+            {
+              "stop": "Komponen memanggil useApp() lalu membaca $app atau memanggil store.getState().aksi()",
+              "code": "useApp"
+            }
+          ],
+          "pitfalls": [
+            "Membaca store.getState() di template tidak reaktif; untuk tampilan pakai $app."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app-shell",
+      "group": "ui-shell",
+      "name": "Shell aplikasi",
+      "summary": "App, header, tab, toast, dan dialog Proyek baru: kerangka di sekitar Daftar proyek dan tampilan proyek.",
+      "files": [
+        "src/ui/shell/App.svelte",
+        "src/ui/shell/AppHeader.svelte",
+        "src/ui/shell/TabBar.svelte",
+        "src/ui/shell/OpenProjectMenu.svelte",
+        "src/ui/shell/NewProjectDialog.svelte",
+        "src/ui/shell/SaveStatus.svelte",
+        "src/ui/shell/Toast.svelte",
+        "src/ui/shell/Logo.svelte"
+      ],
+      "tests": ["src/ui/shell/App.test.ts", "e2e/app.spec.ts"],
+      "diagrams": ["status-simpan"],
+      "algorithms": [
+        {
+          "id": "hari",
+          "name": "Hari ini yang hidup",
+          "summary": "App menyimpan tanggal hari ini sebagai state; komponen membaca today(), jadi semuanya tergambar ulang saat tengah malam.",
+          "symbols": ["currentDay"],
+          "steps": [
+            { "do": "currentDay = tanggal lokal saat aplikasi dibuka", "code": "currentDay" },
+            "watchDayChange memperbarui currentDay saat tanggal berganti",
+            { "stop": "Status 'terlambat', garis hari ini, dan ringkasan ikut berubah" }
+          ]
+        },
+        {
+          "id": "shortcut",
+          "name": "Shortcut undo dan redo",
+          "summary": "Ctrl/Cmd+Z untuk undo, Ctrl/Cmd+Shift+Z atau Ctrl/Cmd+Y untuk redo, kecuali sedang mengetik.",
+          "symbols": ["onKeydown", "isEditable"],
+          "steps": [
+            {
+              "if": "Tidak ada proyek aktif, fokus di kolom isian, atau tanpa Ctrl/Cmd?",
+              "then": [{ "stop": "Abaikan", "code": "isEditable" }]
+            },
+            { "if": "Z tanpa Shift?", "then": [{ "stop": "store.undo()" }] },
+            { "if": "Shift+Z atau Y?", "then": [{ "stop": "store.redo()", "code": "onKeydown" }] },
+            { "stop": "Abaikan" }
+          ]
+        },
+        {
+          "id": "berkas",
+          "name": "Membuka berkas: pemilih dan seret-lepas",
+          "summary": "Tombol Impor/Buka meminta pemilih berkas; berkas juga bisa diseret ke jendela.",
+          "symbols": ["openFiles", "hasFiles", "dragDepth"],
+          "steps": [
+            "Tombol di header atau tampilan kosong memanggil ui.pick('gan' | 'rentang')",
+            {
+              "if": "File System Access API tersedia?",
+              "then": ["showOpenFilePicker dengan filter jenis berkas"],
+              "else": ["Klik <input type=file> tersembunyi"]
+            },
+            {
+              "do": "Seret masuk/keluar jendela menambah/mengurangi dragDepth untuk overlay",
+              "code": "dragDepth"
+            },
+            { "do": "Ambil berkas pertama dan baca teksnya", "code": "openFiles" },
+            { "stop": "store.openFile({ name, text })" }
+          ],
+          "pitfalls": [
+            "dragenter dan dragleave juga terpicu untuk elemen anak; karena itu dipakai penghitung, bukan boolean."
+          ]
+        },
+        {
+          "id": "tab",
+          "name": "Tab dan menu proyek tertutup",
+          "summary": "TabBar menampilkan tab dari state; menu + menawarkan proyek tersimpan yang belum punya tab.",
+          "symbols": ["tabs", "closed", "choose"],
+          "steps": [
+            { "do": "Tab = urutan id di state, beri nama dari sesinya", "code": "tabs" },
+            { "do": "Proyek tertutup = proyek tersimpan yang tidak ada di tab", "code": "closed" },
+            { "stop": "Memilih proyek memanggil store.openProject(id)", "code": "choose" }
+          ]
+        },
+        {
+          "id": "baru",
+          "name": "Dialog Proyek baru",
+          "summary": "Nama wajib diisi; proyek dibuat dengan bidang 'work'.",
+          "symbols": ["create", "valid"],
+          "steps": [
+            {
+              "if": "Nama kosong?",
+              "then": [{ "stop": "Tombol Buat tidak aktif", "code": "valid" }]
+            },
+            "Tutup dialog dan kosongkan isian",
+            { "stop": "store.createProject(nama, 'work')", "code": "create" }
+          ]
+        },
+        {
+          "id": "toast",
+          "name": "Toast dan status simpan",
+          "summary": "Toast tampil 6 detik dengan tombol Urungkan atau Ulangi; status simpan mengikuti saveState.",
+          "symbols": ["TOAST_MS"],
+          "steps": [
+            "Store menaruh toast { id, message, action }",
+            { "do": "Pasang timer 6 detik", "code": "TOAST_MS" },
+            {
+              "if": "Saat timer habis toast yang tampil masih yang sama?",
+              "then": ["dismissToast()"]
+            },
+            { "stop": "Toast baru membatalkan timer lama" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "theme",
+      "group": "ui-shared",
+      "name": "Tema terang dan gelap",
+      "summary": "Pilihan tema disimpan di localStorage; pergantian tema menyebar sebagai lingkaran dari tombol.",
+      "files": ["src/ui/shell/theme.ts", "src/ui/shell/ThemeToggle.svelte"],
+      "tests": ["e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "tema",
+          "name": "Membaca dan mengganti tema",
+          "summary": "system mengikuti sistem operasi; light atau dark memaksa lewat data-theme di <html>.",
+          "symbols": ["readTheme", "effectiveTheme", "applyTheme", "switchTheme", "toggle"],
+          "steps": [
+            {
+              "do": "Baca pilihan (system bila kosong atau storage diblokir)",
+              "code": "readTheme"
+            },
+            {
+              "do": "Tema yang tampil = pilihan, atau prefers-color-scheme untuk system",
+              "code": "effectiveTheme"
+            },
+            { "do": "Tombol mengganti terang ↔ gelap dari titik tengah tombol", "code": "toggle" },
+            {
+              "if": "Browser mendukung View Transitions, ada titik asal, dan tidak reduce motion?",
+              "then": [
+                { "do": "Animasikan lingkaran yang tumbuh dari tombol", "code": "switchTheme" }
+              ]
+            },
+            { "stop": "Set data-theme dan simpan pilihan", "code": "applyTheme" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "today",
+      "group": "ui-shared",
+      "name": "Jam dan pergantian hari",
+      "summary": "Satu-satunya tempat yang membaca jam: tanggal lokal hari ini dan pemicu saat tanggal berganti.",
+      "files": ["src/ui/today.ts"],
+      "tests": ["src/ui/today.test.ts"],
+      "rules": ["Core tidak membaca jam; hari ini selalu dikirim sebagai argumen dari sini."],
+      "algorithms": [
+        {
+          "id": "hari-ini",
+          "name": "Tanggal lokal dan pengawas tengah malam",
+          "summary": "Timer ke tengah malam berikutnya, ditambah pemeriksaan saat tab kembali terlihat atau jendela difokus.",
+          "symbols": ["localToday", "msUntilNextDay", "watchDayChange"],
+          "steps": [
+            { "do": "Tanggal lokal dari jam komputer menjadi IsoDate", "code": "localToday" },
+            { "do": "Pasang timer sampai 00:00:01 berikutnya", "code": "msUntilNextDay" },
+            {
+              "loop": "Timer berbunyi, tab terlihat lagi, atau jendela difokus?",
+              "next": "ya",
+              "done": "berhenti",
+              "body": [
+                {
+                  "if": "Tanggal berbeda dari yang terakhir diketahui?",
+                  "then": ["Panggil onChange(tanggal baru)"]
+                },
+                "Pasang ulang timer ke tengah malam berikutnya"
+              ]
+            },
+            { "stop": "Fungsi berhenti melepas timer dan listener", "code": "watchDayChange" }
+          ],
+          "pitfalls": [
+            "Timer berhenti saat komputer tidur atau tab di latar belakang; karena itu visibilitychange dan focus ikut memeriksa."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prefs",
+      "group": "ui-shared",
+      "name": "Preferensi tampilan",
+      "summary": "Mode daftar, kolom tabel, zoom, sorot jalur kritis, dan lebar tabel per proyek, di localStorage.",
+      "description": "Preferensi milik browser ini, bukan milik berkas proyek. Setiap pembacaan punya nilai bawaan dan validator, jadi data rusak atau storage yang diblokir tidak pernah membuat aplikasi gagal.",
+      "files": ["src/ui/prefs.ts"],
+      "tests": ["e2e/app.spec.ts"],
+      "rules": ["localStorage hanya untuk preferensi tampilan, tidak pernah untuk isi proyek."],
+      "algorithms": [
+        {
+          "id": "baca-tulis",
+          "name": "Membaca dan menulis preferensi",
+          "summary": "Kunci berawalan 'rentang.'; nilai JSON divalidasi saat dibaca.",
+          "symbols": ["read", "write", "prefs", "isColumns", "isOneOf"],
+          "steps": [
+            { "do": "Ambil 'rentang.' + kunci dari localStorage", "code": "read" },
+            {
+              "if": "Tidak ada, JSON rusak, storage diblokir, atau validator menolak?",
+              "then": [{ "stop": "Pakai nilai bawaan", "code": "isOneOf" }]
+            },
+            { "stop": "Pakai nilai tersimpan", "code": "prefs" }
+          ],
+          "examples": [
+            {
+              "given": "rentang.zoom = '\"bulan\"'",
+              "result": "'week' (bawaan)",
+              "note": "bukan salah satu zoom yang dikenal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "group": "ui-shared",
+      "name": "Format tanggal dan label Indonesia",
+      "summary": "Nama bulan dan hari ditulis sendiri supaya hasilnya sama di semua browser; label bidang, tipe, dan zoom.",
+      "files": ["src/ui/format.ts", "src/ui/labels.ts"],
+      "tests": ["src/ui/format.test.ts"],
+      "algorithms": [
+        {
+          "id": "tanggal",
+          "name": "Menulis tanggal",
+          "summary": "'11 Nov', '11 November 2026', dan rentang yang ringkas.",
+          "symbols": ["formatShortDate", "formatLongDate", "formatRange", "partsOf"],
+          "steps": [
+            { "do": "Pecah IsoDate menjadi tahun, bulan, hari", "code": "partsOf" },
+            { "if": "Rentang dengan tanggal sama?", "then": [{ "stop": "'12 Okt'" }] },
+            {
+              "if": "Bulan dan tahun sama?",
+              "then": [{ "stop": "'12 – 18 Okt'", "code": "formatRange" }]
+            },
+            { "stop": "'26 Okt – 1 Nov'" }
+          ],
+          "examples": [
+            { "given": "formatShortDate('2026-11-11')", "result": "'11 Nov'" },
+            { "given": "formatLongDate('2026-11-11')", "result": "'11 November 2026'" }
+          ]
+        },
+        {
+          "id": "hari-kerja",
+          "name": "Menulis hari kerja",
+          "summary": "Rangkaian hari ditulis 'Senin sampai Jumat', termasuk yang melewati akhir pekan; selain itu daftar mulai Senin.",
+          "symbols": ["formatWorkingDays", "TYPE_LABELS", "ZOOM_LABELS", "AREA_LABELS"],
+          "steps": [
+            { "if": "Tujuh hari?", "then": [{ "stop": "'Setiap hari'" }] },
+            "Cari hari kerja yang hari sebelumnya libur (awal rangkaian)",
+            {
+              "if": "Minimal tiga hari dan semuanya satu rangkaian?",
+              "then": [{ "stop": "'Senin sampai Jumat'", "code": "formatWorkingDays" }]
+            },
+            { "stop": "Daftar dipisah koma, urut mulai Senin" }
+          ],
+          "examples": [
+            { "given": "[1, 2, 3, 4, 5]", "result": "'Senin sampai Jumat'" },
+            { "given": "[6, 0, 1]", "result": "'Sabtu sampai Senin'" },
+            { "given": "[1, 3]", "result": "'Senin, Rabu'" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ui-kit",
+      "group": "ui-shared",
+      "name": "Komponen dasar dan animasi",
+      "summary": "Dialog, segmented control, ikon Lucide, angka yang menghitung naik, dan transisi yang menghormati reduce motion.",
+      "files": [
+        "src/ui/motion.ts",
+        "src/ui/dialog/Dialog.svelte",
+        "src/ui/dialog/CountUp.svelte",
+        "src/ui/icons/Icon.svelte",
+        "src/ui/shell/Segmented.svelte"
+      ],
+      "tests": ["e2e/app.spec.ts"],
+      "rules": [
+        "Semua animasi lewat motion.ts atau kelas di global.css, supaya reduce motion selalu dihormati.",
+        "Ikon hanya dari Lucide lewat Icon.svelte."
+      ],
+      "algorithms": [
+        {
+          "id": "gerak",
+          "name": "Transisi yang tenang",
+          "summary": "Pembungkus fade, fly, scale, slide Svelte: dengan reduce motion, durasi dan jeda menjadi 0.",
+          "symbols": ["prefersReducedMotion", "calm", "fade", "fly", "scale", "slide"],
+          "steps": [
+            { "do": "Periksa prefers-reduced-motion", "code": "prefersReducedMotion" },
+            {
+              "if": "Reduce motion aktif?",
+              "then": [{ "do": "duration = 0, delay = 0", "code": "calm" }]
+            },
+            { "stop": "Jalankan transisi Svelte dengan easing cubicOut" }
+          ]
+        },
+        {
+          "id": "dialog",
+          "name": "Dialog dan komponen kecil",
+          "summary": "Dialog muncul di tengah pada layar lebar dan naik sebagai sheet di ponsel; segmented control menggeser pil di bawah opsi aktif.",
+          "symbols": ["enter", "pill", "shown", "ICONS"],
+          "steps": [
+            {
+              "if": "Layar ponsel (< 640 px)?",
+              "then": ["Dialog naik dari bawah sebagai sheet"],
+              "else": [{ "do": "Dialog membesar dari tengah", "code": "enter" }]
+            },
+            {
+              "do": "Segmented: ukur tombol aktif dengan ResizeObserver, geser pil ke sana",
+              "code": "pill"
+            },
+            { "do": "CountUp: naikkan angka dengan easing cubic selama 700 ms", "code": "shown" },
+            { "stop": "Icon: nama → komponen Lucide", "code": "ICONS" }
+          ]
+        }
+      ]
+    }
+  ]
+}

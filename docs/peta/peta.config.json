@@ -1,0 +1,171 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "title": "Peta algoritma Rentang",
+  "system": "Rentang",
+  "description": "Rentang adalah aplikasi satu halaman tanpa server untuk memantau jadwal proyek dengan Gantt. Peta ini menjelaskan setiap algoritmanya dengan diagram UML, dari tanggal 'YYYY-MM-DD' sampai piksel di layar, dan setiap kotak bisa diklik untuk membuka kodenya.",
+  "language": "id",
+  "root": "../..",
+  "output": "dist-peta/index.html",
+  "editor": "vscode",
+  "repository": { "url": "https://github.com/galihroswandi/Rentang", "branch": "main" },
+  "include": [
+    "core.json",
+    "app.json",
+    "ui-shell.json",
+    "ui-proyek.json",
+    "ui-gantt.json",
+    "alur.json",
+    "model.json",
+    "masalah.json",
+    "istilah.json"
+  ],
+  "coverage": {
+    "include": ["src/**/*.ts", "src/**/*.svelte"],
+    "exclude": ["**/*.test.ts", "**/*.d.ts"]
+  },
+  "rules": { "layers": "error", "exports": "warn" },
+  "layers": [
+    {
+      "id": "ui",
+      "name": "UI",
+      "summary": "Komponen Svelte dan logika tampilan murni: geometri Gantt, baris tabel, format tanggal Indonesia.",
+      "color": "#7c5cc4",
+      "mayUse": ["ui", "app", "core"]
+    },
+    {
+      "id": "app",
+      "name": "App",
+      "summary": "State aplikasi, suntingan sebagai resep Immer, riwayat undo, dan penyimpanan IndexedDB.",
+      "color": "#0f8a83",
+      "mayUse": ["app", "core"]
+    },
+    {
+      "id": "core",
+      "name": "Core",
+      "summary": "TypeScript murni tanpa DOM dan tanpa Date: tanggal, kalender kerja, penjadwalan, jalur kritis, migrasi, impor .gan.",
+      "color": "#c2410c",
+      "mayUse": ["core"]
+    }
+  ],
+  "overview": {
+    "intro": "Gagasan intinya: yang disimpan hanya data mentah proyek (tugas, durasi dalam hari kerja, dependensi, kalender). Tanggal selesai, jalur kritis, persen, dan status selalu dihitung ulang setiap kali proyek berubah. UI hanya menggambar hasil hitungan itu dan mengirim setiap perubahan balik ke store sebagai resep yang bisa diurungkan.",
+    "principles": [
+      {
+        "title": "Tiga lapisan, satu arah",
+        "text": "UI boleh memakai App dan Core, App boleh memakai Core, Core tidak memakai siapa pun. Dijaga ESLint (eslint-plugin-boundaries) dan juga oleh peta ini lewat impor kode."
+      },
+      {
+        "title": "Tanggal adalah teks 'YYYY-MM-DD'",
+        "text": "Tipe IsoDate. Core dilarang memakai Date; semua aritmetika tanggal ada di dates.ts lewat nomor hari, jadi tidak ada bug zona waktu."
+      },
+      {
+        "title": "Tanggal selesai tidak pernah disimpan",
+        "text": "Selalu dihitung dari mulai, durasi hari kerja, dependensi, dan kalender di schedule.ts."
+      },
+      {
+        "title": "Setiap perubahan adalah resep",
+        "text": "UI memanggil store.edit(label, resep). Store merekam patch Immer untuk undo, memvalidasi hasil dengan Zod, lalu menghitung ulang jadwal."
+      },
+      {
+        "title": "Core mengembalikan Result, bukan melempar",
+        "text": "Kegagalan yang wajar (berkas rusak, siklus dependensi) dikembalikan sebagai { ok: false, error }, jadi pemanggil dipaksa TypeScript untuk menanganinya."
+      },
+      {
+        "title": "Logika UI ada di modul .ts murni",
+        "text": "Komponen Svelte hanya menghubungkan. Geometri, baris, seret, magnet, dan zoom adalah fungsi murni yang diuji tanpa browser."
+      }
+    ],
+    "pipeline": [
+      {
+        "module": "model",
+        "caption": "Project tersimpan: tugas, durasi hari kerja, dependensi, kalender."
+      },
+      {
+        "module": "graph",
+        "caption": "Dependensi ditulis ulang antartugas daun, lalu diurutkan topologis."
+      },
+      {
+        "module": "schedule",
+        "caption": "Tanggal mulai dan selesai dihitung maju di atas kalender kerja."
+      },
+      {
+        "module": "critical-path",
+        "caption": "Pass mundur menghitung float; float 0 berarti kritis."
+      },
+      {
+        "module": "app-store",
+        "caption": "Sesi menyimpan hasil analisis; dihitung ulang setiap suntingan."
+      },
+      {
+        "module": "task-rows",
+        "caption": "Pohon tugas menjadi baris berurutan dengan tanggal dan status."
+      },
+      { "module": "gantt-layout", "caption": "Tanggal menjadi piksel: bar, panah, header." },
+      {
+        "module": "gantt-chart",
+        "caption": "SVG digambar; seret bar mengirim suntingan balik ke store."
+      }
+    ],
+    "readingOrder": [
+      "dates",
+      "calendar",
+      "model",
+      "result",
+      "graph",
+      "schedule",
+      "critical-path",
+      "summary",
+      "rich-text",
+      "project-edits",
+      "document-edits",
+      "history",
+      "app-store",
+      "storage",
+      "task-rows",
+      "gantt-layout",
+      "gantt-drag",
+      "gantt-chart",
+      "gantt-view",
+      "project-view",
+      "documents-view",
+      "migrations",
+      "gan-parse",
+      "gan-map"
+    ]
+  },
+  "categories": [
+    {
+      "id": "berkas",
+      "name": "Berkas & proyek",
+      "summary": "Membuka, mengimpor, menyimpan, dan menghapus proyek."
+    },
+    {
+      "id": "jadwal",
+      "name": "Tugas & jadwal",
+      "summary": "Mengubah tugas, dependensi, kalender, dan mengurungkannya."
+    },
+    { "id": "gantt", "name": "Tampilan Gantt", "summary": "Seret bar, zoom, dan menggulir waktu." },
+    {
+      "id": "tabel",
+      "name": "Tabel tugas",
+      "summary": "Struktur pohon, filter, kolom, dan keyboard."
+    },
+    { "id": "orang", "name": "Orang & role", "summary": "Tampilan Resource." },
+    {
+      "id": "dokumen",
+      "name": "Dokumen",
+      "summary": "Menulis dokumen proyek dan menautkannya ke tugas."
+    },
+    {
+      "id": "aplikasi",
+      "name": "Aplikasi",
+      "summary": "Memulai aplikasi, tab, tema, dan pergantian hari."
+    }
+  ],
+  "ignore": [
+    {
+      "file": "src/ui/test-setup.ts",
+      "reason": "Penyiapan jsdom dan jest-dom untuk test UI; bukan bagian dari aplikasi."
+    }
+  ]
+}

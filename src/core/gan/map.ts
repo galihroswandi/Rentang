@@ -20,6 +20,7 @@ import {
   type TaskType,
 } from '../model.ts'
 import { err, ok, type Result } from '../result.ts'
+import { documentFromText } from '../rich-text.ts'
 import { rollUpProgress } from '../summary.ts'
 import { parseGan, type GanDocument, type GanParseError, type GanTask } from './parse.ts'
 import type { DependencyKind, ImportChange, ImportReport, ImportSkip } from './report.ts'
@@ -213,7 +214,7 @@ function mapTasks(
         ...(parentId === undefined ? {} : { parentId }),
         ...(gan.notes === undefined || gan.notes === ''
           ? {}
-          : { notes: textToDocument(gan.notes) }),
+          : { notes: documentFromText(gan.notes) }),
       }
       const link = mapLink(gan.webLink)
       if (link === null) skipped.push({ code: 'invalid-link', taskId: gan.id })
@@ -261,20 +262,6 @@ function mapLink(webLink: string | undefined): string | null | undefined {
     return null
   }
   return urlSchema.safeParse(decoded).success ? decoded : null
-}
-
-/** Plain-text notes become an editor document with one paragraph per line. */
-function textToDocument(text: string): NonNullable<Task['notes']> {
-  return {
-    type: 'doc',
-    content: text
-      .split(/\r?\n/)
-      .map((line) =>
-        line === ''
-          ? { type: 'paragraph' }
-          : { type: 'paragraph', content: [{ type: 'text', text: line }] },
-      ),
-  }
 }
 
 function mapDependencies(

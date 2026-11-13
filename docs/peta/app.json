@@ -1,0 +1,1140 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "groups": [
+    {
+      "id": "app-edit",
+      "layer": "app",
+      "name": "Suntingan & riwayat"
+    },
+    {
+      "id": "app-state",
+      "layer": "app",
+      "name": "State aplikasi"
+    },
+    {
+      "id": "app-storage",
+      "layer": "app",
+      "name": "Penyimpanan & demo"
+    }
+  ],
+  "modules": [
+    {
+      "id": "project-edits",
+      "group": "app-edit",
+      "name": "Suntingan proyek (resep Immer)",
+      "summary": "Setiap perubahan proyek ditulis sebagai resep: fungsi murni yang mengubah draf Immer.",
+      "description": "Sebuah resep adalah fungsi (draft) => void. Resep tidak menyimpan apa pun dan tidak tahu soal undo: store menjalankannya lewat history.record, yang mencatat patch Immer, lalu memvalidasi hasilnya dengan projectSchema. Karena itu resep boleh sederhana dan tidak perlu menjaga validitas sendiri. Beberapa resep bisa digabung dalam satu edit supaya menjadi satu langkah undo.",
+      "files": ["src/app/edits/project-edits.ts"],
+      "tests": ["src/app/edits/project-edits.test.ts"],
+      "rules": [
+        "Resep yang tidak menemukan targetnya diam saja (tidak ada patch, tidak ada entri undo).",
+        "Urutan antarsaudara selalu dinomori ulang 0, 1, 2, ... setelah tugas pindah."
+      ],
+      "algorithms": [
+        {
+          "id": "proyek",
+          "name": "Proyek baru dan ganti nama",
+          "summary": "Proyek kosong dengan kalender Senin-Jumat; nama kosong diabaikan.",
+          "symbols": ["createProject", "renameProject"],
+          "steps": [
+            {
+              "do": "Buat Project kosong: kalender Senin-Jumat tanpa libur, semua koleksi kosong",
+              "code": "createProject"
+            },
+            {
+              "if": "Nama baru kosong setelah dirapikan?",
+              "then": [
+                {
+                  "stop": "Abaikan (tidak ada perubahan)"
+                }
+              ]
+            },
+            {
+              "stop": "Ganti nama proyek",
+              "code": "renameProject"
+            }
+          ]
+        },
+        {
+          "id": "tambah",
+          "name": "Menambah tugas dan subtugas",
+          "summary": "Tugas baru disisipkan tepat setelah tugas terpilih di antara saudaranya, atau sebagai subtugas terakhir.",
+          "symbols": ["addTask", "addSubtask", "applyTaskInput", "workdaysOf", "siblingsOf"],
+          "input": "Id baru, TaskInput dari dialog, dan tugas acuan (afterId) atau induk.",
+          "output": "Resep.",
+          "steps": [
+            {
+              "do": "Cari tugas acuan; induk tugas baru = induk acuan",
+              "code": "addTask"
+            },
+            {
+              "if": "Ada tugas acuan?",
+              "then": ["Posisi = urutan acuan + 1"],
+              "else": ["Posisi = di akhir tingkat atas"]
+            },
+            {
+              "do": "Geser saudara di posisi itu dan sesudahnya satu langkah",
+              "code": "siblingsOf"
+            },
+            {
+              "do": "Isi tugas dari TaskInput",
+              "code": "applyTaskInput"
+            },
+            {
+              "if": "Milestone?",
+              "then": ["Durasi = 0"],
+              "else": [
+                {
+                  "do": "Durasi dibulatkan ke 1-3650 hari kerja",
+                  "code": "workdaysOf"
+                }
+              ]
+            },
+            {
+              "stop": "Tambahkan ke daftar tugas"
+            }
+          ],
+          "rules": [
+            "Mulai ditahan ke jendela tanggal; persen dibulatkan ke 0-100; catatan kosong dihapus."
+          ],
+          "pitfalls": [
+            "Catatan dari dialog adalah teks polos. Teks yang sama dengan catatan tersimpan dibiarkan, jadi dokumen aslinya tetap; teks yang berubah disimpan sebagai dokumen editor lewat documentFromText."
+          ]
+        },
+        {
+          "id": "ubah",
+          "name": "Mengubah tugas",
+          "summary": "Untuk tugas ringkasan hanya nama, tipe, dan catatan yang diubah; tanggalnya ikut anak-anaknya.",
+          "symbols": ["updateTask"],
+          "steps": [
+            {
+              "if": "Tugas tidak ditemukan?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "do": "Tentukan apakah tugas punya anak (ringkasan)",
+              "code": "updateTask"
+            },
+            "Ubah nama, tipe, dan catatan",
+            {
+              "if": "Tugas ringkasan?",
+              "then": [
+                {
+                  "stop": "Selesai; mulai, durasi, persen tidak disentuh"
+                }
+              ]
+            },
+            {
+              "stop": "Ubah juga mulai, milestone, durasi, dan persen"
+            }
+          ]
+        },
+        {
+          "id": "jadwal-ulang",
+          "name": "Menjadwal ulang dari seret bar",
+          "summary": "Mengatur mulai dan durasi sebuah tugas daun, seperti hasil seret di Gantt.",
+          "symbols": ["reschedule"],
+          "steps": [
+            {
+              "if": "Tugas tidak ada atau tugas ringkasan?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            "Mulai = tanggal baru (ditahan ke jendela)",
+            {
+              "stop": "Durasi = 0 untuk milestone, selain itu dibulatkan ke 1-3650",
+              "code": "reschedule"
+            }
+          ],
+          "rules": [
+            "Hanya mulai dan durasi yang disimpan; tanggal selesai baru dihitung ulang oleh schedule."
+          ]
+        },
+        {
+          "id": "tingkat",
+          "name": "Naik dan turun tingkat (indent/outdent)",
+          "summary": "Indent menjadikan tugas subtugas terakhir dari saudara di atasnya; outdent menaikkannya satu tingkat tepat setelah induk lamanya.",
+          "symbols": ["indentTask", "outdentTask"],
+          "steps": [
+            {
+              "if": "Indent?",
+              "then": [
+                {
+                  "if": "Tidak ada saudara di atas, atau saudara itu milestone?",
+                  "then": [
+                    {
+                      "stop": "Abaikan"
+                    }
+                  ]
+                },
+                {
+                  "do": "Induk baru = saudara di atas; urutan = terakhir di antara anaknya",
+                  "code": "indentTask"
+                }
+              ],
+              "else": [
+                {
+                  "if": "Tugas tidak punya induk?",
+                  "then": [
+                    {
+                      "stop": "Abaikan"
+                    }
+                  ]
+                },
+                {
+                  "do": "Sisipkan tepat setelah induk lama di tingkat kakek",
+                  "code": "outdentTask"
+                }
+              ]
+            },
+            {
+              "stop": "Nomori ulang urutan di grup lama dan grup baru"
+            }
+          ],
+          "pitfalls": [
+            "Milestone tidak boleh punya anak (projectSchema menolaknya), jadi indent di bawah milestone diabaikan lebih awal."
+          ]
+        },
+        {
+          "id": "induk",
+          "name": "Pindah induk dan subpohon",
+          "summary": "setParent memindahkan tugas beserta anak-anaknya ke induk lain; subtreeOf mencari semua keturunan.",
+          "symbols": ["setParent", "subtreeOf"],
+          "steps": [
+            {
+              "if": "Induk baru tidak ada atau milestone?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "do": "Hitung subpohon tugas yang dipindah",
+              "code": "subtreeOf"
+            },
+            {
+              "if": "Induk baru ada di dalam subpohon itu (membuat siklus)?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "if": "Induknya sama?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "do": "Pasang induk baru; urutan = terakhir",
+              "code": "setParent"
+            },
+            {
+              "stop": "Nomori ulang grup lama"
+            }
+          ],
+          "complexity": "subtreeOf mengulang sampai tidak ada yang bertambah: O(kedalaman × jumlah tugas)."
+        },
+        {
+          "id": "urutan",
+          "name": "Mengurutkan tugas",
+          "summary": "moveTask memindah di antara saudara; placeTask juga boleh ke grup lain (tugas ikut grup target).",
+          "symbols": ["moveTask", "placeTask"],
+          "steps": [
+            {
+              "if": "Tugas atau target tidak ada, atau target di dalam subpohon tugas?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "do": "Ikut induk target (placeTask); moveTask hanya untuk saudara",
+              "code": "placeTask"
+            },
+            "Keluarkan tugas dari daftar saudara target, lalu sisipkan sebelum atau sesudah target",
+            "Nomori ulang grup target",
+            {
+              "if": "Grup berubah?",
+              "then": ["Nomori ulang grup lama"]
+            },
+            {
+              "stop": "Selesai; anak-anak tugas ikut pindah karena parentId mereka tidak berubah",
+              "code": "moveTask"
+            }
+          ]
+        },
+        {
+          "id": "predecessor",
+          "name": "Mengatur predecessor",
+          "summary": "Membuat tugas menunggu tepat daftar tugas yang dipilih (finish-to-start); dependensi yang tetap dipertahankan beserta lag-nya.",
+          "symbols": ["setPredecessors"],
+          "steps": [
+            {
+              "loop": "Masih ada dependensi menuju tugas ini?",
+              "body": [
+                {
+                  "if": "Predecessor-nya tidak dipilih lagi, atau ganda?",
+                  "then": ["Hapus"],
+                  "else": ["Pertahankan (lag tetap)"]
+                }
+              ]
+            },
+            {
+              "loop": "Masih ada predecessor terpilih yang belum ada?",
+              "body": [
+                {
+                  "if": "Tugas itu sendiri?",
+                  "then": ["Lewati"],
+                  "else": ["Tambah dependensi baru, lag 0"]
+                }
+              ]
+            },
+            {
+              "stop": "Selesai",
+              "code": "setPredecessors"
+            }
+          ],
+          "pitfalls": [
+            "Siklus tidak dicegah di sini. UI hanya menawarkan pilihan yang aman (predecessorOptions), dan core melaporkan siklus bila tetap terjadi."
+          ]
+        },
+        {
+          "id": "hapus",
+          "name": "Menghapus tugas",
+          "summary": "Menghapus tugas beserta subpohonnya dan setiap dependensi serta penugasan yang menyentuhnya.",
+          "symbols": ["deleteTask"],
+          "steps": [
+            {
+              "do": "Hitung subpohon yang akan dihapus",
+              "code": "deleteTask"
+            },
+            "Hapus tugas di subpohon",
+            "Hapus dependensi yang ujungnya ada di subpohon",
+            "Hapus penugasan ke tugas di subpohon",
+            {
+              "stop": "Nomori ulang saudara yang tersisa"
+            }
+          ]
+        },
+        {
+          "id": "kalender",
+          "name": "Mengubah kalender kerja",
+          "summary": "Hari kerja pekanan dan hari libur; minimal satu hari kerja harus tersisa.",
+          "symbols": ["setWorkingDays", "addHoliday", "removeHoliday"],
+          "steps": [
+            {
+              "if": "Mengubah hari kerja?",
+              "then": [
+                "Buang duplikat dan urutkan",
+                {
+                  "if": "Kosong?",
+                  "then": [
+                    {
+                      "stop": "Abaikan (minimal satu hari kerja)"
+                    }
+                  ]
+                },
+                {
+                  "stop": "Simpan hari kerja",
+                  "code": "setWorkingDays"
+                }
+              ],
+              "else": [
+                {
+                  "if": "Tanggal libur sudah ada?",
+                  "then": ["Hanya ganti namanya"],
+                  "else": [
+                    {
+                      "do": "Tambah libur lalu urutkan menurut tanggal",
+                      "code": "addHoliday"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stop": "Seluruh jadwal dihitung ulang oleh store",
+              "code": "removeHoliday"
+            }
+          ]
+        },
+        {
+          "id": "orang",
+          "name": "Orang, role, dan penugasan",
+          "summary": "Menambah, mengubah, dan menghapus orang dan role, serta menugaskan orang ke tugas.",
+          "symbols": [
+            "addResource",
+            "updateResource",
+            "removeResource",
+            "addRole",
+            "renameRole",
+            "removeRole",
+            "assign",
+            "unassign"
+          ],
+          "steps": [
+            {
+              "if": "Menghapus orang?",
+              "then": [
+                {
+                  "do": "Hapus orang beserta semua penugasannya",
+                  "code": "removeResource"
+                }
+              ],
+              "else": [
+                {
+                  "if": "Menghapus role?",
+                  "then": [
+                    {
+                      "do": "Hapus role; orang yang memakainya tetap ada tanpa role",
+                      "code": "removeRole"
+                    }
+                  ],
+                  "else": [
+                    {
+                      "do": "Tugaskan orang bila pasangan tugas-orang belum ada",
+                      "code": "assign"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stop": "Selesai"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "document-edits",
+      "group": "app-edit",
+      "name": "Suntingan dokumen (resep Immer)",
+      "summary": "Menambah, mengganti judul dan isi, menghapus, dan mengurutkan dokumen proyek.",
+      "description": "Sama seperti suntingan tugas: setiap fungsi mengembalikan resep murni, store menjalankannya lewat edit(). Waktu ubah (updatedAt, timestamp ISO) dikirim pemanggil, jadi resep tetap murni dan bisa diuji. Mengetik di dokumen memakai edit dengan quiet dan mergeKey, sehingga tidak ada toast per ketikan dan satu kunjungan ke editor menjadi satu langkah undo.",
+      "files": ["src/app/edits/document-edits.ts"],
+      "tests": ["src/app/edits/document-edits.test.ts"],
+      "rules": [
+        "Urutan dokumen dinomori ulang 0, 1, 2, ... setelah hapus atau pindah.",
+        "Judul atau isi yang sama dengan yang tersimpan tidak menghasilkan patch, jadi tidak ada langkah undo kosong."
+      ],
+      "algorithms": [
+        {
+          "id": "tambah",
+          "name": "Dokumen baru dan impor",
+          "summary": "Dokumen di akhir daftar, kosong atau berisi hasil impor berkas; beberapa berkas sekaligus menjadi satu langkah undo.",
+          "symbols": ["addDocument", "importDocuments"],
+          "steps": [
+            "Urutan = urutan tertinggi + 1 (tetap benar bila ada celah)",
+            {
+              "do": "Tambahkan { id, judul (satu baris), isi, urutan, updatedAt }; isi kosong bila tidak diberikan",
+              "code": "addDocument"
+            },
+            {
+              "stop": "Impor: satu resep menambah semua dokumen berurutan, jadi satu kali urungkan mengembalikan semuanya",
+              "code": "importDocuments"
+            }
+          ]
+        },
+        {
+          "id": "ubah",
+          "name": "Judul dan isi",
+          "summary": "Judul disimpan seperti diketik tetapi satu baris; isi diganti utuh dengan JSON dari editor.",
+          "symbols": ["renameDocument", "setDocumentContent", "oneLine"],
+          "steps": [
+            {
+              "if": "Dokumen tidak ada?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "do": "Judul: baris baru menjadi spasi; spasi lain dibiarkan",
+              "code": "oneLine"
+            },
+            {
+              "if": "Judul atau isi sama dengan yang tersimpan?",
+              "then": [
+                {
+                  "stop": "Abaikan (tanpa patch)"
+                }
+              ]
+            },
+            {
+              "stop": "Ganti nilainya dan updatedAt",
+              "code": "setDocumentContent"
+            }
+          ],
+          "pitfalls": [
+            "Isi dibandingkan dengan versi tersimpan (original), bukan lewat draf: menserialisasi draf membungkus setiap node dengan proxy."
+          ]
+        },
+        {
+          "id": "urutan",
+          "name": "Hapus dan pindah",
+          "summary": "Menghapus dokumen atau menaruhnya sebelum/sesudah dokumen lain, lalu menomori ulang.",
+          "symbols": ["deleteDocument", "moveDocument", "documentsInOrder", "renumber"],
+          "steps": [
+            {
+              "do": "Urutkan dokumen menurut order (stabil)",
+              "code": "documentsInOrder"
+            },
+            {
+              "if": "Hapus?",
+              "then": [
+                {
+                  "do": "Buang dokumen dari daftar",
+                  "code": "deleteDocument"
+                }
+              ],
+              "else": [
+                {
+                  "do": "Sisipkan sebelum atau sesudah dokumen sasaran",
+                  "code": "moveDocument"
+                }
+              ]
+            },
+            {
+              "stop": "Nomori ulang 0, 1, 2, ...",
+              "code": "renumber"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "history",
+      "group": "app-edit",
+      "name": "Riwayat undo/redo",
+      "summary": "Menjalankan resep dengan produceWithPatches dan menyimpan patch beserta kebalikannya.",
+      "description": "Setiap edit menyimpan patch yang membuatnya dan patch kebalikan yang mengembalikannya, bukan salinan proyek utuh. Undo menerapkan patch kebalikan; redo menerapkan patch asli. Riwayat hidup di sesi proyek (tidak disimpan ke berkas).",
+      "files": ["src/app/history/history.ts"],
+      "tests": ["src/app/history/history.test.ts"],
+      "rules": [
+        "Edit baru mengosongkan daftar redo (future).",
+        "Riwayat dibatasi HISTORY_LIMIT (100) langkah; yang paling lama dibuang.",
+        "Suntingan berturut-turut dengan mergeKey yang sama menjadi satu langkah. Patch-nya dihitung ulang dari keadaan sebelum langkah itu, jadi nilai yang berubah berkali-kali (isi dokumen) tersimpan sekali."
+      ],
+      "algorithms": [
+        {
+          "id": "rekam",
+          "name": "Merekam edit",
+          "summary": "record menjalankan resep dan mengembalikan proyek baru, riwayat baru, dan entrinya; suntingan berkunci sama digabung.",
+          "symbols": ["record", "joinLast"],
+          "steps": [
+            {
+              "do": "produceWithPatches(project, resep)",
+              "code": "record"
+            },
+            {
+              "if": "Tidak ada patch (resep tidak mengubah apa pun)?",
+              "then": [
+                {
+                  "stop": "Kembalikan null"
+                }
+              ]
+            },
+            {
+              "if": "mergeKey sama dengan entri terakhir dan future kosong?",
+              "then": [
+                {
+                  "do": "Kembali ke keadaan sebelum entri terakhir, lalu hitung ulang patch gabungannya",
+                  "code": "joinLast"
+                },
+                {
+                  "if": "Gabungan tidak mengubah apa pun (ketikan kembali seperti semula)?",
+                  "then": [
+                    {
+                      "stop": "Buang entri terakhir"
+                    }
+                  ]
+                },
+                {
+                  "stop": "Ganti entri terakhir dengan entri gabungan"
+                }
+              ]
+            },
+            "Entri = { label, patches, inverse, mergeKey? }",
+            "past = past + entri, dipotong 100 terakhir; future = []",
+            {
+              "stop": "Kembalikan Step"
+            }
+          ]
+        },
+        {
+          "id": "urungkan",
+          "name": "Undo dan redo",
+          "summary": "Memindahkan satu entri antara past dan future sambil menerapkan patch yang sesuai.",
+          "symbols": ["undo", "redo"],
+          "steps": [
+            {
+              "if": "Undo?",
+              "then": [
+                {
+                  "if": "past kosong?",
+                  "then": [
+                    {
+                      "stop": "Kembalikan null"
+                    }
+                  ]
+                },
+                {
+                  "do": "Terapkan patch kebalikan entri terakhir; pindahkan entri ke depan future",
+                  "code": "undo"
+                }
+              ],
+              "else": [
+                {
+                  "if": "future kosong?",
+                  "then": [
+                    {
+                      "stop": "Kembalikan null"
+                    }
+                  ]
+                },
+                {
+                  "do": "Terapkan patch entri pertama future; pindahkan ke akhir past",
+                  "code": "redo"
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan Step (proyek, riwayat, entri)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app-store",
+      "group": "app-state",
+      "name": "Store aplikasi",
+      "summary": "State Zustand vanilla: daftar proyek, tab, sesi per proyek, impor yang menunggu, status simpan, toast.",
+      "description": "Satu-satunya tempat state aplikasi berubah. Setiap sesi proyek menyimpan proyek, hasil analisis (jadwal + jalur kritis), persen rollup, dan riwayat undo. Semua aksi UI yang mengubah proyek melewati edit(), sehingga validasi, undo, perhitungan ulang, dan simpan otomatis selalu terjadi dengan urutan yang sama. Store tidak memakai Svelte, jadi diuji di Node.",
+      "files": ["src/app/store/app-store.ts"],
+      "tests": ["src/app/store/app-store.test.ts"],
+      "diagrams": ["status-simpan", "impor-menunggu", "data-turunan"],
+      "algorithms": [
+        {
+          "id": "sesi",
+          "name": "Sesi dan analisis",
+          "summary": "Setiap kali proyek berganti, sesi baru dibuat; jadwal hanya dihitung ulang bila tugas, dependensi, atau kalender berubah.",
+          "symbols": ["createAppStore", "sessionOf"],
+          "input": "Project, asal (demo, gan, rentang, new), nama berkas, riwayat, dan sesi sebelumnya bila ada.",
+          "output": "ProjectSession { project, origin, fileName, analysis, progress, history }.",
+          "steps": [
+            {
+              "if": "Tugas, dependensi, dan kalender sama (objek yang sama) dengan sesi sebelumnya?",
+              "then": ["Pakai lagi analisis dan persen sesi sebelumnya"],
+              "else": [
+                {
+                  "do": "Hitung analisis: jadwal dan jalur kritis (atau CycleError)",
+                  "code": "sessionOf"
+                },
+                "Hitung persen rollup semua tugas"
+              ]
+            },
+            {
+              "stop": "Sesi baru (objek baru, jadi Svelte menggambar ulang)"
+            }
+          ],
+          "rules": [
+            "Analisis tidak pernah disimpan; ia selalu turunan dari proyek di sesi.",
+            "Immer mempertahankan objek yang tidak disentuh, jadi suntingan dokumen, orang, atau role tidak menghitung ulang jadwal."
+          ]
+        },
+        {
+          "id": "edit",
+          "name": "Pipa suntingan (edit)",
+          "summary": "Rekam resep, validasi hasilnya, lalu terapkan: sesi baru, toast Urungkan, simpan otomatis.",
+          "symbols": ["edit", "applyStep"],
+          "input": "Label untuk toast, resep, dan pilihan { quiet, mergeKey }.",
+          "output": "'applied', 'unchanged', atau 'rejected'.",
+          "steps": [
+            {
+              "if": "Tidak ada proyek aktif?",
+              "then": [
+                {
+                  "stop": "unchanged"
+                }
+              ]
+            },
+            {
+              "do": "history.record(project, history, label, resep, mergeKey)",
+              "code": "edit"
+            },
+            {
+              "if": "Resep tidak mengubah apa pun?",
+              "then": [
+                {
+                  "stop": "unchanged"
+                }
+              ]
+            },
+            "Validasi proyek hasil dengan projectSchema",
+            {
+              "if": "Tidak valid?",
+              "then": [
+                {
+                  "stop": "Tampilkan notice edit-rejected; rejected (proyek lama tetap)"
+                }
+              ]
+            },
+            {
+              "do": "Buat sesi baru dari proyek dan riwayat baru",
+              "code": "applyStep"
+            },
+            {
+              "if": "quiet?",
+              "then": ["Tanpa toast; toast Urungkan/Ulangi yang masih tampil ditutup"],
+              "else": ["Tampilkan toast dengan tombol Urungkan"]
+            },
+            "Simpan otomatis (antrean per proyek)",
+            {
+              "stop": "applied"
+            }
+          ],
+          "rules": [
+            "Satu panggilan edit = satu entri undo. Gabungkan beberapa resep dalam satu fungsi bila harus diurungkan bersama.",
+            "Suntingan quiet tetap bisa diurungkan; toast yang tersisa ditutup karena Urungkan-nya kini akan mengenai suntingan quiet itu."
+          ]
+        },
+        {
+          "id": "undo",
+          "name": "Undo dan redo di store",
+          "summary": "Mengambil langkah dari history lalu menerapkannya lewat applyStep yang sama dengan edit.",
+          "symbols": ["undo", "redo"],
+          "steps": [
+            {
+              "if": "Tidak ada proyek aktif?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "do": "history.undo atau history.redo",
+              "code": "undo"
+            },
+            {
+              "if": "Tidak ada langkah?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "stop": "applyStep: sesi baru, toast 'Dibatalkan: …' atau 'Diulang: …', simpan otomatis",
+              "code": "redo"
+            }
+          ]
+        },
+        {
+          "id": "simpan",
+          "name": "Antrean simpan per proyek",
+          "summary": "Simpan untuk satu proyek berjalan berurutan, supaya simpan yang lebih lama tidak pernah mendarat terakhir.",
+          "symbols": ["persist"],
+          "steps": [
+            {
+              "do": "Hitung ringkasan proyek (persen, terlambat, milestone berikutnya)",
+              "code": "persist"
+            },
+            "saveState = saving",
+            "Rantai simpan baru di belakang simpan sebelumnya untuk proyek yang sama",
+            {
+              "if": "storage.save berhasil?",
+              "then": ["saveState = saved; muat ulang daftar proyek"],
+              "else": ["saveState = failed; notice storage-failed"]
+            },
+            {
+              "stop": "Selesai"
+            }
+          ],
+          "pitfalls": [
+            "deleteProject menunggu simpan yang sedang berjalan; tanpa itu simpan yang telat bisa menghidupkan lagi proyek yang dihapus."
+          ]
+        },
+        {
+          "id": "buka-berkas",
+          "name": "Membuka berkas",
+          "summary": "Memilih jalur menurut ekstensi: .gan masuk ke impor yang menunggu konfirmasi, .rentang langsung dibuka.",
+          "symbols": ["openFile", "extensionOf", "stemOf", "fail"],
+          "steps": [
+            {
+              "do": "Ambil ekstensi nama berkas (huruf kecil)",
+              "code": "extensionOf"
+            },
+            {
+              "if": "Ekstensi .gan?",
+              "then": [
+                "importGan(teks, id baru)",
+                {
+                  "if": "Gagal?",
+                  "then": [
+                    {
+                      "stop": "Notice open-failed",
+                      "code": "fail"
+                    }
+                  ]
+                },
+                {
+                  "do": "Nama kosong diganti nama berkas tanpa ekstensi",
+                  "code": "stemOf"
+                },
+                {
+                  "stop": "pendingImport = { fileName, project, report }"
+                }
+              ]
+            },
+            {
+              "if": "Ekstensi .rentang?",
+              "then": [
+                {
+                  "if": "JSON rusak atau loadProjectFile gagal?",
+                  "then": [
+                    {
+                      "stop": "Notice open-failed"
+                    }
+                  ]
+                },
+                {
+                  "stop": "saveAndShow(sesi baru)"
+                }
+              ]
+            },
+            {
+              "stop": "Notice: jenis berkas tidak didukung",
+              "code": "openFile"
+            }
+          ]
+        },
+        {
+          "id": "impor",
+          "name": "Konfirmasi impor",
+          "summary": "Impor .gan baru disimpan setelah pengguna membaca laporannya.",
+          "symbols": ["confirmImport", "cancelImport"],
+          "steps": [
+            {
+              "if": "Tidak ada impor yang menunggu?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "if": "Pengguna menyimpan?",
+              "then": [
+                {
+                  "stop": "Kosongkan pendingImport lalu saveAndShow(sesi 'gan')",
+                  "code": "confirmImport"
+                }
+              ],
+              "else": [
+                {
+                  "stop": "Kosongkan pendingImport",
+                  "code": "cancelImport"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "buka-proyek",
+          "name": "Membuka dan menampilkan proyek",
+          "summary": "Proyek yang sudah punya tab langsung ditampilkan; yang belum dimuat dari penyimpanan dan diberi tab.",
+          "symbols": ["openProject", "show", "saveAndShow"],
+          "steps": [
+            {
+              "if": "Sudah ada sesi (tab) untuk proyek ini?",
+              "then": [
+                {
+                  "do": "Jadikan aktif",
+                  "code": "show"
+                }
+              ],
+              "else": [
+                "storage.load(id): migrasi + validasi",
+                {
+                  "if": "Gagal?",
+                  "then": [
+                    {
+                      "stop": "Notice open-failed atau storage-failed"
+                    }
+                  ]
+                },
+                "Buat sesi, tambahkan tab, jadikan aktif"
+              ]
+            },
+            "Tandai waktu dibuka (markOpened)",
+            {
+              "stop": "Muat ulang daftar proyek (urut terakhir dibuka)",
+              "code": "openProject"
+            }
+          ],
+          "rules": [
+            "saveAndShow dipakai untuk proyek yang baru masuk (impor, demo, proyek baru, .rentang): tampilkan, simpan, tandai dibuka.",
+            "Bila tidak ada IndexedDB, proyek hanya bertahan selama halaman terbuka."
+          ]
+        },
+        {
+          "id": "baru",
+          "name": "Demo dan proyek baru",
+          "summary": "openDemo membuat proyek demo dengan tanggal hari ini; createProject membuat proyek kosong.",
+          "symbols": ["openDemo", "createProject"],
+          "steps": [
+            {
+              "if": "Demo?",
+              "then": [
+                {
+                  "do": "createDemoProject(today())",
+                  "code": "openDemo"
+                }
+              ],
+              "else": [
+                {
+                  "do": "createProject(id baru, nama dirapikan, bidang)",
+                  "code": "createProject"
+                }
+              ]
+            },
+            {
+              "stop": "saveAndShow(sesi baru)"
+            }
+          ]
+        },
+        {
+          "id": "tab",
+          "name": "Menutup tab dan menghapus proyek",
+          "summary": "Menutup tab memilih tetangganya; menghapus menunggu simpan yang berjalan lalu menutup tab.",
+          "symbols": ["closeTab", "deleteProject"],
+          "steps": [
+            {
+              "if": "Menghapus proyek?",
+              "then": [
+                "Tunggu simpan yang sedang berjalan untuk proyek ini",
+                {
+                  "if": "storage.remove gagal?",
+                  "then": [
+                    {
+                      "stop": "Notice storage-failed"
+                    }
+                  ]
+                },
+                {
+                  "do": "Tutup tabnya dan muat ulang daftar; toast 'Proyek dihapus'",
+                  "code": "deleteProject"
+                }
+              ],
+              "else": [
+                {
+                  "do": "Buang tab dan sesinya",
+                  "code": "closeTab"
+                }
+              ]
+            },
+            {
+              "if": "Tab yang ditutup sedang aktif?",
+              "then": [
+                "Aktifkan tetangga di posisi yang sama (atau sebelumnya), atau Daftar proyek"
+              ]
+            },
+            {
+              "stop": "Selesai"
+            }
+          ]
+        },
+        {
+          "id": "pulih",
+          "name": "Memulai dan memulihkan tab",
+          "summary": "start memuat daftar proyek lalu membuka kembali tab dari sessionStorage, tanpa menimpa memori tab selama pemulihan.",
+          "symbols": ["start", "restoreTab", "remember", "stopRestoring"],
+          "steps": [
+            {
+              "do": "Muat daftar proyek; ready = true",
+              "code": "start"
+            },
+            {
+              "if": "Penyimpanan gagal?",
+              "then": [
+                {
+                  "stop": "Notice storage-failed; berhenti memulihkan"
+                }
+              ]
+            },
+            {
+              "if": "Tidak ada tab yang diingat?",
+              "then": [
+                {
+                  "stop": "Berhenti memulihkan",
+                  "code": "stopRestoring"
+                }
+              ]
+            },
+            {
+              "loop": "Masih ada tab yang diingat dan proyeknya masih ada?",
+              "body": [
+                {
+                  "do": "Muat proyek dan buat sesi (yang aktif dimuat terakhir dan dijadikan aktif)",
+                  "code": "restoreTab"
+                }
+              ]
+            },
+            {
+              "stop": "Berhenti memulihkan; mulai sekarang setiap perubahan tab ditulis ke memori",
+              "code": "remember"
+            }
+          ],
+          "rules": [
+            "Selama restoring, remember() tidak menulis apa pun; kalau tidak, memori tab tertimpa daftar kosong sebelum pemulihan selesai."
+          ]
+        },
+        {
+          "id": "toast",
+          "name": "Toast dan pesan",
+          "summary": "Setiap edit, undo, redo, dan penghapusan proyek menaruh toast dengan id bertambah; notice untuk galat yang perlu dibaca.",
+          "symbols": ["toast", "dismissNotice", "dismissToast"],
+          "steps": [
+            {
+              "do": "toastCounter + 1; toast = { id, message, action: undo | redo | null }",
+              "code": "toast"
+            },
+            {
+              "stop": "UI menutupnya setelah 6 detik bila id masih sama",
+              "code": "dismissToast"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "group": "app-storage",
+      "name": "Penyimpanan proyek",
+      "summary": "StorageProvider dengan IndexedDB (Dexie) dan cadangan di memori; setiap muat dimigrasi dan divalidasi ulang.",
+      "description": "Proyek disimpan sebagai JSON persis seperti isi berkas .rentang, ditambah ringkasan (persen, terlambat, milestone berikutnya) supaya Daftar proyek tidak perlu menjadwalkan ulang. Penyimpanan memori dipakai bila IndexedDB tidak tersedia (sebagian jendela pribadi) dan di test.",
+      "files": [
+        "src/app/persistence/browser.ts",
+        "src/app/persistence/memory.ts",
+        "src/app/persistence/storage-provider.ts"
+      ],
+      "tests": ["src/app/persistence/browser.test.ts", "src/app/store/app-store.test.ts"],
+      "algorithms": [
+        {
+          "id": "simpan",
+          "name": "Menyimpan proyek",
+          "summary": "Menulis record: id, nama, bidang, ringkasan, waktu simpan, waktu dibuka, dan berkasnya sebagai JSON polos.",
+          "symbols": ["save", "createBrowserStorage"],
+          "steps": [
+            "Ambil record lama (untuk mempertahankan openedAt)",
+            "updatedAt = sekarang; openedAt = lama atau sekarang",
+            "Berkas di-JSON-kan ulang supaya yang tersimpan sama dengan isi .rentang",
+            {
+              "do": "projects.put(record)",
+              "code": "save"
+            },
+            {
+              "stop": "Kembalikan ringkasan tersimpan"
+            }
+          ],
+          "rules": ["Skema Dexie: versi 1 (id, updatedAt), versi 2 menambah indeks openedAt."]
+        },
+        {
+          "id": "muat",
+          "name": "Memuat dan mendaftar",
+          "summary": "load memigrasi dan memvalidasi ulang; list mengembalikan ringkasan, terakhir dibuka lebih dulu.",
+          "symbols": ["load", "list", "summaryOf", "markOpened", "remove"],
+          "steps": [
+            {
+              "if": "Memuat satu proyek?",
+              "then": [
+                {
+                  "if": "Record tidak ada?",
+                  "then": [
+                    {
+                      "stop": "Gagal: not-found"
+                    }
+                  ]
+                },
+                {
+                  "stop": "loadProjectFile(record.file)",
+                  "code": "load"
+                }
+              ]
+            },
+            {
+              "do": "Ambil semua record; isi nilai netral untuk kolom yang belum ada di data lama",
+              "code": "summaryOf"
+            },
+            {
+              "stop": "Urutkan menurut openedAt menurun",
+              "code": "list"
+            }
+          ]
+        },
+        {
+          "id": "memori",
+          "name": "Penyimpanan memori",
+          "summary": "Map di memori dengan antarmuka yang sama; menyalin data dengan structuredClone supaya tidak berbagi objek.",
+          "symbols": ["createMemoryStorage"],
+          "steps": [
+            "Simpan { file, summary } per id di Map",
+            "Setiap simpan dan muat menyalin dengan structuredClone",
+            {
+              "stop": "Hilang saat halaman ditutup"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "demo",
+      "group": "app-storage",
+      "name": "Proyek demo",
+      "summary": "Proyek fiktif Peluncuran Kedai Kopi yang tanggalnya digeser supaya selalu sedang berjalan.",
+      "files": ["src/app/demo/coffee-shop-demo.ts"],
+      "tests": ["src/app/demo/coffee-shop-demo.test.ts", "src/app/store/app-store.test.ts"],
+      "algorithms": [
+        {
+          "id": "geser",
+          "name": "Menggeser tanggal demo",
+          "summary": "Semua tanggal digeser kelipatan pekan sehingga hari ini jatuh di fase kedua proyek.",
+          "symbols": ["createDemoProject"],
+          "input": "Tanggal hari ini.",
+          "output": "Project demo.",
+          "steps": [
+            "Cari Senin pekan ini",
+            "Geser = selisih hari dari Senin dasar (2026-11-02) ke dua pekan sebelum Senin pekan ini",
+            "Geser setiap tanggal mulai dengan jumlah hari itu",
+            "Durasi 0 menjadi milestone; dependensi dari kolom after",
+            "Lima dokumen fiktif dengan sebutan tugas; waktu ubahnya mundur 0 sampai 14 hari dari hari ini",
+            {
+              "stop": "Project dengan role, orang, penugasan, dan dokumen fiktif",
+              "code": "createDemoProject"
+            }
+          ],
+          "rules": [
+            "Geseran selalu kelipatan 7 hari, jadi hari dalam pekan setiap tugas tidak berubah."
+          ]
+        }
+      ]
+    }
+  ]
+}

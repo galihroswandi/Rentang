@@ -7,7 +7,8 @@ Acuan: kanvas desain "Sketsa Daftar Proyek Rentang" milik pemilik proyek, halama
 | Daftar proyek             | ✓      | Tabel atau kartu, pencarian; tampilan kosong berisi pilihan mulai dan demo     |
 | Proyek › Gantt            | ✓      | Tugas, Hari ini, Zoom ±, Kolom, Jalur kritis, pembatas tabel yang bisa diseret |
 | Proyek › Resource         | ✓      | Orang, Kelola role, pencarian, panel detail, tugaskan dan lepas                |
+| Proyek › Dokumen          | ✓      | Dari usulan "Dokumen proyek": daftar, editor dengan "/" dan "@", ringkasan     |
 | Laporan impor `.gan`      | ✓      | Gaya mengikuti token baru                                                      |
 | Dialog Tugas, Proyek baru | ✓      | Tidak ada di kanvas; dibuat dengan gaya yang sama                              |
 
-Seret batang Gantt (pindah dan ubah durasi) sudah ada. Yang belum dibuat: menyunting dependensi, dokumen proyek, dan simpan ke berkas. Status simpan menyebut "Tersimpan di browser" sampai penyimpanan ke Drive ada.
+Seret batang Gantt (pindah dan ubah durasi) dan dokumen proyek sudah ada. Yang belum dibuat: menyunting dependensi, panel tugas dengan editor catatan, dan simpan ke berkas. Status simpan menyebut "Tersimpan di browser" sampai penyimpanan ke Drive ada.

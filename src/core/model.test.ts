@@ -10,6 +10,7 @@ import {
   type Project,
   type Task,
 } from './model.ts'
+import { documentFromText } from './rich-text.ts'
 import { coffeeShopProject } from './test-utils/coffee-shop.ts'
 
 function issuesOf(project: unknown): string[] {
@@ -39,12 +40,26 @@ describe('projectSchema', () => {
         title: 'Catatan peluncuran',
         content: { type: 'doc', content: [] },
         order: 0,
+        updatedAt: '2026-11-11T09:30:00.000Z',
       })
       p.calendar.holidays.push({ date: toIsoDate('2026-12-25'), name: 'Libur fiktif' })
       taskAt(p, 1).link = 'https://example.com/survei'
       taskAt(p, 1).notes = { type: 'doc', content: [{ type: 'paragraph' }] }
     })
     expect(issuesOf(project)).toEqual([])
+  })
+
+  it('rejects a document timestamp that is not an ISO date and time', () => {
+    const project = withChanges((p) => {
+      p.documents.push({
+        id: 'doc1',
+        title: 'Catatan',
+        content: { type: 'doc', content: [] },
+        order: 0,
+        updatedAt: '11/11/2026',
+      })
+    })
+    expect(issuesOf(project)).not.toEqual([])
   })
 
   it('rejects malformed dates and durations', () => {
@@ -153,9 +168,12 @@ describe('projectFileSchema', () => {
 })
 
 describe('noteTextOf', () => {
-  it('returns text notes and an empty string for none or non-text notes', () => {
+  it('reads text notes and editor documents, and is empty without notes', () => {
     expect(noteTextOf({ notes: 'Halo' })).toBe('Halo')
     expect(noteTextOf({})).toBe('')
     expect(noteTextOf({ notes: { type: 'doc' } })).toBe('')
+    expect(noteTextOf({ notes: documentFromText('Baris satu\nBaris dua') })).toBe(
+      'Baris satu\nBaris dua',
+    )
   })
 })

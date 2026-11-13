@@ -8,11 +8,13 @@ import type { Draft } from 'immer'
 import { clampDate, type IsoDate } from '../../core/dates.ts'
 import {
   MAX_DURATION,
+  noteTextOf,
   type Area,
   type Project,
   type Task,
   type TaskType,
 } from '../../core/model.ts'
+import { documentFromText } from '../../core/rich-text.ts'
 
 export type Recipe = (draft: Draft<Project>) => void
 
@@ -24,7 +26,7 @@ export type TaskInput = {
   readonly duration: number
   readonly isMilestone: boolean
   readonly progress: number
-  /** Free-text notes; blank clears them. */
+  /** Notes as plain text; blank clears them, the same text keeps them as stored. */
   readonly notes: string
 }
 
@@ -60,9 +62,11 @@ function applyTaskInput(task: Draft<Task>, input: TaskInput, isSummary: boolean)
   task.name = input.name.trim()
   if (input.type === null) delete task.type
   else task.type = input.type
+  // The dialog edits notes as plain text. Unchanged text keeps the stored document, with any
+  // formatting or mentions in it; changed text is stored as a document again.
   const notes = input.notes.trim()
   if (notes === '') delete task.notes
-  else task.notes = notes
+  else if (notes !== noteTextOf(task).trim()) task.notes = documentFromText(notes)
   if (isSummary) return
   task.start = clampDate(input.start)
   task.isMilestone = input.isMilestone

@@ -74,6 +74,13 @@ export type AppState = {
 
 export type EditOutcome = 'applied' | 'unchanged' | 'rejected'
 
+export type EditOptions = {
+  /** No "Urungkan" message, for edits made while typing. The edit can still be undone. */
+  readonly quiet?: boolean
+  /** Edits in a row with the same key become one undo step (see history.record). */
+  readonly mergeKey?: string
+}
+
 export type AppActions = {
   start(): Promise<void>
   openFile(file: { readonly name: string; readonly text: string }): Promise<void>
@@ -87,7 +94,7 @@ export type AppActions = {
   deleteProject(id: string): Promise<void>
   showList(): void
   /** Applies an edit to the active project, with undo, and saves it. */
-  edit(label: string, recipe: Recipe): EditOutcome
+  edit(label: string, recipe: Recipe, options?: EditOptions): EditOutcome
   undo(): void
   redo(): void
   /** A fresh id for a new task, person, role or assignment. */
@@ -123,18 +130,29 @@ function stemOf(name: string): string {
   return dot <= 0 ? name : name.slice(0, dot)
 }
 
+/**
+ * A session for a project. The schedule is computed again only when tasks, dependencies or
+ * the calendar changed since `previous`; an edit to a document or a person reuses it.
+ */
 function sessionOf(
   project: Project,
   origin: ProjectOrigin,
   fileName: string | null,
   history: History = EMPTY_HISTORY,
+  previous?: ProjectSession,
 ): ProjectSession {
+  const before = previous?.project
+  const sameSchedule =
+    previous !== undefined &&
+    before?.tasks === project.tasks &&
+    before.dependencies === project.dependencies &&
+    before.calendar === project.calendar
   return {
     project,
     origin,
     fileName,
-    analysis: analyzeCriticalPath(project),
-    progress: rollUpProgress(project),
+    analysis: sameSchedule ? previous.analysis : analyzeCriticalPath(project),
+    progress: sameSchedule ? previous.progress : rollUpProgress(project),
     history,
   }
 }
@@ -209,13 +227,20 @@ export function createAppStore({ storage, today, newId, workspace }: AppDependen
       set({ notice: { kind: 'open-failed', fileName, error } })
     }
 
-    const applyStep = (step: Step | null, message: string, action: Toast['action']): void => {
+    const applyStep = (
+      step: Step | null,
+      message: string,
+      action: Toast['action'],
+      quiet = false,
+    ): void => {
       const { active, sessions } = get()
       const session = active === null ? undefined : sessions[active]
       if (!step || !session || active === null) return
-      const next = sessionOf(step.project, session.origin, session.fileName, step.history)
+      const next = sessionOf(step.project, session.origin, session.fileName, step.history, session)
       set({ sessions: { ...sessions, [active]: next } })
-      toast(message, action)
+      if (!quiet) toast(message, action)
+      // An Urungkan or Ulangi still on screen would now act on this edit, not its own.
+      else if (get().toast?.action) set({ toast: null })
       void persist(next)
     }
 
@@ -388,11 +413,11 @@ export function createAppStore({ storage, today, newId, workspace }: AppDependen
         set({ active: null })
       },
 
-      edit(label, recipe) {
+      edit(label, recipe, options = {}) {
         const { active, sessions } = get()
         const session = active === null ? undefined : sessions[active]
         if (!session) return 'unchanged'
-        const step = record(session.project, session.history, label, recipe)
+        const step = record(session.project, session.history, label, recipe, options.mergeKey)
         if (!step) return 'unchanged'
         const valid = projectSchema.safeParse(step.project)
         if (!valid.success) {
@@ -404,7 +429,7 @@ export function createAppStore({ storage, today, newId, workspace }: AppDependen
           })
           return 'rejected'
         }
-        applyStep(step, label, 'undo')
+        applyStep(step, label, 'undo', options.quiet)
         return 'applied'
       },
 

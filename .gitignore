@@ -33,3 +33,6 @@ test-results
 *.rentang
 !fixtures/**/*.gan
 !fixtures/**/*.rentang
+
+# Algorithm map output (pnpm peta:build); holds local paths, so it is not committed
+dist-peta

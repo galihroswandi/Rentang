@@ -1,0 +1,1746 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "groups": [
+    {
+      "id": "core-date",
+      "layer": "core",
+      "name": "Tanggal & kalender"
+    },
+    {
+      "id": "core-data",
+      "layer": "core",
+      "name": "Model & berkas"
+    },
+    {
+      "id": "core-schedule",
+      "layer": "core",
+      "name": "Penjadwalan"
+    },
+    {
+      "id": "core-gan",
+      "layer": "core",
+      "name": "Impor .gan"
+    },
+    {
+      "id": "core-test",
+      "layer": "core",
+      "name": "Alat test"
+    }
+  ],
+  "modules": [
+    {
+      "id": "dates",
+      "group": "core-date",
+      "name": "Aritmetika tanggal",
+      "summary": "Hitung-hitungan tanggal 'YYYY-MM-DD' tanpa objek Date, lewat nomor hari.",
+      "description": "Tanggal di Rentang tidak punya jam dan zona waktu, jadi disimpan sebagai teks 'YYYY-MM-DD' bertipe IsoDate (string dengan brand, supaya teks biasa tidak bisa lolos tanpa diperiksa). Semua aritmetika mengubah tanggal menjadi nomor hari, yaitu jumlah hari sejak 1970-01-01, menghitung dengan bilangan bulat, lalu mengubahnya kembali. Karena tidak ada Date, bug zona waktu dan jam musim panas tidak mungkin terjadi di core.",
+      "files": ["src/core/dates.ts"],
+      "tests": ["src/core/dates.test.ts"],
+      "rules": [
+        "Dilarang new Date, Date.now, dan Intl.DateTimeFormat di src/core (lint no-restricted-syntax).",
+        "Data yang masuk hanya boleh bertanggal 1970-01-01 sampai 2100-12-31 (isSupportedDate), supaya aritmetika jauh dari tepi kalender."
+      ],
+      "algorithms": [
+        {
+          "id": "validasi",
+          "name": "Membaca dan memvalidasi tanggal",
+          "summary": "Memastikan teks adalah tanggal kalender yang benar-benar ada, lalu memberinya tipe IsoDate.",
+          "symbols": [
+            "parseIsoDate",
+            "isIsoDate",
+            "toIsoDate",
+            "formatIsoDate",
+            "isSupportedDate",
+            "clampDate"
+          ],
+          "input": "Teks bebas, mis. '2026-02-29', atau bagian tanggal { year, month, day }.",
+          "output": "DateParts atau null (parseIsoDate); boolean (isIsoDate); IsoDate atau RangeError (toIsoDate, formatIsoDate).",
+          "steps": [
+            {
+              "do": "Cocokkan teks dengan pola YYYY-MM-DD",
+              "code": "parseIsoDate"
+            },
+            {
+              "if": "Pola tidak cocok?",
+              "then": [
+                {
+                  "stop": "Kembalikan null"
+                }
+              ]
+            },
+            "Ubah tahun, bulan, dan hari menjadi angka",
+            {
+              "if": "Tahun di luar 1-9999, bulan di luar 1-12, atau hari melebihi jumlah hari bulan itu (tahun kabisat dihitung)?",
+              "then": [
+                {
+                  "stop": "Kembalikan null"
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan { year, month, day }"
+            }
+          ],
+          "examples": [
+            {
+              "given": "parseIsoDate('2024-02-29')",
+              "result": "{ year: 2024, month: 2, day: 29 }",
+              "note": "2024 tahun kabisat"
+            },
+            {
+              "given": "parseIsoDate('2026-02-29')",
+              "result": "null",
+              "note": "2026 bukan tahun kabisat"
+            },
+            {
+              "given": "parseIsoDate('2026-1-5')",
+              "result": "null",
+              "note": "bulan dan hari harus dua digit"
+            },
+            {
+              "given": "clampDate('1960-05-01')",
+              "result": "'1970-01-01'",
+              "note": "ditarik ke tepi jendela"
+            }
+          ],
+          "rules": [
+            "Tahun kabisat: habis dibagi 4 dan tidak habis dibagi 100, atau habis dibagi 400."
+          ],
+          "pitfalls": [
+            "IsoDate hanya menjamin bentuk dan keberadaan tanggal, bukan jendela 1970-2100. Saat data masuk, periksa juga isSupportedDate.",
+            "toIsoDate dan formatIsoDate melempar RangeError. Pakai hanya untuk literal di kode atau test, jangan untuk input pengguna."
+          ]
+        },
+        {
+          "id": "nomor-hari",
+          "name": "Tanggal ↔ nomor hari",
+          "summary": "Mengubah tanggal menjadi jumlah hari sejak 1970-01-01 dan sebaliknya, dengan rumus days_from_civil dan civil_from_days dari Howard Hinnant.",
+          "symbols": ["toDayNumber", "fromDayNumber"],
+          "input": "IsoDate (toDayNumber) atau bilangan bulat (fromDayNumber).",
+          "output": "Bilangan bulat (bisa negatif) atau IsoDate.",
+          "steps": [
+            "Geser kalender supaya tahun dimulai bulan Maret (Januari dan Februari ikut tahun sebelumnya), sehingga hari kabisat jatuh di akhir tahun",
+            "Pecah tahun menjadi era 400 tahun dan tahun ke berapa di dalam era",
+            "Hari dalam tahun sejak 1 Maret = floor((153 × bulan geser + 2) / 5) + hari − 1",
+            "Hari dalam era = tahun era × 365 + kabisat (÷4 − ÷100) + hari dalam tahun",
+            {
+              "stop": "Nomor hari = era × 146097 + hari dalam era − 719468",
+              "code": "toDayNumber"
+            }
+          ],
+          "examples": [
+            {
+              "given": "toDayNumber('1970-01-01')",
+              "result": "0"
+            },
+            {
+              "given": "toDayNumber('2026-11-02')",
+              "result": "20759"
+            },
+            {
+              "given": "fromDayNumber(20759)",
+              "result": "'2026-11-02'"
+            }
+          ],
+          "rules": [
+            "fromDayNumber(toDayNumber(d)) === d untuk setiap tanggal valid (diuji bolak-balik)."
+          ],
+          "complexity": "O(1): tidak ada perulangan per hari, jadi cepat untuk rentang berapa pun."
+        },
+        {
+          "id": "aritmetika",
+          "name": "Menambah, mengurangi, dan membandingkan",
+          "summary": "Operasi harian di atas nomor hari: tambah hari, selisih, hari dalam pekan, minimum dan maksimum.",
+          "symbols": [
+            "addDays",
+            "addDaysClamped",
+            "diffDays",
+            "dayOfWeek",
+            "compareDates",
+            "maxDate",
+            "minDate"
+          ],
+          "input": "IsoDate dan jumlah hari (boleh negatif), atau dua IsoDate.",
+          "output": "IsoDate, selisih hari kalender, hari dalam pekan (0 = Minggu), atau hasil perbandingan.",
+          "steps": [
+            {
+              "do": "Ubah tanggal ke nomor hari",
+              "code": "addDays"
+            },
+            "Tambahkan jumlah hari",
+            {
+              "if": "Versi clamped dan hasilnya di luar 1970-2100?",
+              "then": ["Tahan di tepi jendela"]
+            },
+            {
+              "stop": "Ubah kembali ke IsoDate"
+            }
+          ],
+          "examples": [
+            {
+              "given": "addDays('2026-12-31', 1)",
+              "result": "'2027-01-01'"
+            },
+            {
+              "given": "diffDays('2026-11-02', '2026-11-09')",
+              "result": "7",
+              "note": "hari kalender, bukan hari kerja"
+            },
+            {
+              "given": "dayOfWeek('2026-11-02')",
+              "result": "1 (Senin)",
+              "note": "1970-01-01 adalah Kamis (4)"
+            },
+            {
+              "given": "compareDates('2026-01-31', '2026-02-01')",
+              "result": "-1",
+              "note": "teks YYYY-MM-DD bisa dibandingkan langsung"
+            }
+          ],
+          "pitfalls": [
+            "dayOfWeek memakai 0 = Minggu, 1 = Senin. Banyak bug berasal dari mengira 0 = Senin.",
+            "diffDays menghitung hari kalender. Untuk hari kerja pakai calendar.workdaysBetween."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "calendar",
+      "group": "core-date",
+      "name": "Kalender kerja",
+      "summary": "Menentukan hari kerja dan bergerak sejumlah hari kerja, melompati akhir pekan dan hari libur.",
+      "description": "Durasi tugas di Rentang dihitung dalam hari kerja. createWorkCalendar membuat satu objek dari aturan proyek (hari kerja pekanan dan daftar hari libur) yang menjawab: apakah tanggal ini hari kerja, hari kerja terdekat, maju N hari kerja, dan berapa hari kerja di antara dua tanggal. Semua penjadwalan, drag, dan header Gantt memakai objek ini.",
+      "files": ["src/core/calendar.ts"],
+      "tests": ["src/core/calendar.test.ts"],
+      "rules": [
+        "Setiap hasil tetap di dalam jendela 1970-2100; pencarian yang mencapai tepi berhenti di sana walau harinya libur."
+      ],
+      "algorithms": [
+        {
+          "id": "hari-kerja",
+          "name": "Apakah hari kerja?",
+          "summary": "Hari kerja adalah hari pekan yang dikerjakan dan bukan hari libur.",
+          "symbols": ["createWorkCalendar", "isWorkday"],
+          "input": "CalendarRules { workingDays: 0-6, holidays: [{ date }] } dan sebuah tanggal.",
+          "output": "WorkCalendar; untuk isWorkday sebuah boolean.",
+          "steps": [
+            {
+              "do": "Simpan hari kerja pekanan dan tanggal libur sebagai Set",
+              "code": "createWorkCalendar"
+            },
+            {
+              "if": "Tidak ada satu pun hari kerja dalam sepekan?",
+              "then": [
+                {
+                  "stop": "Lempar RangeError"
+                }
+              ]
+            },
+            {
+              "if": "Hari pekan tanggal itu dikerjakan dan tanggalnya bukan hari libur?",
+              "then": [
+                {
+                  "stop": "Hari kerja",
+                  "code": "isWorkday"
+                }
+              ],
+              "else": [
+                {
+                  "stop": "Bukan hari kerja"
+                }
+              ]
+            }
+          ],
+          "examples": [
+            {
+              "given": "Senin-Jumat, tanpa libur; '2026-11-07'",
+              "result": "false",
+              "note": "Sabtu"
+            },
+            {
+              "given": "Senin-Jumat, libur '2026-11-10'; '2026-11-10'",
+              "result": "false",
+              "note": "Selasa tetapi hari libur"
+            }
+          ]
+        },
+        {
+          "id": "terdekat",
+          "name": "Hari kerja terdekat",
+          "summary": "nextWorkday dan previousWorkday: tanggal itu sendiri bila hari kerja, kalau tidak hari kerja berikutnya atau sebelumnya.",
+          "symbols": ["step", "nextWorkday", "previousWorkday"],
+          "input": "Tanggal dan arah (maju atau mundur).",
+          "output": "Hari kerja terdekat ke arah itu.",
+          "steps": [
+            {
+              "do": "Tahan tanggal di dalam jendela 1970-2100",
+              "code": "step"
+            },
+            {
+              "loop": "Tanggal ini bukan hari kerja?",
+              "next": "ya",
+              "done": "tidak",
+              "body": [
+                "Geser satu hari ke arah yang diminta",
+                {
+                  "if": "Keluar dari jendela tanggal?",
+                  "then": [
+                    {
+                      "stop": "Berhenti di tepi walau hari libur"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan tanggal itu"
+            }
+          ],
+          "examples": [
+            {
+              "given": "nextWorkday('2026-11-07')",
+              "result": "'2026-11-09'",
+              "note": "Sabtu → Senin"
+            },
+            {
+              "given": "previousWorkday('2026-11-07')",
+              "result": "'2026-11-06'",
+              "note": "Sabtu → Jumat"
+            },
+            {
+              "given": "nextWorkday('2026-11-09')",
+              "result": "'2026-11-09'",
+              "note": "sudah hari kerja"
+            }
+          ]
+        },
+        {
+          "id": "tambah",
+          "name": "Maju N hari kerja (addWorkdays)",
+          "summary": "Bergerak N hari kerja dari sebuah tanggal; tanggal awal tidak ikut dihitung.",
+          "symbols": ["addWorkdays"],
+          "input": "Tanggal dan N (negatif berarti mundur).",
+          "output": "Tanggal hari kerja ke-N.",
+          "steps": [
+            "Tentukan arah dari tanda N dan tahan tanggal awal di dalam jendela",
+            {
+              "loop": "Masih ada sisa hari kerja?",
+              "body": [
+                "Geser satu hari kalender ke arah itu",
+                {
+                  "if": "Keluar dari jendela tanggal?",
+                  "then": [
+                    {
+                      "stop": "Berhenti di tanggal sah terakhir"
+                    }
+                  ]
+                },
+                {
+                  "do": "Lompati hari libur sampai hari kerja",
+                  "code": "step"
+                },
+                "Kurangi sisa satu"
+              ]
+            },
+            {
+              "stop": "Kembalikan tanggal"
+            }
+          ],
+          "examples": [
+            {
+              "given": "addWorkdays('2026-11-06', 1)",
+              "result": "'2026-11-09'",
+              "note": "Jumat + 1 = Senin"
+            },
+            {
+              "given": "addWorkdays('2026-11-09', -1)",
+              "result": "'2026-11-06'",
+              "note": "Senin − 1 = Jumat"
+            },
+            {
+              "given": "addWorkdays('2026-11-07', 0)",
+              "result": "'2026-11-07'",
+              "note": "N = 0 tidak menggeser, walau Sabtu"
+            }
+          ],
+          "pitfalls": [
+            "Tanggal awal tidak dihitung: addWorkdays(Senin, 1) adalah Selasa. Untuk tanggal selesai tugas, schedule.endOf memakai durasi − 1.",
+            "Dengan N = 0 hasilnya tanggal itu sendiri, walau hari libur. Panggil nextWorkday dulu bila perlu."
+          ],
+          "complexity": "O(N + jumlah hari libur yang dilompati)."
+        },
+        {
+          "id": "selisih",
+          "name": "Hari kerja di antara dua tanggal",
+          "summary": "workdaysBetween menghitung hari kerja di rentang setengah terbuka [from, to), negatif bila to lebih awal.",
+          "symbols": ["workdaysBetween", "countWorkdays"],
+          "input": "Dua tanggal.",
+          "output": "Bilangan bulat (negatif bila urutannya terbalik).",
+          "steps": [
+            "Tahan kedua tanggal di dalam jendela",
+            {
+              "if": "to lebih awal dari from?",
+              "then": ["Tukar urutan dan ingat tanda negatif"]
+            },
+            {
+              "loop": "Masih ada hari di [from, to)?",
+              "body": [
+                {
+                  "if": "Hari ini hari kerja?",
+                  "then": ["Tambah hitungan"]
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan hitungan (dengan tanda)",
+              "code": "countWorkdays"
+            }
+          ],
+          "examples": [
+            {
+              "given": "workdaysBetween('2026-11-06', '2026-11-09')",
+              "result": "1",
+              "note": "Jumat dihitung; Sabtu, Minggu tidak; Senin batas terbuka"
+            }
+          ],
+          "rules": ["Untuk dua hari kerja a dan b: addWorkdays(a, workdaysBetween(a, b)) === b."]
+        }
+      ]
+    },
+    {
+      "id": "model",
+      "group": "core-data",
+      "name": "Model dan skema",
+      "summary": "Skema Zod untuk proyek dan berkas .rentang; tipe TypeScript diturunkan darinya.",
+      "description": "Satu sumber kebenaran untuk bentuk data. Setiap data yang masuk (berkas, hasil impor, hasil suntingan) divalidasi di sini, termasuk rujukan antarobjek yang tidak bisa dicek oleh tipe: induk yang ada, id yang unik, tugas yang tidak menjadi leluhurnya sendiri. Lihat diagram kelas untuk bentuknya.",
+      "files": ["src/core/model.ts"],
+      "tests": ["src/core/model.test.ts"],
+      "diagrams": ["model-jadwal", "model-orang"],
+      "rules": [
+        "Tanggal selesai tidak ada di skema; selalu dihitung.",
+        "CURRENT_SCHEMA_VERSION naik setiap kali bentuk berkas berubah, dan setiap kenaikan butuh satu migrasi."
+      ],
+      "algorithms": [
+        {
+          "id": "validasi-proyek",
+          "name": "Validasi proyek (bentuk + rujukan)",
+          "summary": "Zod memeriksa bentuk tiap koleksi, lalu superRefine mencatat setiap rujukan yang rusak.",
+          "symbols": [
+            "projectSchema",
+            "taskSchema",
+            "projectFileSchema",
+            "findReferenceIssues",
+            "findDuplicates"
+          ],
+          "input": "Objek apa pun (JSON berkas, hasil impor, hasil resep suntingan).",
+          "output": "Project tervalidasi, atau daftar masalah dengan path, mis. tasks.3.parentId.",
+          "steps": [
+            "Periksa bentuk dengan Zod: tipe, rentang angka, tanggal 1970-2100",
+            {
+              "if": "Milestone berdurasi selain 0, atau tugas biasa berdurasi kurang dari 1?",
+              "then": ["Catat: aturan durasi"]
+            },
+            {
+              "do": "Catat id ganda di setiap koleksi",
+              "code": "findDuplicates"
+            },
+            {
+              "do": "Catat parentId yang tidak ada atau menunjuk milestone",
+              "code": "findReferenceIssues"
+            },
+            {
+              "loop": "Masih ada tugas yang leluhurnya belum ditelusuri?",
+              "body": [
+                "Telusuri parentId ke atas",
+                {
+                  "if": "Bertemu tugas yang sudah dikunjungi?",
+                  "then": ["Catat: tugas menjadi leluhurnya sendiri"]
+                }
+              ]
+            },
+            "Catat dependensi, role, dan penugasan yang merujuk ke data yang tidak ada",
+            {
+              "if": "Ada catatan masalah?",
+              "then": [
+                {
+                  "stop": "Gagal dengan daftar masalah"
+                }
+              ]
+            },
+            {
+              "stop": "Project tervalidasi",
+              "code": "projectSchema"
+            }
+          ],
+          "rules": [
+            "Tipe TypeScript diturunkan dari skema (z.infer), jadi tipe dan validasi tidak bisa berbeda."
+          ],
+          "pitfalls": [
+            "Resep suntingan sengaja tidak memvalidasi sendiri. Validasi dijalankan store.edit setelah resep; menulis validasi di resep berarti menduplikasi aturan."
+          ]
+        },
+        {
+          "id": "catatan",
+          "name": "Teks catatan tugas",
+          "summary": "noteTextOf membaca catatan sebagai teks: teks lama apa adanya, dokumen editor satu baris per blok.",
+          "symbols": ["noteTextOf"],
+          "input": "Tugas dengan notes opsional (teks atau dokumen editor JSON).",
+          "output": "Teks catatan, atau '' tanpa catatan.",
+          "steps": [
+            {
+              "stop": "plainTextOf(task.notes)",
+              "code": "noteTextOf"
+            }
+          ],
+          "rules": ["Dipakai ikon catatan di tabel dan isi awal kolom Catatan di dialog tugas."],
+          "pitfalls": [
+            "Dialog menyunting catatan sebagai teks polos. Teks yang tidak diubah menyimpan dokumen aslinya; teks yang diubah disimpan ulang sebagai paragraf biasa, jadi format dan sebutan tugas di catatan itu hilang (lihat App › Suntingan proyek)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rich-text",
+      "group": "core-data",
+      "name": "Teks kaya (dokumen editor)",
+      "summary": "Membaca JSON dokumen editor tanpa editor: teks polos, jumlah kata, judul, dan tugas yang disebut.",
+      "description": "Isi dokumen proyek dan catatan tugas disimpan sebagai JSON editor (bentuk ProseMirror/TipTap): pohon node dengan type, attrs, content, dan text. Core tidak memakai TipTap; modul ini hanya membuat dokumen sederhana dan membacanya. Node yang tidak dikenal dilewati, jadi berkas dari versi lain tetap bisa dibuka. Sebutan tugas adalah node taskMention dengan attrs.id (id tugas) dan attrs.label (nama tugas saat ditulis).",
+      "files": ["src/core/rich-text.ts"],
+      "tests": ["src/core/rich-text.test.ts"],
+      "rules": [
+        "Hanya membuat dan membaca; menyunting isi dokumen adalah tugas editor di UI.",
+        "Sebutan menyimpan id dan nama saat ditulis. Nama, persen, dan tanggal yang tampil selalu dibaca ulang dari proyek."
+      ],
+      "algorithms": [
+        {
+          "id": "buat",
+          "name": "Dokumen kosong dan dari teks",
+          "summary": "Dokumen baru berisi satu paragraf kosong; teks polos menjadi satu paragraf per baris.",
+          "symbols": ["emptyDocument", "documentFromText"],
+          "input": "Teks polos (catatan .gan, catatan dari dialog tugas).",
+          "output": "JSON dokumen { type: 'doc', content: [...] }.",
+          "steps": [
+            {
+              "do": "Pecah teks per baris (\\n atau \\r\\n)",
+              "code": "documentFromText"
+            },
+            {
+              "loop": "Masih ada baris?",
+              "body": [
+                {
+                  "if": "Baris kosong?",
+                  "then": ["Paragraf kosong"],
+                  "else": ["Paragraf berisi satu node teks"]
+                }
+              ]
+            },
+            {
+              "stop": "Dokumen"
+            }
+          ],
+          "examples": [
+            {
+              "given": "'Satu\\n\\nTiga'",
+              "result": "Tiga paragraf; yang tengah kosong"
+            }
+          ]
+        },
+        {
+          "id": "teks",
+          "name": "Teks polos dan jumlah kata",
+          "summary": "Satu baris per blok; sebutan tugas dibaca sebagai nama tugasnya.",
+          "symbols": ["plainTextOf", "countWords", "isNode", "isInline"],
+          "input": "Isi dokumen (JSON apa pun, atau teks catatan lama) dan, bila ada, nama tugas saat ini per id.",
+          "output": "Teks polos; jumlah kata.",
+          "steps": [
+            {
+              "if": "Isi berupa teks?",
+              "then": [
+                {
+                  "stop": "Kembalikan apa adanya (catatan lama)"
+                }
+              ]
+            },
+            {
+              "if": "Bukan node (tanpa type)?",
+              "then": [
+                {
+                  "stop": "Kembalikan ''"
+                }
+              ]
+            },
+            {
+              "do": "text → teksnya; hardBreak → baris baru; taskMention → nama saat ini, atau label tersimpan",
+              "code": "plainTextOf"
+            },
+            {
+              "do": "Anak inline digabung tanpa pemisah, anak blok dengan baris baru",
+              "code": "isInline"
+            },
+            {
+              "stop": "Kata = potongan di antara spasi yang memuat huruf atau angka",
+              "code": "countWords"
+            }
+          ]
+        },
+        {
+          "id": "struktur",
+          "name": "Judul dan tugas yang disebut",
+          "summary": "Judul untuk 'Di halaman ini', dan id tugas yang disebut untuk kartu di samping dan 'Disebut di'.",
+          "symbols": ["headingsOf", "mentionedTaskIds", "documentsMentioning", "walk"],
+          "steps": [
+            {
+              "do": "Telusuri semua node, induk sebelum anak, urut dokumen",
+              "code": "walk"
+            },
+            {
+              "do": "Node heading dengan level angka → { level, teks }",
+              "code": "headingsOf"
+            },
+            {
+              "do": "Node taskMention dengan id → id unik, urut kemunculan pertama",
+              "code": "mentionedTaskIds"
+            },
+            {
+              "stop": "Dokumen yang menyebut sebuah tugas, urut daftar",
+              "code": "documentsMentioning"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "result",
+      "group": "core-data",
+      "name": "Pola Result",
+      "summary": "ok(value) dan err(error): cara core melaporkan kegagalan yang wajar tanpa melempar.",
+      "files": ["src/core/result.ts"],
+      "tests": ["src/core/migrations.test.ts"],
+      "algorithms": [
+        {
+          "id": "result",
+          "name": "Mengembalikan hasil atau galat",
+          "summary": "Operasi yang bisa gagal secara wajar mengembalikan union berdiskriminan { ok: true, value } | { ok: false, error }.",
+          "symbols": ["ok", "err"],
+          "steps": [
+            "Jalankan operasi",
+            {
+              "if": "Berhasil?",
+              "then": [
+                {
+                  "stop": "ok(value)",
+                  "code": "ok"
+                }
+              ],
+              "else": [
+                {
+                  "stop": "err(error)",
+                  "code": "err"
+                }
+              ]
+            }
+          ],
+          "rules": [
+            "Pemanggil wajib memeriksa result.ok sebelum memakai value; TypeScript memaksanya."
+          ],
+          "pitfalls": [
+            "Galat yang mustahil secara logika (bug) tetap dilempar, mis. RangeError di toIsoDate. Result hanya untuk kegagalan yang bisa terjadi pada data pengguna."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "migrations",
+      "group": "core-data",
+      "name": "Migrasi berkas .rentang",
+      "summary": "Menaikkan berkas lama ke versi skema sekarang, satu versi demi satu, lalu memvalidasinya.",
+      "files": ["src/core/migrations.ts"],
+      "tests": ["src/core/migrations.test.ts"],
+      "rules": [
+        "Setiap migrasi mengubah versi N ke N + 1 dan tidak boleh melempar untuk input versinya.",
+        "Validasi hanya terhadap skema versi sekarang, setelah migrasi terakhir."
+      ],
+      "algorithms": [
+        {
+          "id": "migrasi",
+          "name": "Migrasi berurutan",
+          "summary": "Menjalankan migrasi dari versi berkas sampai versi sekarang.",
+          "symbols": ["migrateToCurrent", "migrations"],
+          "input": "JSON hasil JSON.parse berkas .rentang.",
+          "output": "JSON versi sekarang, atau LoadError.",
+          "steps": [
+            {
+              "if": "Bukan objek JSON?",
+              "then": [
+                {
+                  "stop": "Gagal: not-an-object"
+                }
+              ]
+            },
+            {
+              "if": "schemaVersion bukan bilangan bulat ≥ 1?",
+              "then": [
+                {
+                  "stop": "Gagal: missing-schema-version"
+                }
+              ]
+            },
+            {
+              "if": "Versi berkas lebih baru dari aplikasi?",
+              "then": [
+                {
+                  "stop": "Gagal: newer-schema-version"
+                }
+              ]
+            },
+            {
+              "loop": "Versi berkas masih di bawah versi sekarang?",
+              "body": [
+                {
+                  "if": "Tidak ada migrasi untuk versi ini?",
+                  "then": [
+                    {
+                      "stop": "Gagal: missing-migration"
+                    }
+                  ]
+                },
+                {
+                  "do": "Jalankan migrasi N → N + 1 dan naikkan schemaVersion",
+                  "code": "migrations"
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan JSON versi sekarang"
+            }
+          ],
+          "examples": [
+            {
+              "given": "{ schemaVersion: 1, project: {...} }",
+              "result": "{ schemaVersion: 2, project: { ..., roles: [] } }",
+              "note": "v2 menambah role"
+            }
+          ],
+          "pitfalls": [
+            "Menaikkan CURRENT_SCHEMA_VERSION tanpa menambah entri di migrations membuat semua berkas lama gagal dibuka (missing-migration)."
+          ]
+        },
+        {
+          "id": "muat",
+          "name": "Memuat berkas .rentang",
+          "summary": "Migrasi lalu validasi; dipakai untuk berkas dari disk dan untuk data di IndexedDB.",
+          "symbols": ["loadProjectFile"],
+          "input": "JSON mentah.",
+          "output": "ProjectFile tervalidasi, atau LoadError.",
+          "steps": [
+            {
+              "do": "Migrasikan ke versi sekarang",
+              "code": "loadProjectFile"
+            },
+            {
+              "if": "Migrasi gagal?",
+              "then": [
+                {
+                  "stop": "Teruskan galatnya"
+                }
+              ]
+            },
+            "Validasi dengan projectFileSchema",
+            {
+              "if": "Tidak valid?",
+              "then": [
+                {
+                  "stop": "Gagal: invalid-project beserta path tiap masalah"
+                }
+              ]
+            },
+            {
+              "stop": "ProjectFile tervalidasi"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "graph",
+      "group": "core-schedule",
+      "name": "Graf dependensi daun",
+      "summary": "Menulis ulang dependensi menjadi antartugas daun, lalu mengurutkannya secara topologis (Kahn).",
+      "description": "Hanya tugas daun (tanpa subtugas) yang punya tanggal sendiri; tugas ringkasan membentang di atas anak-anaknya. Karena itu dependensi yang menyentuh tugas ringkasan ditulis ulang: 'ringkasan S selesai sebelum X mulai' berarti setiap daun di bawah S selesai sebelum X mulai. Hasilnya graf antardaun yang jadwalnya sama persis.",
+      "files": ["src/core/graph.ts"],
+      "tests": ["src/core/schedule.test.ts", "src/core/critical-path.test.ts"],
+      "algorithms": [
+        {
+          "id": "graf-daun",
+          "name": "Membangun graf antardaun",
+          "summary": "Memperluas setiap dependensi menjadi sisi antara semua daun di kedua ujungnya.",
+          "symbols": ["buildLeafGraph", "leavesOf"],
+          "input": "tasks dan dependencies proyek.",
+          "output": "LeafGraph { order, incoming, outgoing, childrenOf } atau CycleError.",
+          "steps": [
+            "Petakan setiap induk ke anak-anaknya",
+            "Kumpulkan tugas daun (yang tidak punya anak)",
+            {
+              "loop": "Masih ada dependensi?",
+              "body": [
+                {
+                  "do": "Perluas ujung from dan to menjadi semua daun di bawahnya",
+                  "code": "leavesOf"
+                },
+                "Buat sisi daun → daun dengan lag yang sama"
+              ]
+            },
+            "Urutkan daun secara topologis (algoritma Kahn)",
+            {
+              "if": "Ada daun yang tidak bisa diurutkan?",
+              "then": [
+                {
+                  "stop": "Gagal: dependency-cycle beserta tugas di siklus"
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan LeafGraph"
+            }
+          ],
+          "examples": [
+            {
+              "given": "Dependensi A → Ringkasan R (anak R1, R2)",
+              "result": "Sisi A → R1 dan A → R2"
+            },
+            {
+              "given": "Dependensi Ringkasan R → B",
+              "result": "Sisi R1 → B dan R2 → B"
+            }
+          ],
+          "pitfalls": [
+            "Ringkasan dengan banyak daun di kedua ujung membuat sisi berlipat (perkalian jumlah daun). Wajar untuk ratusan tugas, tetapi ingat saat mengukur kinerja."
+          ]
+        },
+        {
+          "id": "kahn",
+          "name": "Urutan topologis (Kahn)",
+          "summary": "Mengurutkan daun sehingga setiap predecessor datang sebelum penerusnya; imbang mengikuti urutan input supaya hasilnya deterministik.",
+          "symbols": ["buildLeafGraph"],
+          "steps": [
+            "Hitung jumlah predecessor (in-degree) setiap daun",
+            "Masukkan daun tanpa predecessor ke antrean, sesuai urutan input",
+            {
+              "loop": "Antrean belum habis?",
+              "body": [
+                "Ambil daun terdepan dan tambahkan ke urutan",
+                {
+                  "loop": "Masih ada penerus daun ini?",
+                  "body": [
+                    "Kurangi in-degree penerus",
+                    {
+                      "if": "In-degree penerus menjadi 0?",
+                      "then": ["Masukkan penerus ke antrean"]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "if": "Urutan lebih pendek dari jumlah daun?",
+              "then": [
+                {
+                  "stop": "Ada siklus"
+                }
+              ]
+            },
+            {
+              "stop": "Urutan topologis lengkap"
+            }
+          ],
+          "complexity": "O(V + E), V = jumlah daun, E = jumlah sisi setelah perluasan."
+        },
+        {
+          "id": "siklus",
+          "name": "Menemukan siklus",
+          "summary": "Menelusuri predecessor yang sama-sama tertahan sampai bertemu tugas yang sudah dikunjungi; jalur di antaranya adalah siklus.",
+          "symbols": ["findCycle"],
+          "steps": [
+            "Mulai dari salah satu daun yang tertahan",
+            {
+              "loop": "Daun ini belum pernah dikunjungi?",
+              "body": ["Catat posisinya di jalur", "Pindah ke predecessor yang juga tertahan"]
+            },
+            "Potong jalur mulai dari kunjungan pertama daun yang berulang",
+            {
+              "stop": "Balik urutannya: siklus dalam urutan dependensi"
+            }
+          ],
+          "rules": [
+            "Setiap daun yang tertahan pasti menunggu predecessor yang juga tertahan, jadi penelusuran pasti kembali ke daun yang sama."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "schedule",
+      "group": "core-schedule",
+      "name": "Penjadwalan maju",
+      "summary": "Menghitung tanggal mulai dan selesai semua tugas dari mulai yang diminta, durasi hari kerja, dependensi, dan kalender.",
+      "description": "Inilah alasan tanggal selesai tidak disimpan: dari data mentah, schedule menghasilkan tanggal yang selalu konsisten. Dipanggil lewat analyzeCriticalPath setiap kali proyek berubah.",
+      "files": ["src/core/schedule.ts"],
+      "tests": ["src/core/schedule.test.ts"],
+      "algorithms": [
+        {
+          "id": "maju",
+          "name": "Forward pass",
+          "summary": "Setiap daun mulai di hari kerja pertama pada atau setelah yang lebih lambat dari mulai yang diminta dan saat predecessor mengizinkan.",
+          "symbols": ["schedule", "scheduleGraph", "spanOf"],
+          "input": "tasks, dependencies, calendar.",
+          "output": "Schedule { tasks: id → { start, end, isSummary }, projectStart, projectEnd } atau CycleError.",
+          "steps": [
+            {
+              "do": "Bangun graf daun",
+              "code": "schedule"
+            },
+            {
+              "if": "Ada siklus?",
+              "then": [
+                {
+                  "stop": "Kembalikan CycleError"
+                }
+              ]
+            },
+            {
+              "loop": "Masih ada daun dalam urutan topologis?",
+              "body": [
+                "Mulai dari tanggal mulai yang diminta",
+                {
+                  "loop": "Masih ada predecessor?",
+                  "body": [
+                    {
+                      "do": "Hitung hari predecessor melepas",
+                      "code": "releaseOf"
+                    },
+                    "Tambah lag dalam hari kerja",
+                    "Ambil yang paling lambat"
+                  ]
+                },
+                "Geser ke hari kerja pertama",
+                {
+                  "do": "Hitung tanggal selesai",
+                  "code": "endOf"
+                }
+              ]
+            },
+            {
+              "do": "Ringkasan membentang dari mulai paling awal sampai selesai paling lambat anak-anaknya",
+              "code": "spanOf"
+            },
+            "Awal dan akhir proyek dari semua daun",
+            {
+              "stop": "Kembalikan Schedule",
+              "code": "scheduleGraph"
+            }
+          ],
+          "examples": [
+            {
+              "given": "Survei lokasi: mulai Senin 2026-11-02, 3 hari",
+              "result": "2026-11-02 s.d. 2026-11-04"
+            },
+            {
+              "given": "Izin usaha setelah Survei, diminta 2026-11-05, 4 hari",
+              "result": "2026-11-05 s.d. 2026-11-10",
+              "note": "melewati Sabtu-Minggu"
+            },
+            {
+              "given": "Ringkasan Persiapan (Survei, Izin, Kontrak)",
+              "result": "2026-11-02 s.d. 2026-11-10"
+            }
+          ],
+          "rules": [
+            "Tanggal mulai yang diminta adalah batas bawah: dependensi hanya bisa menggeser tugas lebih lambat, tidak lebih awal."
+          ],
+          "complexity": "O(V + E) hari kerja yang dilangkahi, sekali per suntingan."
+        },
+        {
+          "id": "selesai",
+          "name": "Tanggal selesai dan pelepasan",
+          "summary": "endOf: hari kerja terakhir tugas. releaseOf: kapan penerus paling awal boleh mulai.",
+          "symbols": ["endOf", "releaseOf"],
+          "steps": [
+            {
+              "if": "Durasi 0 (milestone)?",
+              "then": [
+                {
+                  "stop": "Selesai = mulai; melepas di hari yang sama"
+                }
+              ]
+            },
+            {
+              "do": "Selesai = mulai + (durasi − 1) hari kerja",
+              "code": "endOf"
+            },
+            {
+              "stop": "Melepas = hari kerja setelah selesai",
+              "code": "releaseOf"
+            }
+          ],
+          "examples": [
+            {
+              "given": "Mulai Senin 2026-11-02, 3 hari",
+              "result": "selesai Rabu 2026-11-04, melepas Kamis 2026-11-05"
+            },
+            {
+              "given": "Milestone 2026-12-09",
+              "result": "selesai dan melepas 2026-12-09"
+            }
+          ],
+          "rules": [
+            "Hari mulai ikut dihitung: tugas 1 hari selesai di hari mulainya.",
+            "Milestone tidak memakan waktu, jadi penerusnya boleh mulai di hari yang sama."
+          ],
+          "pitfalls": [
+            "Lag dihitung dalam hari kerja mulai dari hari pelepasan; lag negatif membuat penerus tumpang tindih dengan predecessor."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "critical-path",
+      "group": "core-schedule",
+      "name": "Jalur kritis",
+      "summary": "Forward pass lalu backward pass; float 0 berarti tugas itu kritis.",
+      "description": "Float adalah berapa hari kerja sebuah tugas boleh tergelincir tanpa memundurkan akhir proyek. Hasilnya, bersama jadwal, disimpan di sesi proyek sebagai 'analysis' dan dipakai tabel, Gantt, dan ringkasan.",
+      "files": ["src/core/critical-path.ts"],
+      "tests": ["src/core/critical-path.test.ts"],
+      "algorithms": [
+        {
+          "id": "mundur",
+          "name": "Backward pass dan float",
+          "summary": "Mulai dari tugas tanpa penerus di akhir proyek, tarik setiap predecessor selambat yang diizinkan penerusnya.",
+          "symbols": ["analyzeCriticalPath", "backwardPass"],
+          "input": "tasks, dependencies, calendar.",
+          "output": "CriticalPath { schedule, critical: Set, float: Map } atau CycleError.",
+          "steps": [
+            {
+              "do": "Bangun graf dan jalankan forward pass",
+              "code": "analyzeCriticalPath"
+            },
+            {
+              "loop": "Masih ada daun, dari urutan topologis paling akhir?",
+              "body": [
+                {
+                  "loop": "Masih ada penerus?",
+                  "body": [
+                    "Pelepasan terlambat = mulai terlambat penerus − lag",
+                    "Ambil yang paling awal"
+                  ]
+                },
+                {
+                  "if": "Milestone?",
+                  "then": ["Mulai terlambat = pelepasan terlambat (atau akhir proyek)"],
+                  "else": [
+                    "Selesai terlambat = hari kerja sebelum pelepasan terlambat (atau akhir proyek)",
+                    "Mulai terlambat = selesai terlambat − (durasi − 1) hari kerja"
+                  ]
+                },
+                "Float = hari kerja dari mulai awal ke mulai terlambat",
+                {
+                  "if": "Float ≤ 0?",
+                  "then": ["Tandai kritis"]
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan CriticalPath",
+              "code": "backwardPass"
+            }
+          ],
+          "examples": [
+            {
+              "given": "Proyek emas Kedai Kopi",
+              "result": "Kritis: Survei, Izin usaha, Desain interior, Pengerjaan ruang, Pasang mesin, Pelatihan, Uji coba, Soft opening"
+            },
+            {
+              "given": "Kontrak sewa (3 hari, setelah Survei)",
+              "result": "float 22",
+              "note": "tidak ada yang menunggunya"
+            },
+            {
+              "given": "Rekrut barista (6 hari, setelah Izin)",
+              "result": "float 8",
+              "note": "Pelatihan juga menunggu Pasang mesin"
+            }
+          ],
+          "rules": [
+            "Tugas ringkasan tidak pernah ditandai kritis; ia kritis hanya lewat subtugasnya."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "group": "core-schedule",
+      "name": "Status dan ringkasan",
+      "summary": "Status tugas, persen tugas ringkasan (rata-rata tertimbang durasi), dan ringkasan proyek.",
+      "description": "Hari ini selalu dikirim dari luar karena core tidak membaca jam. Ringkasan proyek disimpan bersama proyek supaya Daftar proyek tidak perlu menjadwalkan ulang.",
+      "files": ["src/core/summary.ts"],
+      "tests": ["src/core/summary.test.ts"],
+      "diagrams": ["status-tugas"],
+      "algorithms": [
+        {
+          "id": "status",
+          "name": "Status tugas",
+          "summary": "Selesai, terlambat, berjalan, atau belum mulai, dari persen, tanggal selesai, dan hari ini.",
+          "symbols": ["taskStatus"],
+          "steps": [
+            {
+              "if": "Persen ≥ 100?",
+              "then": [
+                {
+                  "stop": "done"
+                }
+              ]
+            },
+            {
+              "if": "Tanggal selesai sebelum hari ini?",
+              "then": [
+                {
+                  "stop": "late"
+                }
+              ]
+            },
+            {
+              "if": "Persen > 0?",
+              "then": [
+                {
+                  "stop": "in-progress"
+                }
+              ],
+              "else": [
+                {
+                  "stop": "not-started"
+                }
+              ]
+            }
+          ],
+          "examples": [
+            {
+              "given": "80%, selesai kemarin",
+              "result": "late"
+            },
+            {
+              "given": "100%, selesai kemarin",
+              "result": "done",
+              "note": "selesai mengalahkan terlambat"
+            }
+          ]
+        },
+        {
+          "id": "rollup",
+          "name": "Rollup persen",
+          "summary": "Persen tugas ringkasan adalah rata-rata persen daunnya, ditimbang durasi.",
+          "symbols": ["rollUpProgress", "weightedProgress"],
+          "steps": [
+            "Petakan induk ke anak-anaknya",
+            {
+              "loop": "Masih ada tugas?",
+              "body": [
+                "Kumpulkan daun di bawahnya (daun: dirinya sendiri)",
+                {
+                  "do": "Hitung rata-rata tertimbang",
+                  "code": "weightedProgress"
+                }
+              ]
+            },
+            {
+              "stop": "Peta id → persen"
+            }
+          ],
+          "examples": [
+            {
+              "given": "Daun 10 hari 50% + daun 2 hari 100%",
+              "result": "58%",
+              "note": "(500 + 200) / 12, dibulatkan"
+            }
+          ],
+          "rules": [
+            "Milestone berdurasi 0 sehingga tidak berbobot, kecuali isinya hanya milestone (rata-rata biasa)."
+          ]
+        },
+        {
+          "id": "ringkasan",
+          "name": "Ringkasan proyek",
+          "summary": "Jumlah tugas, persen keseluruhan, tugas terlambat, milestone berikutnya, dan apakah semua selesai.",
+          "symbols": ["summarizeProject"],
+          "steps": [
+            "Daun = tugas yang bukan induk",
+            "Hitung daun yang statusnya late",
+            {
+              "loop": "Masih ada milestone?",
+              "body": [
+                {
+                  "if": "Belum selesai dan lebih awal dari kandidat?",
+                  "then": ["Jadikan milestone berikutnya"]
+                }
+              ]
+            },
+            {
+              "stop": "ProjectSummary"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gan-parse",
+      "group": "core-gan",
+      "name": "Parser .gan",
+      "summary": "Membaca XML GanttProject menjadi struktur tervalidasi yang masih berbentuk GanttProject.",
+      "files": ["src/core/gan/parse.ts"],
+      "tests": ["src/core/gan/gan.test.ts"],
+      "rules": [
+        "Nilai atribut tetap teks di tahap ini; mengubahnya ke model Rentang adalah tugas map.ts.",
+        "Rentang tidak pernah menulis balik ke berkas .gan."
+      ],
+      "algorithms": [
+        {
+          "id": "parse",
+          "name": "XML ke GanDocument",
+          "summary": "Validasi XML, parse dengan fast-xml-parser, lalu periksa strukturnya dengan skema Zod yang longgar.",
+          "symbols": ["parseGan", "parser", "ganSchema", "element"],
+          "input": "Teks XML berkas .gan.",
+          "output": "GanDocument atau GanParseError.",
+          "steps": [
+            {
+              "if": "XML tidak valid?",
+              "then": [
+                {
+                  "stop": "Gagal: malformed-xml beserta nomor baris"
+                }
+              ]
+            },
+            {
+              "do": "Parse XML: atribut tetap teks, elemen tertentu selalu daftar",
+              "code": "parser"
+            },
+            {
+              "if": "Tidak ada elemen <project>?",
+              "then": [
+                {
+                  "stop": "Gagal: not-a-gan-file"
+                }
+              ]
+            },
+            {
+              "do": "Periksa struktur; elemen kosong menjadi objek kosong",
+              "code": "ganSchema"
+            },
+            {
+              "if": "Struktur tidak cocok?",
+              "then": [
+                {
+                  "stop": "Gagal: invalid-structure"
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan GanDocument"
+            }
+          ],
+          "pitfalls": [
+            "XMLValidator ditandai deprecated tetapi sengaja dipakai: paket penggantinya memanggil Buffer saat dimuat dan membuat halaman kosong di browser."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gan-map",
+      "group": "core-gan",
+      "name": "Pemetaan .gan ke model",
+      "summary": "Mengubah GanDocument menjadi Project Rentang dan mencatat setiap penyesuaian di laporan impor.",
+      "description": "Setiap hal yang tidak bisa dibawa apa adanya tidak dibuang diam-diam: ia dicatat sebagai 'changed' (diubah) atau 'skipped' (dilewati) dengan kode terstruktur. UI menerjemahkan kode itu menjadi kalimat (report-text).",
+      "files": ["src/core/gan/map.ts", "src/core/gan/report.ts"],
+      "tests": ["src/core/gan/gan.test.ts"],
+      "algorithms": [
+        {
+          "id": "impor",
+          "name": "Impor .gan",
+          "summary": "Parse, petakan setiap bagian, lalu validasi hasilnya seperti data lain.",
+          "symbols": ["importGan", "mapGanToProject"],
+          "input": "Teks XML dan id proyek baru.",
+          "output": "{ project, report } atau galat parse/validasi.",
+          "steps": [
+            {
+              "do": "Parse XML",
+              "code": "importGan"
+            },
+            {
+              "if": "Parse gagal?",
+              "then": [
+                {
+                  "stop": "Teruskan galat parse"
+                }
+              ]
+            },
+            {
+              "do": "Petakan kalender, tugas, dependensi, orang, penugasan",
+              "code": "mapGanToProject"
+            },
+            "Catat properti kustom dan baseline sebagai dilewati",
+            "Validasi kandidat dengan projectSchema",
+            {
+              "if": "Tidak valid?",
+              "then": [
+                {
+                  "stop": "Gagal: invalid-project"
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan project dan laporan (imported, changed, skipped)"
+            }
+          ]
+        },
+        {
+          "id": "kalender",
+          "name": "Kalender",
+          "summary": "Pekan kerja dari default-week dan hari libur bertanggal; yang lain dicatat dilewati.",
+          "symbols": ["mapCalendar", "toDate"],
+          "steps": [
+            "Di default-week, '0' berarti hari kerja dan '1' akhir pekan",
+            {
+              "if": "Tidak ada hari kerja?",
+              "then": ["Pakai Senin-Jumat dan catat default-work-week"]
+            },
+            {
+              "loop": "Masih ada tanggal kalender?",
+              "body": [
+                {
+                  "if": "Bukan HOLIDAY, berulang tiap tahun, atau tanggalnya tidak sah?",
+                  "then": ["Catat dilewati"],
+                  "else": [
+                    {
+                      "do": "Tambahkan hari libur",
+                      "code": "toDate"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stop": "Calendar"
+            }
+          ]
+        },
+        {
+          "id": "tugas",
+          "name": "Tugas",
+          "summary": "Menelusuri pohon tugas, menolak yang rusak beserta anak-anaknya, dan menormalkan durasi, persen, tipe, tautan, catatan.",
+          "symbols": ["mapTasks", "mapProgress", "mapLink", "splitTypePrefix"],
+          "steps": [
+            {
+              "loop": "Masih ada tugas di pohon (kedalaman dulu)?",
+              "body": [
+                {
+                  "if": "Id ganda, durasi bukan angka atau terlalu besar, atau mulai tidak sah?",
+                  "then": [
+                    {
+                      "stop": "Lewati tugas dan seluruh anaknya (dicatat)"
+                    }
+                  ]
+                },
+                {
+                  "if": "Milestone berdurasi bukan 0, atau tugas biasa berdurasi < 1?",
+                  "then": ["Normalkan durasi dan catat diubah"]
+                },
+                {
+                  "do": "Pisahkan awalan [IMP] menjadi tipe tugas",
+                  "code": "splitTypePrefix"
+                },
+                {
+                  "do": "Bulatkan persen ke 0-100",
+                  "code": "mapProgress"
+                },
+                {
+                  "do": "Catatan teks menjadi dokumen editor, satu paragraf per baris (rich-text documentFromText)"
+                },
+                {
+                  "do": "Decode tautan; yang bukan URL dicatat dilewati",
+                  "code": "mapLink"
+                }
+              ]
+            },
+            {
+              "do": "Ganti persen tugas ringkasan dengan rollup daunnya (dicatat)",
+              "code": "mapTasks"
+            },
+            {
+              "stop": "Daftar tugas"
+            }
+          ],
+          "examples": [
+            {
+              "given": "nama '[imp] Login'",
+              "result": "type 'IMP', nama 'Login'"
+            }
+          ]
+        },
+        {
+          "id": "dependensi",
+          "name": "Dependensi",
+          "summary": "Elemen <depend> di bawah tugas menunjuk penerusnya; semua dijadikan finish-to-start.",
+          "symbols": ["mapDependencies"],
+          "steps": [
+            {
+              "loop": "Masih ada <depend>?",
+              "body": [
+                {
+                  "if": "Ke dirinya sendiri, ke tugas yang tidak ada, atau ganda?",
+                  "then": ["Catat dilewati"]
+                },
+                {
+                  "if": "Jenisnya bukan finish-to-start?",
+                  "then": ["Ubah ke finish-to-start dan catat"]
+                },
+                {
+                  "if": "Lag bukan bilangan bulat atau terlalu besar?",
+                  "then": ["Lag = 0 dan catat"]
+                },
+                "Tambahkan dependensi dengan id 'from->to'"
+              ]
+            },
+            {
+              "stop": "Daftar dependensi"
+            }
+          ]
+        },
+        {
+          "id": "orang",
+          "name": "Orang, role, dan penugasan",
+          "summary": "Role bawaan GanttProject (Default:1 dst.) diterjemahkan; role kustom selalu disimpan; penugasan yang menggantung dilewati.",
+          "symbols": ["mapPeople", "mapAssignments", "DEFAULT_ROLES"],
+          "steps": [
+            "Kumpulkan role kustom",
+            {
+              "loop": "Masih ada orang?",
+              "body": [
+                {
+                  "if": "Fungsinya 'Default:N'?",
+                  "then": ["Pakai role bawaan berbahasa Indonesia"],
+                  "else": ["Cari role kustom"]
+                }
+              ]
+            },
+            "Simpan semua role kustom, role bawaan hanya bila dipakai",
+            {
+              "do": "Penugasan ke tugas atau orang yang tidak ada dicatat dilewati",
+              "code": "mapAssignments"
+            },
+            {
+              "stop": "roles, resources, assignments"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "test-utils",
+      "group": "core-test",
+      "name": "Proyek emas dan generator",
+      "summary": "Data fiktif untuk test: proyek Kedai Kopi yang dihitung manual, generator proyek besar, dan penulis .gan.",
+      "files": [
+        "src/core/test-utils/coffee-shop.ts",
+        "src/core/test-utils/generate-project.ts",
+        "src/core/test-utils/to-gan.ts"
+      ],
+      "tests": ["src/core/test-utils/to-gan.test.ts", "src/core/schedule.test.ts"],
+      "rules": ["Hanya untuk test. Semua data fiktif; tidak pernah ada berkas .gan nyata di repo."],
+      "algorithms": [
+        {
+          "id": "emas",
+          "name": "Proyek emas Kedai Kopi",
+          "summary": "13 tugas dengan jadwal dan jalur kritis yang dihitung manual; acuan kebenaran test penjadwalan.",
+          "symbols": ["coffeeShopProject"],
+          "steps": [
+            "Ambil baris [id, nama, mulai, durasi, bergantung pada, induk]",
+            "Beri urutan antarsaudara",
+            "Buat dependensi finish-to-start tanpa lag",
+            {
+              "stop": "Project (opsional dengan hari libur)"
+            }
+          ],
+          "pitfalls": [
+            "Bila hasil baru yang benar, perbarui perhitungan manualnya juga, bukan hanya angka di test."
+          ]
+        },
+        {
+          "id": "generator",
+          "name": "Generator proyek deterministik",
+          "summary": "Proyek besar dari seed (PRNG mulberry32) untuk test kinerja; seed yang sama selalu menghasilkan proyek yang sama.",
+          "symbols": ["generateProject", "createRandom"],
+          "steps": [
+            "Buat PRNG dari seed",
+            {
+              "loop": "Masih kurang dari taskCount tugas?",
+              "body": [
+                {
+                  "if": "Indeks kelipatan 10?",
+                  "then": ["Tugas ringkasan baru (fase)"],
+                  "else": ["Subtugas; yang ke-9 milestone"]
+                },
+                "Rantai dengan daun sebelumnya; kadang tautan silang ke belakang"
+              ]
+            },
+            {
+              "stop": "Project tanpa siklus (semua dependensi menunjuk maju)"
+            }
+          ]
+        },
+        {
+          "id": "to-gan",
+          "name": "Menulis .gan untuk test",
+          "summary": "Menulis Project sebagai XML GanttProject supaya importer bisa diuji dengan berkas besar.",
+          "symbols": ["toGan"],
+          "steps": [
+            "Kelompokkan tugas per induk",
+            "Tulis <task> bersarang sesuai urutan, dengan <depend> ke penerus",
+            {
+              "stop": "Teks XML"
+            }
+          ],
+          "rules": ["Rentang sendiri tidak pernah menulis .gan; ini hanya alat test."]
+        }
+      ]
+    },
+    {
+      "id": "markdown",
+      "group": "core-data",
+      "name": "Impor Markdown (.md)",
+      "summary": "Mengubah teks Markdown menjadi JSON dokumen editor: judul, daftar, kutipan, callout, kode, dan format di dalam teks.",
+      "description": "Berkas .md dibaca oleh pembaca kecil buatan sendiri (tanpa dependensi baru) yang hanya menghasilkan apa yang bisa dipegang editor dokumen. Yang tidak ada padanannya diturunkan, bukan ditolak: tabel menjadi blok kode berisi barisnya, gambar menjadi tautan ke gambar itu, HTML tetap berupa teks, dan tautan selain http(s), mailto, dan tel kehilangan alamatnya. Hasilnya harus sesuai skema editor persis, kalau tidak dokumen terbuka hanya-baca; test di src/ui/docs/markdown-import.test.ts memuatnya ke editor TipTap asli untuk menjaga itu.",
+      "files": ["src/core/markdown.ts"],
+      "tests": ["src/core/markdown.test.ts", "src/ui/docs/markdown-import.test.ts"],
+      "rules": [
+        "Hanya blok dan format yang dikenal editor yang dihasilkan: paragraf, judul 1-2, daftar, daftar bernomor, daftar centang, kutipan, callout, blok kode, pemisah; tebal, miring, coret, kode, tautan.",
+        "Teks bertanda kode tidak membawa tanda lain (editor menolak gabungannya).",
+        "Blok bersarang lebih dari 24 tingkat dibaca sebagai teks biasa, supaya tumpukan tidak habis.",
+        "Pencarian penutup tanda yang gagal tidak diulang untuk pembuka berikutnya, jadi masukan penuh tanda tak berpasangan tetap cepat."
+      ],
+      "algorithms": [
+        {
+          "id": "dokumen",
+          "name": "Judul dokumen dan tingkat judul",
+          "summary": "Judul pertama (# di awal, atau title di front matter) menjadi judul dokumen; judul di bawahnya naik satu tingkat bila ia satu-satunya #.",
+          "symbols": [
+            "documentFromMarkdown",
+            "splitFrontMatter",
+            "expandTabs",
+            "headingDepths",
+            "setLevels"
+          ],
+          "input": "Isi berkas .md sebagai teks.",
+          "output": "{ title: string | null, content: JSON dokumen }; isi selalu punya minimal satu blok.",
+          "steps": [
+            {
+              "do": "Buang BOM, pecah baris (\\n, \\r\\n, \\r), ganti tab di awal baris dengan empat spasi",
+              "code": "expandTabs"
+            },
+            {
+              "do": "Ambil title dari blok --- di awal berkas, bila ada dan tertutup",
+              "code": "splitFrontMatter"
+            },
+            "Baca semua blok (lihat 'Blok')",
+            {
+              "if": "Blok pertama judul level 1, dan front matter tidak punya title atau sama dengan judul itu?",
+              "then": [
+                "Jadikan teksnya judul dokumen dan buang dari isi",
+                {
+                  "if": "Tidak ada # lain di isi?",
+                  "then": ["Geser: ## menjadi Judul 1, ### dan lebihnya Judul 2"]
+                }
+              ]
+            },
+            {
+              "do": "Ubah kedalaman judul tulisan (1-6) menjadi level editor (1 atau 2)",
+              "code": "setLevels"
+            },
+            {
+              "stop": "Dokumen; paragraf kosong bila tidak ada blok sama sekali",
+              "code": "documentFromMarkdown"
+            }
+          ],
+          "examples": [
+            {
+              "given": "'# Rencana\\n\\n## Latar\\n\\n### Rincian'",
+              "result": "Judul 'Rencana'; Latar = Judul 1, Rincian = Judul 2"
+            },
+            {
+              "given": "'Pengantar\\n\\n# Judul'",
+              "result": "Tanpa judul dokumen (nama berkas dipakai); Judul = Judul 1"
+            }
+          ]
+        },
+        {
+          "id": "blok",
+          "name": "Membaca blok",
+          "summary": "Baris demi baris: kode berpagar, judul, pemisah, kutipan, daftar, tabel, lalu paragraf.",
+          "symbols": [
+            "parseBlocks",
+            "startsBlock",
+            "readList",
+            "readQuote",
+            "matchList",
+            "callout",
+            "inlineOf",
+            "paragraph",
+            "codeBlock",
+            "bodyBlocks",
+            "itemBlocks",
+            "indentOf"
+          ],
+          "input": "Baris teks dan kedalaman sarang.",
+          "output": "Daftar node blok.",
+          "steps": [
+            {
+              "loop": "Masih ada baris?",
+              "body": [
+                {
+                  "if": "Baris kosong?",
+                  "then": ["Lewati"]
+                },
+                {
+                  "if": "Pagar ``` atau ~~~?",
+                  "then": [
+                    "Kumpulkan baris sampai pagar penutup (atau akhir berkas); isinya tidak dibaca lagi"
+                  ]
+                },
+                {
+                  "if": "Komentar HTML <!-- ?",
+                  "then": ["Buang sampai -->"]
+                },
+                {
+                  "if": "Judul # (1-6)?",
+                  "then": ["Judul dengan kedalaman tulisan"]
+                },
+                {
+                  "if": "Pemisah ---, ***, ___?",
+                  "then": ["horizontalRule"]
+                },
+                {
+                  "if": "Diawali > ?",
+                  "then": [
+                    {
+                      "do": "Kumpulkan baris kutipan (baris lanjutan tanpa > ikut) dan baca isinya sebagai blok",
+                      "code": "readQuote"
+                    },
+                    {
+                      "if": "Baris pertama [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], atau [!CAUTION]?",
+                      "then": ["Callout: label tebal, lalu isinya sebagai teks dengan jeda baris"]
+                    }
+                  ]
+                },
+                {
+                  "if": "Penanda daftar (-, *, +, 1. , 1) )?",
+                  "then": [
+                    {
+                      "do": "Satu item = baris pertama + baris yang menjorok + baris lanjutan; isinya dibaca sebagai blok lagi",
+                      "code": "readList"
+                    },
+                    "Jenis berubah (poin, bernomor, centang) berarti daftar baru"
+                  ]
+                },
+                {
+                  "if": "Baris berisi | dan baris berikutnya pemisah |---| ?",
+                  "then": ["Tabel: barisnya disimpan apa adanya dalam blok kode"]
+                },
+                "Selain itu paragraf: baris dikumpulkan sampai baris kosong atau awal blok lain; garis = atau - di bawahnya menjadikannya judul"
+              ]
+            },
+            {
+              "stop": "Daftar blok",
+              "code": "parseBlocks"
+            }
+          ],
+          "pitfalls": [
+            "Item daftar harus berawal dengan paragraf (aturan editor); bila berawal dengan judul atau kode, paragraf kosong disisipkan di depannya.",
+            "Penjorokan sarang longgar: baris yang menjorok minimal dua spasi dari penanda dianggap anak, jadi '1. a' lalu '  - b' bersarang."
+          ]
+        },
+        {
+          "id": "inline",
+          "name": "Format di dalam teks",
+          "summary": "Tebal, miring, coret, kode, tautan, dan alamat telanjang; sisanya teks apa adanya.",
+          "symbols": [
+            "parseInline",
+            "inlineNodes",
+            "findCloser",
+            "readLink",
+            "readBareUrl",
+            "codeSpanEnd",
+            "safeHref",
+            "marksOf"
+          ],
+          "input": "Teks satu paragraf atau judul (baris dipisah \\n).",
+          "output": "Node teks dengan marks, dan hardBreak.",
+          "steps": [
+            {
+              "loop": "Masih ada karakter?",
+              "body": [
+                {
+                  "if": "\\ diikuti tanda baca?",
+                  "then": ["Tanda itu menjadi teks biasa"]
+                },
+                {
+                  "if": "Baris baru?",
+                  "then": [
+                    "Dua spasi sebelumnya atau \\ berarti jeda keras; selain itu menjadi spasi"
+                  ]
+                },
+                {
+                  "if": "Backtick?",
+                  "then": [
+                    "Teks di antara backtick yang sama banyak menjadi kode, tanpa tanda lain"
+                  ]
+                },
+                {
+                  "if": "[teks](alamat) atau ![alt](alamat)?",
+                  "then": [
+                    {
+                      "do": "Alamat harus http(s), mailto, atau tel",
+                      "code": "safeHref"
+                    },
+                    "Selain itu teks tanpa tautan; gambar menjadi tautan bertuliskan alt"
+                  ]
+                },
+                {
+                  "if": "** __ * _ ~~ *** ?",
+                  "then": [
+                    {
+                      "do": "Cari penutup: setelah huruf bukan spasi; _ tidak menutup di dalam kata",
+                      "code": "findCloser"
+                    },
+                    "Tanpa penutup, tandanya menjadi teks biasa"
+                  ]
+                },
+                {
+                  "if": "http:// atau https:// di awal kata?",
+                  "then": [
+                    {
+                      "do": "Jadikan tautan tanpa tanda baca penutup kalimat",
+                      "code": "readBareUrl"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stop": "Node inline; teks bertanda sama digabung",
+              "code": "parseInline"
+            }
+          ],
+          "pitfalls": [
+            "Pencarian penutup yang gagal dicatat; pembuka berikutnya dengan tanda sama tidak mencarinya lagi.",
+            "Kurung siku tanpa penutup hanya dicari 500 karakter ke depan."
+          ]
+        }
+      ]
+    }
+  ]
+}

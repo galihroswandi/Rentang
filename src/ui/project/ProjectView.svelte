@@ -16,6 +16,9 @@
     updateTask,
     type TaskInput,
   } from '../../app/edits/project-edits.ts'
+  import { documentsMentioning } from '../../core/rich-text.ts'
+  import DocumentsView from '../docs/DocumentsView.svelte'
+  import { documentTitle } from '../docs/document-text.ts'
   import { ZOOMS, type Zoom } from '../gantt/layout.ts'
   import { ZOOM_LABELS } from '../labels.ts'
   import Icon from '../icons/Icon.svelte'
@@ -38,7 +41,12 @@
 
   const { store, today } = useApp()
 
-  let view: 'gantt' | 'resource' = $state('gantt')
+  type View = 'gantt' | 'resource' | 'documents'
+
+  let view: View = $state('gantt')
+  let documentId: string | null = $state(null)
+  let addDocumentRequest = $state(0)
+  let importDocumentRequest = $state(0)
   let zoom: Zoom = $state(prefs.zoom())
   let columns: Columns = $state(prefs.columns())
   let criticalOn = $state(prefs.critical())
@@ -101,6 +109,14 @@
     dialog ? predecessorOptions(project, editing?.id ?? null) : [],
   )
   const currentPredecessors = $derived(editing ? predecessorIds(project, editing.id) : [])
+  const mentionedIn = $derived(
+    editing
+      ? documentsMentioning(project.documents, editing.id).map((document) => ({
+          id: document.id,
+          title: documentTitle(document.title),
+        }))
+      : [],
+  )
   const canAddSubtask = $derived(selectedTask !== null && !selectedTask.isMilestone)
   const canOutdent = $derived(selectedTask?.parentId !== undefined)
   const canIndent = $derived.by(() => {
@@ -196,6 +212,12 @@
     view = 'gantt'
     selectedId = id
   }
+
+  function showDocument(id: string): void {
+    dialog = null
+    documentId = id
+    view = 'documents'
+  }
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
@@ -212,8 +234,9 @@
       options={[
         { value: 'gantt', label: 'Gantt', icon: 'gantt' },
         { value: 'resource', label: 'Resource', icon: 'users' },
+        { value: 'documents', label: 'Dokumen', icon: 'file-text' },
       ]}
-      onChange={(next: 'gantt' | 'resource') => {
+      onChange={(next: View) => {
         view = next
       }}
     />
@@ -367,7 +390,7 @@
           </span>
         </button>
       </div>
-    {:else}
+    {:else if view === 'resource'}
       <div in:fade class="flex items-center gap-2 flex-1 [&>*]:flex-none">
         <button
           type="button"
@@ -394,6 +417,29 @@
             class="h-full min-w-0 flex-1 border-0 bg-transparent text-[13.5px] text-text outline-none"
           />
         </label>
+      </div>
+    {:else}
+      <div in:fade class="flex items-center gap-2 flex-1 [&>*]:flex-none">
+        <button
+          type="button"
+          class="btn"
+          aria-label="Dokumen baru"
+          title="Dokumen baru"
+          onclick={() => (addDocumentRequest += 1)}
+        >
+          <Icon name="file-plus" />
+          <span class="max-2xl:sr-only">Dokumen</span>
+        </button>
+        <button
+          type="button"
+          class="btn"
+          aria-label="Impor berkas Markdown"
+          title="Impor berkas .md sebagai dokumen"
+          onclick={() => (importDocumentRequest += 1)}
+        >
+          <Icon name="upload" />
+          <span class="max-2xl:sr-only">Impor .md</span>
+        </button>
       </div>
     {/if}
 
@@ -473,7 +519,7 @@
             dialog = { kind: 'edit', id }
           }}
         />
-      {:else}
+      {:else if view === 'resource'}
         <ResourceView
           {session}
           query={peopleQuery}
@@ -481,6 +527,20 @@
           {rolesOpen}
           onRolesClose={() => (rolesOpen = false)}
           onOpenRoles={() => (rolesOpen = true)}
+          onShowTask={showTaskInGantt}
+        />
+      {:else}
+        <DocumentsView
+          {project}
+          {analysis}
+          progress={session.progress}
+          today={today()}
+          selectedId={documentId}
+          onSelect={(id: string) => {
+            documentId = id
+          }}
+          addRequest={addDocumentRequest}
+          importRequest={importDocumentRequest}
           onShowTask={showTaskInGantt}
         />
       {/if}
@@ -517,6 +577,8 @@
   {parentOptions}
   {predecessorChoices}
   {currentPredecessors}
+  {mentionedIn}
+  onOpenDocument={showDocument}
   defaultStart={selectedTask?.start ?? analysis?.schedule.projectStart ?? today()}
   onClose={() => {
     dialog = null

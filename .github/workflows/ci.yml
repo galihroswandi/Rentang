@@ -26,6 +26,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: No project files outside fixtures/
         run: pnpm check:data-files
+      - name: Algorithm map matches the code
+        run: pnpm peta:check
+      - name: Algorithm map tool tests
+        run: pnpm peta:test
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm lint

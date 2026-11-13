@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import { isIsoDate, isSupportedDate, type IsoDate } from './dates.ts'
+import { plainTextOf } from './rich-text.ts'
 
 export const CURRENT_SCHEMA_VERSION = 2
 
@@ -82,8 +83,11 @@ export const assignmentSchema = z.object({ id: idSchema, taskId: idSchema, resou
 export const documentSchema = z.object({
   id: idSchema,
   title: z.string(),
+  /** Rich text as editor JSON (see rich-text.ts). */
   content: z.json(),
   order: z.int().min(0),
+  /** When the title or content last changed, as an ISO timestamp the app writes. */
+  updatedAt: z.iso.datetime().optional(),
 })
 
 export const projectSchema = z
@@ -110,9 +114,9 @@ export const projectFileSchema = z.object({
   project: projectSchema,
 })
 
-/** The plain text of a task's notes; empty when it has none. */
+/** The plain text of a task's notes, one line per block; empty when it has none. */
 export function noteTextOf(task: Pick<Task, 'notes'>): string {
-  return typeof task.notes === 'string' ? task.notes : ''
+  return plainTextOf(task.notes)
 }
 
 export type Area = z.infer<typeof areaSchema>

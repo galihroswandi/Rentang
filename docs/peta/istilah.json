@@ -1,0 +1,175 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "glossary": [
+    {
+      "term": "IsoDate",
+      "definition": "Tanggal sebagai teks 'YYYY-MM-DD' dengan tipe ber-brand, sehingga teks biasa harus diperiksa dulu sebelum dipakai sebagai tanggal. Bisa dibandingkan langsung sebagai teks.",
+      "modules": ["dates"]
+    },
+    {
+      "term": "Nomor hari",
+      "definition": "Jumlah hari sejak 1970-01-01. Semua aritmetika tanggal di core dilakukan dengan bilangan bulat ini.",
+      "modules": ["dates"]
+    },
+    {
+      "term": "Jendela tanggal",
+      "definition": "1970-01-01 sampai 2100-12-31. Data di luar jendela ditolak saat masuk; operasi berhenti di tepinya.",
+      "modules": ["dates", "calendar"]
+    },
+    {
+      "term": "Hari kerja",
+      "definition": "Hari pekan yang dikerjakan (bawaan Senin-Jumat) dan bukan hari libur proyek. Durasi tugas dihitung dalam hari kerja.",
+      "modules": ["calendar"]
+    },
+    {
+      "term": "Durasi",
+      "definition": "Panjang tugas dalam hari kerja, termasuk hari mulainya. Milestone berdurasi 0; tugas biasa minimal 1, maksimal 3650.",
+      "modules": ["schedule", "model"]
+    },
+    {
+      "term": "Milestone",
+      "definition": "Tugas tanpa durasi yang menandai sebuah titik. Tidak boleh punya subtugas; penerusnya boleh mulai di hari yang sama.",
+      "modules": ["schedule", "model"]
+    },
+    {
+      "term": "Tugas daun",
+      "definition": "Tugas tanpa subtugas. Hanya daun yang punya tanggal sendiri dan ikut dijadwalkan.",
+      "modules": ["graph"]
+    },
+    {
+      "term": "Tugas ringkasan",
+      "definition": "Tugas yang punya subtugas (summary). Tanggalnya membentang dari mulai paling awal sampai selesai paling lambat daunnya; persennya rollup daun.",
+      "modules": ["schedule", "summary"]
+    },
+    {
+      "term": "Dependensi finish-to-start",
+      "definition": "Penerus baru boleh mulai setelah predecessor selesai. Satu-satunya jenis dependensi di Rentang; jenis lain dari .gan diubah ke ini.",
+      "modules": ["model", "gan-map"]
+    },
+    {
+      "term": "Predecessor dan penerus",
+      "definition": "Predecessor adalah tugas yang ditunggu; penerus adalah tugas yang menunggu.",
+      "modules": ["schedule", "task-dialog"]
+    },
+    {
+      "term": "Lag",
+      "definition": "Jeda dalam hari kerja antara pelepasan predecessor dan mulai penerus. Negatif berarti tumpang tindih.",
+      "modules": ["schedule"]
+    },
+    {
+      "term": "Pelepasan",
+      "definition": "Hari pertama penerus boleh mulai: hari kerja setelah predecessor selesai, atau hari yang sama untuk milestone (releaseOf).",
+      "modules": ["schedule"]
+    },
+    {
+      "term": "Forward pass",
+      "definition": "Penjadwalan maju: menghitung mulai paling awal setiap tugas dalam urutan topologis.",
+      "modules": ["schedule"]
+    },
+    {
+      "term": "Backward pass",
+      "definition": "Penjadwalan mundur dari akhir proyek: menghitung mulai paling lambat yang tidak memundurkan proyek.",
+      "modules": ["critical-path"]
+    },
+    {
+      "term": "Float",
+      "definition": "Berapa hari kerja sebuah tugas boleh tergelincir tanpa memundurkan akhir proyek. Selisih mulai paling lambat dan mulai paling awal.",
+      "modules": ["critical-path"]
+    },
+    {
+      "term": "Jalur kritis",
+      "definition": "Rangkaian tugas daun dengan float 0. Terlambat sehari di sini berarti proyek terlambat sehari.",
+      "modules": ["critical-path"]
+    },
+    {
+      "term": "Urutan topologis",
+      "definition": "Urutan tugas di mana setiap predecessor datang sebelum penerusnya. Dihitung dengan algoritma Kahn.",
+      "modules": ["graph"]
+    },
+    {
+      "term": "Siklus dependensi",
+      "definition": "Tugas yang (lewat rantai) menunggu dirinya sendiri. Membuat jadwal mustahil; dilaporkan sebagai CycleError.",
+      "modules": ["graph", "task-dialog"]
+    },
+    {
+      "term": "WBS",
+      "definition": "Nomor outline seperti 2.1 (subtugas pertama dari tugas kedua). Dihitung dari daftar penuh, jadi tidak berubah saat disaring.",
+      "modules": ["task-rows"]
+    },
+    {
+      "term": "Resep (Recipe)",
+      "definition": "Fungsi (draft) => void yang mengubah draf Immer. Semua suntingan proyek ditulis sebagai resep dan dijalankan lewat store.edit.",
+      "modules": ["project-edits", "app-store"]
+    },
+    {
+      "term": "Patch Immer",
+      "definition": "Catatan perubahan yang dihasilkan produceWithPatches. Riwayat menyimpan patch dan kebalikannya untuk undo dan redo.",
+      "modules": ["history"]
+    },
+    {
+      "term": "Sesi proyek",
+      "definition": "ProjectSession: proyek yang terbuka di tab beserta analisis jadwal, persen rollup, dan riwayat undo.",
+      "modules": ["app-store"]
+    },
+    {
+      "term": "Result",
+      "definition": "{ ok: true, value } atau { ok: false, error }. Cara core melaporkan kegagalan yang wajar tanpa melempar.",
+      "modules": ["result"]
+    },
+    {
+      "term": "Migrasi skema",
+      "definition": "Fungsi yang mengubah berkas .rentang versi N menjadi N + 1. Dijalankan berurutan sampai versi sekarang sebelum validasi.",
+      "modules": ["migrations"]
+    },
+    {
+      "term": "Laporan impor",
+      "definition": "Daftar apa yang diimpor, diubah (changed), dan dilewati (skipped) saat membaca .gan, dalam bentuk kode terstruktur.",
+      "modules": ["gan-map", "import-report"]
+    },
+    {
+      "term": "Memori tab (workspace)",
+      "definition": "Daftar tab yang terbuka dan tab aktif, disimpan di sessionStorage supaya bertahan saat halaman dimuat ulang.",
+      "modules": ["bootstrap", "app-store"]
+    },
+    {
+      "term": "Zoom dan lebar hari",
+      "definition": "Enam tingkat zoom dari Detail (64 px per hari) sampai Tahun (1,2 px per hari). Lebar hari menentukan bentuk header.",
+      "modules": ["gantt-layout", "gantt-zoom"]
+    },
+    {
+      "term": "Magnet gulir",
+      "definition": "Setelah gulir samping berhenti, chart menempel ke tepi kolom terdekat supaya tidak ada kolom yang terpotong di samping tabel.",
+      "modules": ["gantt-snap", "gantt-view"]
+    },
+    {
+      "term": "Treegrid",
+      "definition": "Pola aksesibilitas WAI-ARIA untuk tabel pohon. Fokus ada di baris; panah kiri dan kanan menutup dan membuka ringkasan.",
+      "modules": ["treegrid-keys", "task-table"]
+    },
+    {
+      "term": "Rollup persen",
+      "definition": "Persen tugas ringkasan sebagai rata-rata persen daunnya, ditimbang durasi.",
+      "modules": ["summary"]
+    },
+    {
+      "term": "Dokumen proyek",
+      "definition": "Halaman datar (tanpa sub-halaman) berisi judul dan isi JSON editor, disimpan di project.documents bersama urutan dan waktu ubahnya. Ditulis di tampilan Dokumen.",
+      "modules": ["document-edits", "documents-view", "rich-text"]
+    },
+    {
+      "term": "Sebutan tugas",
+      "definition": "Node taskMention di dokumen: menyimpan id tugas dan namanya saat ditulis. Chip-nya membaca nama, persen, dan tanggal terbaru dari jadwal; tugas yang dihapus tampil dicoret.",
+      "modules": ["rich-text", "document-editor", "document-helpers"]
+    },
+    {
+      "term": "Suntingan senyap (quiet)",
+      "definition": "edit(label, resep, { quiet: true }): tercatat untuk undo dan tersimpan, tetapi tanpa toast. Dipakai saat mengetik di dokumen.",
+      "modules": ["app-store"]
+    },
+    {
+      "term": "mergeKey",
+      "definition": "Kunci yang menggabungkan suntingan berturut-turut menjadi satu langkah undo, misalnya content:<id>:<kunjungan>. Patch langkah gabungan dihitung ulang sehingga nilai yang berubah berkali-kali tersimpan sekali.",
+      "modules": ["history", "app-store"]
+    }
+  ]
+}

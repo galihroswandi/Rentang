@@ -1,0 +1,1909 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "flows": [
+    {
+      "id": "buka-aplikasi",
+      "name": "Membuka aplikasi",
+      "category": "aplikasi",
+      "summary": "Dari halaman kosong sampai Daftar proyek tampil dan tab sebelum reload kembali.",
+      "trigger": "Pengguna membuka Rentang atau memuat ulang halaman.",
+      "result": "Daftar proyek tampil; tab yang terbuka sebelum reload dipulihkan.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        },
+        {
+          "id": "idb",
+          "name": "IndexedDB",
+          "type": "database"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "bootstrap",
+          "text": "buka halaman",
+          "note": "main.ts menerapkan tema tersimpan, memilih penyimpanan, dan menyiapkan memori tab."
+        },
+        {
+          "from": "bootstrap",
+          "to": "app-store",
+          "text": "createAppStore(deps)",
+          "code": "createAppStore"
+        },
+        {
+          "from": "bootstrap",
+          "to": "app-shell",
+          "text": "mount(App)",
+          "note": "App memasang konteks (provideApp) dan menunggu state."
+        },
+        {
+          "from": "bootstrap",
+          "to": "app-store",
+          "text": "start()",
+          "code": "start",
+          "kind": "async"
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "list()",
+          "code": "list"
+        },
+        {
+          "from": "storage",
+          "to": "idb",
+          "text": "projects.toArray()"
+        },
+        {
+          "from": "idb",
+          "to": "storage",
+          "text": "record[]",
+          "kind": "return"
+        },
+        {
+          "from": "storage",
+          "to": "app-store",
+          "text": "ringkasan, terakhir dibuka dulu",
+          "kind": "return"
+        },
+        {
+          "fragment": "loop",
+          "label": "untuk setiap tab yang diingat di sessionStorage",
+          "messages": [
+            {
+              "from": "app-store",
+              "to": "storage",
+              "text": "load(id)",
+              "code": "load",
+              "note": "Dimigrasi dan divalidasi ulang setiap kali dimuat."
+            },
+            {
+              "from": "storage",
+              "to": "app-store",
+              "text": "ProjectFile",
+              "kind": "return"
+            },
+            {
+              "from": "app-store",
+              "to": "app-store",
+              "text": "restoreTab → sessionOf(project)",
+              "code": "restoreTab",
+              "note": "Analisis jadwal dan persen dihitung untuk sesi."
+            }
+          ]
+        },
+        {
+          "from": "app-store",
+          "to": "app-shell",
+          "text": "state berubah ($app)",
+          "kind": "async"
+        },
+        {
+          "from": "app-shell",
+          "to": "pengguna",
+          "text": "Daftar proyek atau tab terakhir",
+          "kind": "return"
+        }
+      ]
+    },
+    {
+      "id": "coba-demo",
+      "name": "Mencoba proyek demo",
+      "category": "berkas",
+      "summary": "Proyek demo dibuat dengan tanggal yang digeser ke pekan ini, lalu disimpan dan dibuka di tab.",
+      "trigger": "Daftar proyek kosong; pengguna menekan 'Coba dengan proyek demo'.",
+      "result": "Tab Peluncuran Kedai Kopi terbuka, sedang berjalan di fase kedua.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        },
+        {
+          "id": "idb",
+          "name": "IndexedDB",
+          "type": "database"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "project-list",
+          "text": "Coba dengan proyek demo"
+        },
+        {
+          "from": "project-list",
+          "to": "app-store",
+          "text": "openDemo()",
+          "code": "openDemo"
+        },
+        {
+          "from": "app-store",
+          "to": "demo",
+          "text": "createDemoProject(today)",
+          "code": "createDemoProject",
+          "note": "Semua tanggal digeser kelipatan pekan supaya hari ini jatuh di fase kedua."
+        },
+        {
+          "from": "demo",
+          "to": "app-store",
+          "text": "Project",
+          "kind": "return"
+        },
+        {
+          "from": "app-store",
+          "to": "app-store",
+          "text": "saveAndShow(sessionOf(project, 'demo'))",
+          "code": "saveAndShow"
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "save(file, ringkasan)",
+          "code": "save",
+          "kind": "async"
+        },
+        {
+          "from": "storage",
+          "to": "idb",
+          "text": "projects.put(record)"
+        },
+        {
+          "from": "app-store",
+          "to": "project-view",
+          "text": "tab demo aktif",
+          "kind": "async"
+        }
+      ]
+    },
+    {
+      "id": "proyek-baru",
+      "name": "Membuat proyek baru",
+      "category": "berkas",
+      "summary": "Dialog Proyek baru membuat proyek kosong berkalender Senin-Jumat.",
+      "trigger": "Tombol 'Proyek baru' di header.",
+      "result": "Tab proyek kosong terbuka dan tersimpan di browser.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "app-shell",
+          "text": "isi nama, Buat",
+          "code": "create"
+        },
+        {
+          "from": "app-shell",
+          "to": "app-store",
+          "text": "createProject(nama, 'work')",
+          "code": "createProject"
+        },
+        {
+          "from": "app-store",
+          "to": "project-edits",
+          "text": "createProject(id, nama, bidang)",
+          "code": "createProject"
+        },
+        {
+          "from": "project-edits",
+          "to": "app-store",
+          "text": "Project kosong",
+          "kind": "return"
+        },
+        {
+          "from": "app-store",
+          "to": "app-store",
+          "text": "saveAndShow(sesi 'new')",
+          "code": "saveAndShow"
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "save(file, ringkasan)",
+          "code": "save",
+          "kind": "async"
+        }
+      ]
+    },
+    {
+      "id": "impor-gan",
+      "name": "Mengimpor berkas .gan",
+      "category": "berkas",
+      "summary": "Berkas GanttProject dibaca, dipetakan ke model, ditampilkan laporannya, lalu disimpan setelah dikonfirmasi.",
+      "trigger": "Tombol 'Impor .gan', atau berkas .gan diseret ke jendela.",
+      "result": "Proyek baru tersimpan dan terbuka; setiap penyesuaian tercatat di laporan.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        },
+        {
+          "id": "browser",
+          "name": "Pemilih berkas",
+          "type": "system"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "app-shell",
+          "text": "Impor .gan"
+        },
+        {
+          "from": "app-shell",
+          "to": "file-access",
+          "text": "pickFile('gan')",
+          "code": "pickFile"
+        },
+        {
+          "from": "file-access",
+          "to": "browser",
+          "text": "showOpenFilePicker()"
+        },
+        {
+          "from": "browser",
+          "to": "file-access",
+          "text": "File",
+          "kind": "return"
+        },
+        {
+          "from": "file-access",
+          "to": "app-shell",
+          "text": "File",
+          "kind": "return"
+        },
+        {
+          "from": "app-shell",
+          "to": "app-store",
+          "text": "openFile({ name, text })",
+          "code": "openFile"
+        },
+        {
+          "from": "app-store",
+          "to": "gan-map",
+          "text": "importGan(text, { projectId })",
+          "code": "importGan"
+        },
+        {
+          "from": "gan-map",
+          "to": "gan-parse",
+          "text": "parseGan(xml)",
+          "code": "parseGan"
+        },
+        {
+          "from": "gan-parse",
+          "to": "gan-map",
+          "text": "Result<GanDocument>",
+          "kind": "return"
+        },
+        {
+          "fragment": "alt",
+          "label": "XML terbaca",
+          "messages": [
+            {
+              "from": "gan-map",
+              "to": "gan-map",
+              "text": "mapGanToProject(gan)",
+              "code": "mapGanToProject",
+              "note": "Kalender, tugas, dependensi, orang; setiap penyesuaian dicatat changed atau skipped."
+            },
+            {
+              "from": "gan-map",
+              "to": "model",
+              "text": "projectSchema.safeParse(kandidat)",
+              "code": "projectSchema"
+            },
+            {
+              "from": "gan-map",
+              "to": "app-store",
+              "text": "{ project, report }",
+              "kind": "return"
+            },
+            {
+              "from": "app-store",
+              "to": "import-report",
+              "text": "pendingImport diisi",
+              "kind": "async"
+            },
+            {
+              "from": "import-report",
+              "to": "import-report",
+              "text": "describeReport(report, project)",
+              "code": "describeReport"
+            },
+            {
+              "from": "import-report",
+              "to": "pengguna",
+              "text": "dialog laporan impor"
+            },
+            {
+              "from": "pengguna",
+              "to": "import-report",
+              "text": "Simpan proyek"
+            },
+            {
+              "from": "import-report",
+              "to": "app-store",
+              "text": "confirmImport()",
+              "code": "confirmImport"
+            },
+            {
+              "from": "app-store",
+              "to": "storage",
+              "text": "save(file, ringkasan)",
+              "code": "save",
+              "kind": "async"
+            }
+          ],
+          "else": [
+            {
+              "label": "gagal (XML rusak, bukan .gan, atau tidak valid)",
+              "messages": [
+                {
+                  "from": "gan-map",
+                  "to": "app-store",
+                  "text": "err(GanImportError)",
+                  "kind": "return"
+                },
+                {
+                  "from": "app-store",
+                  "to": "import-report",
+                  "text": "notice open-failed",
+                  "kind": "async"
+                },
+                {
+                  "from": "import-report",
+                  "to": "pengguna",
+                  "text": "describeNotice(notice)",
+                  "code": "describeNotice"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "buka-rentang",
+      "name": "Membuka berkas .rentang",
+      "category": "berkas",
+      "summary": "Berkas lama dimigrasi dulu ke versi skema sekarang, baru divalidasi dan dibuka.",
+      "trigger": "Tombol 'Buka', atau berkas .rentang diseret ke jendela.",
+      "result": "Proyek terbuka di tab dan tersimpan di browser.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "app-shell",
+          "text": "Buka"
+        },
+        {
+          "from": "app-shell",
+          "to": "file-access",
+          "text": "pickFile('rentang')",
+          "code": "pickFile"
+        },
+        {
+          "from": "file-access",
+          "to": "app-shell",
+          "text": "File",
+          "kind": "return"
+        },
+        {
+          "from": "app-shell",
+          "to": "app-store",
+          "text": "openFile({ name, text })",
+          "code": "openFile"
+        },
+        {
+          "fragment": "alt",
+          "label": "JSON terbaca",
+          "messages": [
+            {
+              "from": "app-store",
+              "to": "migrations",
+              "text": "loadProjectFile(json)",
+              "code": "loadProjectFile"
+            },
+            {
+              "from": "migrations",
+              "to": "migrations",
+              "text": "migrateToCurrent(json)",
+              "code": "migrateToCurrent",
+              "note": "v1 → v2 → … satu langkah demi satu."
+            },
+            {
+              "from": "migrations",
+              "to": "model",
+              "text": "projectFileSchema.safeParse",
+              "code": "projectFileSchema"
+            },
+            {
+              "from": "migrations",
+              "to": "app-store",
+              "text": "Result<ProjectFile, LoadError>",
+              "kind": "return"
+            },
+            {
+              "fragment": "opt",
+              "label": "valid",
+              "messages": [
+                {
+                  "from": "app-store",
+                  "to": "app-store",
+                  "text": "saveAndShow(sesi 'rentang')",
+                  "code": "saveAndShow"
+                },
+                {
+                  "from": "app-store",
+                  "to": "storage",
+                  "text": "save(file, ringkasan)",
+                  "code": "save",
+                  "kind": "async"
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "label": "JSON rusak",
+              "messages": [
+                {
+                  "from": "app-store",
+                  "to": "app-shell",
+                  "text": "notice invalid-json",
+                  "kind": "async"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "buka-tersimpan",
+      "name": "Membuka proyek tersimpan",
+      "category": "berkas",
+      "summary": "Proyek dari Daftar proyek dibuka di tab; yang sudah punya tab hanya diaktifkan.",
+      "trigger": "Klik baris atau kartu di Daftar proyek, atau menu + di tab.",
+      "result": "Tab proyek aktif; waktu dibuka diperbarui.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "project-list",
+          "text": "klik proyek",
+          "code": "open"
+        },
+        {
+          "from": "project-list",
+          "to": "app-store",
+          "text": "openProject(id)",
+          "code": "openProject"
+        },
+        {
+          "fragment": "alt",
+          "label": "sudah ada tab",
+          "messages": [
+            {
+              "from": "app-store",
+              "to": "app-store",
+              "text": "show(sesi)",
+              "code": "show"
+            }
+          ],
+          "else": [
+            {
+              "label": "belum ada tab",
+              "messages": [
+                {
+                  "from": "app-store",
+                  "to": "storage",
+                  "text": "load(id)",
+                  "code": "load"
+                },
+                {
+                  "from": "storage",
+                  "to": "migrations",
+                  "text": "loadProjectFile(record.file)",
+                  "code": "loadProjectFile"
+                },
+                {
+                  "from": "migrations",
+                  "to": "storage",
+                  "text": "ProjectFile",
+                  "kind": "return"
+                },
+                {
+                  "from": "storage",
+                  "to": "app-store",
+                  "text": "ProjectFile",
+                  "kind": "return"
+                },
+                {
+                  "from": "app-store",
+                  "to": "app-store",
+                  "text": "show(sessionOf(project))",
+                  "code": "sessionOf"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "markOpened(id)",
+          "code": "markOpened",
+          "kind": "async"
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "list()",
+          "code": "list",
+          "kind": "async"
+        }
+      ]
+    },
+    {
+      "id": "tambah-tugas",
+      "name": "Menambah atau mengubah tugas",
+      "category": "jadwal",
+      "summary": "Dari dialog tugas sampai jadwal dihitung ulang dan tersimpan, dalam satu langkah undo.",
+      "trigger": "Tombol '+ Tugas' atau 'Subtugas', atau klik ganda tugas untuk mengubah.",
+      "result": "Tugas tampil di tabel dan Gantt dengan tanggal terhitung; toast menawarkan Urungkan.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "project-view",
+          "text": "+ Tugas"
+        },
+        {
+          "from": "project-view",
+          "to": "task-dialog",
+          "text": "buka dialog"
+        },
+        {
+          "from": "task-dialog",
+          "to": "task-dialog",
+          "text": "predecessorOptions(project, null)",
+          "code": "predecessorOptions",
+          "note": "Hanya tugas yang tidak membuat siklus yang ditawarkan."
+        },
+        {
+          "from": "pengguna",
+          "to": "task-dialog",
+          "text": "isi nama, mulai, durasi; Simpan"
+        },
+        {
+          "from": "task-dialog",
+          "to": "project-view",
+          "text": "onSubmit(input, induk, predecessor)",
+          "code": "submitTask"
+        },
+        {
+          "from": "project-view",
+          "to": "project-edits",
+          "text": "addTask(id, input, terpilih)",
+          "code": "addTask"
+        },
+        {
+          "from": "project-edits",
+          "to": "project-view",
+          "text": "Recipe",
+          "kind": "return"
+        },
+        {
+          "from": "project-view",
+          "to": "app-store",
+          "text": "edit('Tugas ditambahkan', resep)",
+          "code": "edit",
+          "note": "Resep gabungan: addTask lalu setPredecessors, jadi satu langkah undo."
+        },
+        {
+          "from": "app-store",
+          "to": "history",
+          "text": "record(project, history, label, resep)",
+          "code": "record"
+        },
+        {
+          "from": "history",
+          "to": "app-store",
+          "text": "Step (patch + kebalikan)",
+          "kind": "return"
+        },
+        {
+          "from": "app-store",
+          "to": "model",
+          "text": "projectSchema.safeParse(project)",
+          "code": "projectSchema"
+        },
+        {
+          "fragment": "alt",
+          "label": "valid",
+          "messages": [
+            {
+              "from": "app-store",
+              "to": "app-store",
+              "text": "applyStep → sessionOf",
+              "code": "applyStep"
+            },
+            {
+              "from": "app-store",
+              "to": "critical-path",
+              "text": "analyzeCriticalPath(project)",
+              "code": "analyzeCriticalPath"
+            },
+            {
+              "from": "critical-path",
+              "to": "graph",
+              "text": "buildLeafGraph",
+              "code": "buildLeafGraph"
+            },
+            {
+              "from": "critical-path",
+              "to": "schedule",
+              "text": "scheduleGraph",
+              "code": "scheduleGraph"
+            },
+            {
+              "from": "critical-path",
+              "to": "app-store",
+              "text": "CriticalPath",
+              "kind": "return"
+            },
+            {
+              "from": "app-store",
+              "to": "storage",
+              "text": "save(file, ringkasan)",
+              "code": "save",
+              "kind": "async"
+            },
+            {
+              "from": "app-store",
+              "to": "app-shell",
+              "text": "toast + Urungkan",
+              "kind": "async"
+            }
+          ],
+          "else": [
+            {
+              "label": "tidak valid",
+              "messages": [
+                {
+                  "from": "app-store",
+                  "to": "app-shell",
+                  "text": "notice edit-rejected",
+                  "kind": "async"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "seret-bar",
+      "name": "Menyeret bar di Gantt",
+      "category": "gantt",
+      "summary": "Dari pointer di bar sampai bar tergambar di tanggal barunya. Cocok untuk melacak bug 'bar mendarat di tanggal salah'.",
+      "trigger": "Pengguna menekan bar tugas daun dan menggeser lebih dari 4 px.",
+      "result": "Tugas pindah atau berubah durasi di hari kerja; tugas yang bergantung ikut bergeser.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "gantt-chart",
+          "text": "tekan bar",
+          "code": "startDrag",
+          "note": "Pegangan kanan berarti resize; selain itu move."
+        },
+        {
+          "fragment": "loop",
+          "label": "selama pointer bergerak",
+          "messages": [
+            {
+              "from": "gantt-chart",
+              "to": "gantt-drag",
+              "text": "daysFromPixels(dx, lebarHari)",
+              "code": "daysFromPixels"
+            },
+            {
+              "from": "gantt-chart",
+              "to": "gantt-drag",
+              "text": "resolveDrag(input)",
+              "code": "resolveDrag",
+              "note": "Pratinjau: bar dan label tanggal digambar di posisi baru."
+            },
+            {
+              "from": "gantt-drag",
+              "to": "gantt-chart",
+              "text": "DragResult",
+              "kind": "return"
+            }
+          ]
+        },
+        {
+          "from": "pengguna",
+          "to": "gantt-chart",
+          "text": "lepas",
+          "code": "endDrag"
+        },
+        {
+          "fragment": "opt",
+          "label": "mulai atau durasi berubah",
+          "messages": [
+            {
+              "from": "gantt-chart",
+              "to": "project-view",
+              "text": "onReschedule({ id, start, duration, mode })",
+              "code": "moveTask",
+              "note": "Diteruskan lewat GanttView ke ProjectView."
+            },
+            {
+              "from": "project-view",
+              "to": "project-edits",
+              "text": "reschedule(id, start, duration)",
+              "code": "reschedule"
+            },
+            {
+              "from": "project-edits",
+              "to": "project-view",
+              "text": "Recipe",
+              "kind": "return"
+            },
+            {
+              "from": "project-view",
+              "to": "app-store",
+              "text": "edit('Tugas dipindah', resep)",
+              "code": "edit"
+            },
+            {
+              "from": "app-store",
+              "to": "history",
+              "text": "record(…)",
+              "code": "record"
+            },
+            {
+              "from": "history",
+              "to": "app-store",
+              "text": "Step",
+              "kind": "return"
+            },
+            {
+              "from": "app-store",
+              "to": "critical-path",
+              "text": "analyzeCriticalPath(project)",
+              "code": "analyzeCriticalPath",
+              "note": "Forward pass menjadwalkan ulang semua penerus."
+            },
+            {
+              "from": "critical-path",
+              "to": "app-store",
+              "text": "CriticalPath",
+              "kind": "return"
+            },
+            {
+              "from": "app-store",
+              "to": "gantt-view",
+              "text": "sesi baru ($app)",
+              "kind": "async"
+            },
+            {
+              "from": "gantt-view",
+              "to": "task-rows",
+              "text": "buildTaskRows(…)",
+              "code": "buildTaskRows"
+            },
+            {
+              "from": "gantt-view",
+              "to": "gantt-layout",
+              "text": "layoutGantt(…)",
+              "code": "layoutGantt",
+              "note": "Tanggal baru menjadi x baru."
+            },
+            {
+              "from": "gantt-view",
+              "to": "gantt-chart",
+              "text": "gambar ulang SVG",
+              "kind": "async"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ubah-struktur",
+      "name": "Mengurutkan dan menjadikan subtugas",
+      "category": "tabel",
+      "summary": "Seret baris di tabel: separuh kiri mengurutkan, separuh kanan menjadikan subtugas.",
+      "trigger": "Pengguna menyeret pegangan baris lalu menjatuhkannya di baris lain.",
+      "result": "Urutan atau induk tugas berubah; nomor WBS ikut berubah.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "task-table",
+          "text": "seret baris ke baris lain"
+        },
+        {
+          "from": "task-table",
+          "to": "task-table",
+          "text": "dropPlace(event, baris)",
+          "code": "dropPlace"
+        },
+        {
+          "fragment": "alt",
+          "label": "separuh kiri: before / after",
+          "messages": [
+            {
+              "from": "task-table",
+              "to": "project-view",
+              "text": "onReorder(id, target, place)"
+            },
+            {
+              "from": "project-view",
+              "to": "project-edits",
+              "text": "placeTask(id, target, place)",
+              "code": "placeTask"
+            }
+          ],
+          "else": [
+            {
+              "label": "separuh kanan: inside",
+              "messages": [
+                {
+                  "from": "task-table",
+                  "to": "project-view",
+                  "text": "onNest(id, induk)"
+                },
+                {
+                  "from": "project-view",
+                  "to": "project-edits",
+                  "text": "setParent(id, induk)",
+                  "code": "setParent"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "from": "project-view",
+          "to": "app-store",
+          "text": "edit(label, resep)",
+          "code": "edit"
+        },
+        {
+          "from": "app-store",
+          "to": "task-rows",
+          "text": "sesi baru → buildTaskRows",
+          "code": "buildTaskRows",
+          "kind": "async"
+        }
+      ]
+    },
+    {
+      "id": "hapus-tugas",
+      "name": "Menghapus tugas",
+      "category": "jadwal",
+      "summary": "Tugas dihapus beserta subtugas, dependensi, dan penugasannya; bisa diurungkan dari toast.",
+      "trigger": "Tombol hapus di toolbar, tombol Delete di baris tabel, atau Hapus di dialog tugas.",
+      "result": "Tugas hilang; toast 'Tugas dihapus' dengan Urungkan.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "task-table",
+          "text": "Delete",
+          "code": "onKeydown"
+        },
+        {
+          "from": "task-table",
+          "to": "project-view",
+          "text": "onDelete(id)",
+          "code": "removeTaskById"
+        },
+        {
+          "from": "project-view",
+          "to": "project-edits",
+          "text": "deleteTask(id)",
+          "code": "deleteTask"
+        },
+        {
+          "from": "project-view",
+          "to": "app-store",
+          "text": "edit('Tugas dihapus', resep)",
+          "code": "edit"
+        },
+        {
+          "from": "app-store",
+          "to": "app-shell",
+          "text": "toast + Urungkan",
+          "kind": "async"
+        }
+      ]
+    },
+    {
+      "id": "undo",
+      "name": "Mengurungkan dan mengulang",
+      "category": "jadwal",
+      "summary": "Patch kebalikan diterapkan, lalu semuanya dihitung ulang seperti suntingan biasa.",
+      "trigger": "Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z atau Ctrl/Cmd+Y, atau tombol di toast.",
+      "result": "Proyek kembali ke keadaan sebelum (atau sesudah) suntingan; toast 'Dibatalkan: …'.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "app-shell",
+          "text": "Ctrl+Z",
+          "code": "onKeydown"
+        },
+        {
+          "from": "app-shell",
+          "to": "app-store",
+          "text": "undo()",
+          "code": "undo"
+        },
+        {
+          "from": "app-store",
+          "to": "history",
+          "text": "undo(project, history)",
+          "code": "undo"
+        },
+        {
+          "from": "history",
+          "to": "app-store",
+          "text": "Step (applyPatches kebalikan)",
+          "kind": "return"
+        },
+        {
+          "from": "app-store",
+          "to": "app-store",
+          "text": "applyStep → sessionOf",
+          "code": "applyStep"
+        },
+        {
+          "from": "app-store",
+          "to": "critical-path",
+          "text": "analyzeCriticalPath(project)",
+          "code": "analyzeCriticalPath"
+        },
+        {
+          "from": "critical-path",
+          "to": "app-store",
+          "text": "CriticalPath",
+          "kind": "return"
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "save(…)",
+          "code": "save",
+          "kind": "async"
+        },
+        {
+          "from": "app-store",
+          "to": "app-shell",
+          "text": "toast 'Dibatalkan: …' + Ulangi",
+          "kind": "async"
+        }
+      ]
+    },
+    {
+      "id": "kalender",
+      "name": "Mengatur hari kerja dan hari libur",
+      "category": "jadwal",
+      "summary": "Setiap perubahan kalender adalah satu suntingan; seluruh proyek dijadwalkan ulang.",
+      "trigger": "Tombol 'Kalender' di toolbar proyek.",
+      "result": "Semua tanggal selesai bergeser mengikuti kalender baru; garis hari libur ikut berubah.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "calendar-dialog",
+          "text": "klik Sabtu / tambah libur"
+        },
+        {
+          "fragment": "alt",
+          "label": "hari pekan",
+          "messages": [
+            {
+              "from": "calendar-dialog",
+              "to": "project-edits",
+              "text": "setWorkingDays(hari)",
+              "code": "setWorkingDays"
+            }
+          ],
+          "else": [
+            {
+              "label": "tanggal libur",
+              "messages": [
+                {
+                  "from": "calendar-dialog",
+                  "to": "project-edits",
+                  "text": "addHoliday(tanggal, nama)",
+                  "code": "addHoliday"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "from": "calendar-dialog",
+          "to": "app-store",
+          "text": "edit(label, resep)",
+          "code": "edit"
+        },
+        {
+          "from": "app-store",
+          "to": "model",
+          "text": "calendarSchema: minimal satu hari kerja",
+          "code": "calendarSchema"
+        },
+        {
+          "from": "app-store",
+          "to": "critical-path",
+          "text": "analyzeCriticalPath(project)",
+          "code": "analyzeCriticalPath"
+        },
+        {
+          "from": "critical-path",
+          "to": "calendar",
+          "text": "createWorkCalendar(aturan baru)",
+          "code": "createWorkCalendar"
+        },
+        {
+          "from": "critical-path",
+          "to": "app-store",
+          "text": "CriticalPath",
+          "kind": "return"
+        }
+      ]
+    },
+    {
+      "id": "zoom",
+      "name": "Mengubah zoom Gantt",
+      "category": "gantt",
+      "summary": "Lebar hari berubah, tetapi tanggal di tengah layar tetap di tengah.",
+      "trigger": "Tombol zoom di toolbar, atau Ctrl/Cmd + roda mouse di chart.",
+      "result": "Header berganti bentuk (hari, pekan, bulan, kuartal); posisi baca tidak hilang.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "gantt-view",
+          "text": "Ctrl + roda",
+          "code": "onWheel"
+        },
+        {
+          "from": "gantt-view",
+          "to": "project-view",
+          "text": "onZoomStep(±1)",
+          "code": "stepZoom"
+        },
+        {
+          "from": "project-view",
+          "to": "prefs",
+          "text": "prefs.setZoom(zoom)",
+          "code": "prefs"
+        },
+        {
+          "from": "project-view",
+          "to": "gantt-view",
+          "text": "zoom baru (props)",
+          "kind": "async"
+        },
+        {
+          "from": "gantt-view",
+          "to": "gantt-view",
+          "text": "$effect.pre: catat posisi",
+          "code": "anchor"
+        },
+        {
+          "from": "gantt-view",
+          "to": "gantt-layout",
+          "text": "layoutGantt(… zoom)",
+          "code": "layoutGantt"
+        },
+        {
+          "from": "gantt-layout",
+          "to": "gantt-view",
+          "text": "GanttLayout",
+          "kind": "return"
+        },
+        {
+          "from": "gantt-view",
+          "to": "gantt-zoom",
+          "text": "scrollAfterZoom(catatan, layout, terlihat)",
+          "code": "scrollAfterZoom"
+        },
+        {
+          "from": "gantt-zoom",
+          "to": "gantt-view",
+          "text": "scrollLeft",
+          "kind": "return"
+        }
+      ]
+    },
+    {
+      "id": "gulir",
+      "name": "Menggulir waktu ke samping",
+      "category": "gantt",
+      "summary": "Shift + roda, usap samping, atau seret latar; tanggal bertambah sendiri dan kolom menempel ke tepi tabel.",
+      "trigger": "Pengguna menggulir atau menyeret latar chart.",
+      "result": "Chart berhenti tepat di tepi kolom; tahun berikutnya selalu tersedia.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "gantt-view",
+          "text": "Shift + roda",
+          "code": "onWheel"
+        },
+        {
+          "from": "gantt-view",
+          "to": "gantt-snap",
+          "text": "isSideways(event)",
+          "code": "isSideways"
+        },
+        {
+          "from": "gantt-view",
+          "to": "gantt-snap",
+          "text": "sidewaysDelta(event)",
+          "code": "sidewaysDelta"
+        },
+        {
+          "from": "gantt-view",
+          "to": "gantt-view",
+          "text": "ensureDatesAhead()",
+          "code": "ensureDatesAhead",
+          "note": "Tambah satu tahun bila sisa tanggal kurang dari 1,5 layar."
+        },
+        {
+          "fragment": "opt",
+          "label": "140 ms tanpa gulir",
+          "messages": [
+            {
+              "from": "gantt-view",
+              "to": "gantt-snap",
+              "text": "snapPoints(tepiSel, maks)",
+              "code": "snapPoints"
+            },
+            {
+              "from": "gantt-view",
+              "to": "gantt-snap",
+              "text": "nearestSnap(titik, scrollLeft)",
+              "code": "nearestSnap"
+            },
+            {
+              "from": "gantt-snap",
+              "to": "gantt-view",
+              "text": "posisi magnet",
+              "kind": "return"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hari-ini",
+      "name": "Melompat ke hari ini",
+      "category": "gantt",
+      "summary": "Kolom hari ini menjadi kolom pertama di samping tabel; bila chart belum sampai, tahun ditambah dulu.",
+      "trigger": "Tombol 'Hari ini' (atau 'Awal proyek') di toolbar, dan saat chart pertama kali tampil.",
+      "result": "Kolom hari ini menempel di tepi kanan tabel.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "project-view",
+          "text": "Hari ini"
+        },
+        {
+          "from": "project-view",
+          "to": "gantt-view",
+          "text": "todayRequest + 1",
+          "kind": "async"
+        },
+        {
+          "from": "gantt-view",
+          "to": "gantt-view",
+          "text": "scrollToToday()",
+          "code": "scrollToToday"
+        },
+        {
+          "fragment": "alt",
+          "label": "kolom hari ini belum ada",
+          "messages": [
+            {
+              "from": "gantt-view",
+              "to": "gantt-view",
+              "text": "extraYears + 1; todayPending",
+              "code": "extraYears"
+            },
+            {
+              "from": "gantt-view",
+              "to": "gantt-layout",
+              "text": "layoutGantt(…)",
+              "code": "layoutGantt"
+            },
+            {
+              "from": "gantt-view",
+              "to": "gantt-view",
+              "text": "efek berikutnya: scrollToToday lagi",
+              "code": "scrollToToday"
+            }
+          ],
+          "else": [
+            {
+              "label": "sudah ada",
+              "messages": [
+                {
+                  "from": "gantt-view",
+                  "to": "gantt-view",
+                  "text": "scrollTo(tepi kolom hari ini)"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "filter-kolom",
+      "name": "Menyaring tugas dan memilih kolom",
+      "category": "tabel",
+      "summary": "Filter tipe dan tugas selesai, serta kolom tabel; baris dibangun ulang tanpa mengubah nomor WBS.",
+      "trigger": "Menu filter atau menu kolom di toolbar tabel.",
+      "result": "Tabel dan Gantt hanya menampilkan tugas yang lolos; kolom tersimpan di preferensi.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "table-toolbar",
+          "text": "matikan tipe BUG",
+          "code": "toggleType"
+        },
+        {
+          "from": "table-toolbar",
+          "to": "project-view",
+          "text": "onFilter(filter)"
+        },
+        {
+          "from": "project-view",
+          "to": "gantt-view",
+          "text": "filter (props)",
+          "kind": "async"
+        },
+        {
+          "from": "gantt-view",
+          "to": "task-rows",
+          "text": "buildTaskRows({ …, filter })",
+          "code": "buildTaskRows"
+        },
+        {
+          "from": "task-rows",
+          "to": "gantt-view",
+          "text": "TaskRow[]",
+          "kind": "return"
+        },
+        {
+          "from": "pengguna",
+          "to": "table-toolbar",
+          "text": "nyalakan kolom Durasi",
+          "code": "options"
+        },
+        {
+          "from": "table-toolbar",
+          "to": "project-view",
+          "text": "onColumns(kolom)"
+        },
+        {
+          "from": "project-view",
+          "to": "prefs",
+          "text": "prefs.setColumns(kolom)",
+          "code": "prefs"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-tabel",
+      "name": "Navigasi keyboard di tabel",
+      "category": "tabel",
+      "summary": "Panah memindah fokus baris dan membuka atau menutup ringkasan, sesuai pola WAI-ARIA treegrid.",
+      "trigger": "Fokus di tabel tugas, lalu tombol panah, Home, End, atau Page.",
+      "result": "Baris terfokus dan terpilih; ringkasan terbuka atau tertutup.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "task-table",
+          "text": "ArrowRight",
+          "code": "onKeydown"
+        },
+        {
+          "from": "task-table",
+          "to": "treegrid-keys",
+          "text": "treegridAction(key, rows, index)",
+          "code": "treegridAction"
+        },
+        {
+          "from": "treegrid-keys",
+          "to": "task-table",
+          "text": "TreegridAction",
+          "kind": "return"
+        },
+        {
+          "fragment": "alt",
+          "label": "focus",
+          "messages": [
+            {
+              "from": "task-table",
+              "to": "task-table",
+              "text": "focusRow(indeks); onSelect",
+              "code": "focusRow"
+            }
+          ],
+          "else": [
+            {
+              "label": "expand / collapse",
+              "messages": [
+                {
+                  "from": "task-table",
+                  "to": "gantt-view",
+                  "text": "onToggle(id, terbuka)",
+                  "code": "toggle"
+                },
+                {
+                  "from": "gantt-view",
+                  "to": "task-rows",
+                  "text": "buildTaskRows(… collapsed)",
+                  "code": "buildTaskRows"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kelola-orang",
+      "name": "Menambah orang dan menugaskannya",
+      "category": "orang",
+      "summary": "Tampilan Resource menambah orang, menugaskannya ke tugas daun, dan menghitung ulang daftar orang.",
+      "trigger": "Tab Resource, tombol 'Orang' lalu 'Tugaskan'.",
+      "result": "Orang muncul dengan inisial dan jumlah tugas; tugasnya urut jadwal.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "project-view",
+          "text": "Orang"
+        },
+        {
+          "from": "project-view",
+          "to": "resource-view",
+          "text": "addRequest + 1",
+          "kind": "async"
+        },
+        {
+          "from": "resource-view",
+          "to": "project-edits",
+          "text": "addResource(id, 'Orang baru')",
+          "code": "addResource"
+        },
+        {
+          "from": "resource-view",
+          "to": "app-store",
+          "text": "edit('Orang ditambahkan', resep)",
+          "code": "edit"
+        },
+        {
+          "from": "pengguna",
+          "to": "resource-view",
+          "text": "pilih tugas, Tugaskan",
+          "code": "assignSelected"
+        },
+        {
+          "from": "resource-view",
+          "to": "project-edits",
+          "text": "assign(id, tugas, orang)",
+          "code": "assign"
+        },
+        {
+          "from": "resource-view",
+          "to": "app-store",
+          "text": "edit('Orang ditugaskan', resep)",
+          "code": "edit"
+        },
+        {
+          "from": "resource-view",
+          "to": "people",
+          "text": "buildPeople, tasksOf",
+          "code": "buildPeople"
+        },
+        {
+          "from": "people",
+          "to": "resource-view",
+          "text": "PersonRow[], AssignedTask[]",
+          "kind": "return"
+        }
+      ]
+    },
+    {
+      "id": "simpan-berkas",
+      "name": "Menyimpan ke berkas .rentang",
+      "category": "berkas",
+      "summary": "Proyek ditulis sebagai JSON dengan schemaVersion ke lokasi pilihan pengguna, atau diunduh.",
+      "trigger": "Tombol 'Simpan ke berkas' di toolbar proyek.",
+      "result": "Berkas .rentang di komputer pengguna. Tidak ada yang dikirim ke server.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        },
+        {
+          "id": "browser",
+          "name": "Pemilih simpan",
+          "type": "system"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "project-view",
+          "text": "Simpan ke berkas",
+          "code": "saveToFile"
+        },
+        {
+          "from": "project-view",
+          "to": "project-file",
+          "text": "serializeProject(project)",
+          "code": "serializeProject"
+        },
+        {
+          "from": "project-view",
+          "to": "project-file",
+          "text": "projectFileName(nama)",
+          "code": "projectFileName"
+        },
+        {
+          "from": "project-view",
+          "to": "file-access",
+          "text": "saveFile('rentang', nama, teks)",
+          "code": "saveFile"
+        },
+        {
+          "fragment": "alt",
+          "label": "showSaveFilePicker tersedia",
+          "messages": [
+            {
+              "from": "file-access",
+              "to": "browser",
+              "text": "showSaveFilePicker()"
+            },
+            {
+              "from": "browser",
+              "to": "file-access",
+              "text": "handle",
+              "kind": "return"
+            },
+            {
+              "from": "file-access",
+              "to": "browser",
+              "text": "write(teks); close()"
+            }
+          ],
+          "else": [
+            {
+              "label": "tidak tersedia atau gagal",
+              "messages": [
+                {
+                  "from": "file-access",
+                  "to": "pengguna",
+                  "text": "unduhan <a download>"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hapus-proyek",
+      "name": "Menghapus proyek",
+      "category": "berkas",
+      "summary": "Simpan yang sedang berjalan ditunggu dulu, lalu proyek dihapus dari IndexedDB dan tabnya ditutup.",
+      "trigger": "Tombol hapus proyek di toolbar, lalu konfirmasi.",
+      "result": "Proyek hilang dari daftar; toast 'Proyek dihapus'.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        },
+        {
+          "id": "idb",
+          "name": "IndexedDB",
+          "type": "database"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "project-view",
+          "text": "Hapus proyek, konfirmasi",
+          "code": "deleteCurrent"
+        },
+        {
+          "from": "project-view",
+          "to": "app-store",
+          "text": "deleteProject(id)",
+          "code": "deleteProject"
+        },
+        {
+          "from": "app-store",
+          "to": "app-store",
+          "text": "tunggu simpan yang berjalan",
+          "note": "Tanpa ini simpan yang telat bisa menghidupkan lagi proyek yang dihapus."
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "remove(id)",
+          "code": "remove"
+        },
+        {
+          "from": "storage",
+          "to": "idb",
+          "text": "projects.delete(id)"
+        },
+        {
+          "from": "app-store",
+          "to": "app-store",
+          "text": "closeTab(id)",
+          "code": "closeTab"
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "list()",
+          "code": "list",
+          "kind": "async"
+        },
+        {
+          "from": "app-store",
+          "to": "app-shell",
+          "text": "toast 'Proyek dihapus'",
+          "kind": "async"
+        }
+      ]
+    },
+    {
+      "id": "tutup-tab",
+      "name": "Menutup tab",
+      "category": "aplikasi",
+      "summary": "Tab ditutup; bila aktif, tetangganya diaktifkan; memori tab diperbarui.",
+      "trigger": "Tombol × di tab.",
+      "result": "Tab hilang; proyek tetap tersimpan dan bisa dibuka lagi dari menu +.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "app-shell",
+          "text": "× di tab"
+        },
+        {
+          "from": "app-shell",
+          "to": "app-store",
+          "text": "closeTab(id)",
+          "code": "closeTab"
+        },
+        {
+          "from": "app-store",
+          "to": "app-store",
+          "text": "remember() → sessionStorage",
+          "code": "remember"
+        },
+        {
+          "from": "app-store",
+          "to": "app-shell",
+          "text": "tabs, active",
+          "kind": "async"
+        }
+      ]
+    },
+    {
+      "id": "pergantian-hari",
+      "name": "Tengah malam lewat",
+      "category": "aplikasi",
+      "summary": "Status 'terlambat' bergantung pada hari ini, jadi tampilan dihitung ulang saat tanggal berganti.",
+      "trigger": "Timer tengah malam, tab kembali terlihat, atau jendela difokus.",
+      "result": "Status tugas, garis hari ini, dan ringkasan memakai tanggal baru.",
+      "actors": [
+        {
+          "id": "browser",
+          "name": "Jam browser",
+          "type": "system"
+        }
+      ],
+      "messages": [
+        {
+          "from": "browser",
+          "to": "today",
+          "text": "timer / visibilitychange / focus",
+          "code": "watchDayChange"
+        },
+        {
+          "from": "today",
+          "to": "today",
+          "text": "localToday() berbeda?",
+          "code": "localToday"
+        },
+        {
+          "from": "today",
+          "to": "app-shell",
+          "text": "onChange(tanggal baru)",
+          "code": "currentDay"
+        },
+        {
+          "from": "app-shell",
+          "to": "task-rows",
+          "text": "today() baru → buildTaskRows",
+          "code": "buildTaskRows",
+          "kind": "async"
+        },
+        {
+          "from": "task-rows",
+          "to": "summary",
+          "text": "taskStatus(persen, selesai, hari ini)",
+          "code": "taskStatus"
+        }
+      ]
+    },
+    {
+      "id": "tema",
+      "name": "Mengganti tema",
+      "category": "aplikasi",
+      "summary": "Terang ↔ gelap, dianimasikan sebagai lingkaran yang tumbuh dari tombol bila browser mendukung.",
+      "trigger": "Tombol bulan/matahari di header.",
+      "result": "Tema berganti dan diingat browser ini.",
+      "actors": [
+        {
+          "id": "pengguna",
+          "name": "Pengguna",
+          "type": "actor"
+        }
+      ],
+      "messages": [
+        {
+          "from": "pengguna",
+          "to": "theme",
+          "text": "klik tombol tema",
+          "code": "toggle"
+        },
+        {
+          "from": "theme",
+          "to": "theme",
+          "text": "switchTheme(pilihan, asal)",
+          "code": "switchTheme"
+        },
+        {
+          "from": "theme",
+          "to": "theme",
+          "text": "applyTheme(pilihan) → data-theme + localStorage",
+          "code": "applyTheme"
+        }
+      ]
+    },
+    {
+      "id": "tulis-dokumen",
+      "name": "Menulis dokumen dan menyebut tugas",
+      "category": "dokumen",
+      "summary": "Dari ketikan di editor sampai tersimpan sebagai satu langkah undo, dengan @ untuk menautkan tugas.",
+      "trigger": "Tampilan Dokumen: mengetik di halaman, atau mengetik @ untuk menyebut tugas.",
+      "result": "Isi dokumen tersimpan di proyek; kartu tugas di samping dan Disebut di pada dialog tugas ikut berubah.",
+      "actors": [
+        { "id": "pengguna", "name": "Pengguna", "type": "actor" },
+        { "id": "db", "name": "IndexedDB", "type": "database" }
+      ],
+      "messages": [
+        { "from": "pengguna", "to": "document-editor", "text": "ketik di halaman" },
+        {
+          "fragment": "opt",
+          "label": "mengetik @",
+          "messages": [
+            {
+              "from": "document-editor",
+              "to": "document-helpers",
+              "text": "findTasks(tautan, kueri)",
+              "code": "findTasks"
+            },
+            {
+              "from": "document-helpers",
+              "to": "document-editor",
+              "text": "tugas yang cocok",
+              "kind": "return"
+            },
+            {
+              "from": "pengguna",
+              "to": "document-editor",
+              "text": "Enter: sisipkan taskMention { id, label }"
+            }
+          ]
+        },
+        {
+          "from": "document-editor",
+          "to": "documents-view",
+          "text": "onChange(isi)",
+          "code": "changed",
+          "note": "Ringkasan langsung mengikuti; simpan ditunda 500 ms."
+        },
+        {
+          "from": "documents-view",
+          "to": "documents-view",
+          "text": "flush setelah jeda atau saat editor ditinggalkan",
+          "code": "flush"
+        },
+        {
+          "from": "documents-view",
+          "to": "document-edits",
+          "text": "setDocumentContent(id, isi, waktu)",
+          "code": "setDocumentContent"
+        },
+        { "from": "document-edits", "to": "documents-view", "text": "Recipe", "kind": "return" },
+        {
+          "from": "documents-view",
+          "to": "app-store",
+          "text": "edit(label, resep, { quiet, mergeKey })",
+          "code": "edit",
+          "note": "mergeKey = content:<id dokumen>:<kunjungan>; tanpa toast."
+        },
+        {
+          "from": "app-store",
+          "to": "history",
+          "text": "record(..., mergeKey)",
+          "code": "record",
+          "note": "Kunci sama dengan entri terakhir: digabung (joinLast)."
+        },
+        {
+          "from": "app-store",
+          "to": "app-store",
+          "text": "sessionOf(..., sesi lama)",
+          "code": "sessionOf",
+          "note": "Tugas, dependensi, dan kalender tidak berubah, jadi jadwal lama dipakai."
+        },
+        {
+          "from": "app-store",
+          "to": "storage",
+          "text": "save(file, ringkasan)",
+          "code": "save",
+          "kind": "async"
+        },
+        { "from": "storage", "to": "db", "text": "simpan proyek", "kind": "async" }
+      ]
+    }
+  ]
+}

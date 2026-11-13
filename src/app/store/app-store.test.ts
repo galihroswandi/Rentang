@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 import { toIsoDate } from '../../core/dates.ts'
 import { coffeeShopProject } from '../../core/test-utils/coffee-shop.ts'
 import { DEMO_PROJECT_ID } from '../demo/coffee-shop-demo.ts'
+import { documentFromText, emptyDocument } from '../../core/rich-text.ts'
+import { addDocument, setDocumentContent } from '../edits/document-edits.ts'
 import { addRole, addTask, renameRole, updateTask } from '../edits/project-edits.ts'
 import { createMemoryStorage } from '../persistence/memory.ts'
 import type { StorageProvider } from '../persistence/storage-provider.ts'
@@ -224,6 +226,50 @@ describe('editing', () => {
     expect(saved.ok && saved.value.project.roles.map((role) => role.id)).toContain('kasir')
     state().dismissToast()
     expect(state().toast).toBeNull()
+  })
+
+  it('makes quiet edits without a message and joins typing into one step', async () => {
+    const { state } = setup()
+    await state().openDemo()
+    const at = '2026-11-18T09:00:00.000Z'
+    state().edit('Dokumen ditambahkan', addDocument('d', at))
+    expect(state().toast?.action).toBe('undo')
+    for (const text of ['H', 'Ha', 'Hal']) {
+      const typed = state().edit(
+        'Isi dokumen diubah',
+        setDocumentContent('d', documentFromText(text), at),
+        { quiet: true, mergeKey: 'd' },
+      )
+      expect(typed).toBe('applied')
+    }
+    // The Urungkan for the new document would now undo the typing, so it is gone.
+    expect(state().toast).toBeNull()
+    const session = () => state().sessions[DEMO_PROJECT_ID]
+    const content = () => session()?.project.documents.find((doc) => doc.id === 'd')?.content
+    expect(session()?.history.past.map((entry) => entry.label)).toEqual([
+      'Dokumen ditambahkan',
+      'Isi dokumen diubah',
+    ])
+    expect(content()).toEqual(documentFromText('Hal'))
+    state().undo()
+    expect(content()).toEqual(emptyDocument())
+  })
+
+  it('reuses the schedule when an edit leaves tasks, dependencies and calendar alone', async () => {
+    const { state } = setup()
+    await state().openDemo()
+    const session = () => state().sessions[DEMO_PROJECT_ID]
+    const before = session()
+    state().edit('Role ditambahkan', addRole('kasir', 'Kasir'))
+    expect(session()?.analysis).toBe(before?.analysis)
+    expect(session()?.progress).toBe(before?.progress)
+    state().undo()
+    expect(session()?.analysis).toBe(before?.analysis)
+    state().edit('Tugas dipindah', (draft) => {
+      const task = draft.tasks.find((candidate) => candidate.id === '7')
+      if (task) task.duration += 1
+    })
+    expect(session()?.analysis).not.toBe(before?.analysis)
   })
 
   it('recomputes the schedule after an edit', async () => {

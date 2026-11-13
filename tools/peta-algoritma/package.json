@@ -1,0 +1,27 @@
+{
+  "name": "peta-algoritma",
+  "version": "0.1.0",
+  "description": "Peta algoritma interaktif dengan diagram UML (use case, urutan, komponen, aktivitas, kelas, status) yang diperiksa terhadap kode. Tanpa dependensi.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "peta": "./bin/peta.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "viewer",
+    "schema.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "schema": "node bin/peta.js schema > schema.json"
+  }
+}

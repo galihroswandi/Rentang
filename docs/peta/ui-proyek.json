@@ -1,0 +1,1381 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "groups": [
+    {
+      "id": "ui-files",
+      "layer": "ui",
+      "name": "Berkas & impor"
+    },
+    {
+      "id": "ui-list",
+      "layer": "ui",
+      "name": "Daftar proyek"
+    },
+    {
+      "id": "ui-project",
+      "layer": "ui",
+      "name": "Tampilan proyek"
+    },
+    {
+      "id": "ui-table",
+      "layer": "ui",
+      "name": "Tabel tugas"
+    },
+    {
+      "id": "ui-resource",
+      "layer": "ui",
+      "name": "Resource"
+    },
+    {
+      "id": "ui-docs",
+      "layer": "ui",
+      "name": "Dokumen"
+    }
+  ],
+  "modules": [
+    {
+      "id": "file-access",
+      "group": "ui-files",
+      "name": "Akses berkas peramban",
+      "summary": "Membuka dan menyimpan berkas lewat File System Access API (Chrome, Edge), dengan cadangan input berkas dan unduhan.",
+      "files": ["src/ui/file-access.ts"],
+      "tests": ["e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "buka",
+          "name": "Memilih berkas",
+          "summary": "showOpenFilePicker dengan filter glob, supaya .rentang tetap bisa dipilih walau sistem tidak mengenal ekstensinya.",
+          "symbols": ["pickFile", "canPickFiles", "cancelled", "TYPES"],
+          "steps": [
+            {
+              "if": "API tidak tersedia?",
+              "then": [
+                {
+                  "stop": "Lempar galat; App memakai input berkas",
+                  "code": "canPickFiles"
+                }
+              ]
+            },
+            {
+              "do": "Buka pemilih dengan filter .gan atau .rentang",
+              "code": "TYPES"
+            },
+            {
+              "if": "Pengguna menutup pemilih (AbortError)?",
+              "then": [
+                {
+                  "stop": "Kembalikan null",
+                  "code": "cancelled"
+                }
+              ]
+            },
+            {
+              "stop": "Kembalikan File",
+              "code": "pickFile"
+            }
+          ]
+        },
+        {
+          "id": "simpan",
+          "name": "Menyimpan berkas",
+          "summary": "Menulis ke tempat yang dipilih pengguna; tanpa API atau saat gagal, berkas diunduh.",
+          "symbols": ["saveFile", "canSaveFiles"],
+          "steps": [
+            {
+              "if": "showSaveFilePicker tersedia?",
+              "then": [
+                "Minta lokasi dengan nama usulan",
+                {
+                  "if": "Pengguna membatalkan?",
+                  "then": [
+                    {
+                      "stop": "Kembalikan false"
+                    }
+                  ]
+                },
+                {
+                  "if": "Tulis berhasil?",
+                  "then": [
+                    {
+                      "stop": "Kembalikan true"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "Buat Blob lalu klik tautan unduh sementara",
+              "code": "saveFile"
+            },
+            {
+              "stop": "Kembalikan true"
+            }
+          ],
+          "rules": ["Tidak ada yang dikirim ke server; berkas hanya ditulis di komputer pengguna."]
+        }
+      ]
+    },
+    {
+      "id": "project-file",
+      "group": "ui-files",
+      "name": "Isi dan nama berkas .rentang",
+      "summary": "JSON berkas .rentang dengan schemaVersion, dan nama berkas yang aman dari nama proyek.",
+      "files": ["src/ui/project/project-file.ts"],
+      "tests": ["src/ui/project/project-file.test.ts"],
+      "algorithms": [
+        {
+          "id": "serialisasi",
+          "name": "Menulis .rentang",
+          "summary": "{ schemaVersion, project } dengan indentasi 2 spasi; nama dari huruf dan angka saja.",
+          "symbols": ["serializeProject", "projectFileName"],
+          "steps": [
+            {
+              "do": "JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, project }, null, 2)",
+              "code": "serializeProject"
+            },
+            "Normalkan nama (NFKD), ganti selain huruf/angka dengan '-', buang '-' di tepi",
+            {
+              "if": "Nama menjadi kosong?",
+              "then": [
+                {
+                  "stop": "'proyek.rentang'"
+                }
+              ]
+            },
+            {
+              "stop": "'<nama>.rentang'",
+              "code": "projectFileName"
+            }
+          ],
+          "examples": [
+            {
+              "given": "projectFileName('Kedai Kopi')",
+              "result": "'Kedai-Kopi.rentang'"
+            }
+          ],
+          "rules": ["Rentang hanya menulis .rentang, tidak pernah .gan."]
+        }
+      ]
+    },
+    {
+      "id": "import-report",
+      "group": "ui-files",
+      "name": "Laporan impor dan pesan galat",
+      "summary": "Menerjemahkan kode terstruktur dari core (laporan impor, galat buka, notice) menjadi kalimat Indonesia.",
+      "description": "Core tidak menyimpan teks untuk pengguna; ia mengembalikan kode seperti 'dependency-type-converted'. Modul ini mengelompokkan kode, menyebut nama tugas, dan menulis kalimat untuk dialog laporan impor dan bilah pesan.",
+      "files": [
+        "src/ui/import/report-text.ts",
+        "src/ui/import/error-text.ts",
+        "src/ui/import/ImportReportDialog.svelte"
+      ],
+      "tests": ["src/ui/import/report-text.test.ts", "src/ui/shell/App.test.ts"],
+      "algorithms": [
+        {
+          "id": "laporan",
+          "name": "Kalimat laporan impor",
+          "summary": "Menghitung yang berhasil, diubah, dan dilewati, lalu menulis satu baris per jenis dengan nama tugas sebagai detail.",
+          "symbols": ["describeReport", "groupBy", "only", "line"],
+          "steps": [
+            "Petakan id tugas ke nama untuk detail",
+            "Tulis ringkasan yang berhasil: tugas induk, milestone, catatan, dependensi, orang, libur",
+            {
+              "do": "Kelompokkan perubahan dan yang dilewati menurut kode",
+              "code": "groupBy"
+            },
+            {
+              "loop": "Masih ada jenis kode?",
+              "body": [
+                {
+                  "if": "Jumlahnya 0?",
+                  "then": ["Lewati"],
+                  "else": [
+                    {
+                      "do": "Satu kalimat + daftar nama",
+                      "code": "line"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stop": "ReportText { counts, imported, changed, skipped }"
+            }
+          ]
+        },
+        {
+          "id": "galat",
+          "name": "Pesan galat dan notice",
+          "summary": "Satu kalimat untuk setiap jenis galat buka berkas dan notice.",
+          "symbols": ["describeOpenError", "describeNotice"],
+          "steps": [
+            {
+              "if": "Suntingan ditolak?",
+              "then": [
+                {
+                  "stop": "'Perubahan tidak disimpan karena …' + daftar masalah"
+                }
+              ]
+            },
+            {
+              "if": "Penyimpanan gagal?",
+              "then": [
+                {
+                  "stop": "Saran memeriksa izin situs atau mode pribadi"
+                }
+              ]
+            },
+            {
+              "stop": "'<berkas>: ' + kalimat untuk jenis galat",
+              "code": "describeOpenError"
+            }
+          ]
+        },
+        {
+          "id": "dialog",
+          "name": "Dialog laporan impor",
+          "summary": "Tampil selama ada pendingImport; menutupnya membatalkan, Simpan proyek mengonfirmasi.",
+          "symbols": ["pending", "text"],
+          "steps": [
+            {
+              "do": "Baca pendingImport dari store",
+              "code": "pending"
+            },
+            {
+              "do": "Ubah laporan menjadi kalimat",
+              "code": "text"
+            },
+            {
+              "if": "Pengguna menekan Simpan proyek?",
+              "then": [
+                {
+                  "stop": "store.confirmImport()"
+                }
+              ],
+              "else": [
+                {
+                  "stop": "store.cancelImport()"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "project-list",
+      "group": "ui-list",
+      "name": "Daftar proyek",
+      "summary": "Tabel atau kartu proyek tersimpan, pencarian tanpa peduli huruf besar dan aksen, dan tampilan kosong.",
+      "files": [
+        "src/ui/list/ProjectList.svelte",
+        "src/ui/list/list-text.ts",
+        "src/ui/list/EmptyState.svelte"
+      ],
+      "tests": ["src/ui/list/list-text.test.ts", "e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "cari",
+          "name": "Mencari proyek",
+          "summary": "Setiap kata harus ada di nama atau nama berkas; huruf besar dan aksen diabaikan.",
+          "symbols": ["filterProjects", "shown"],
+          "steps": [
+            "Normalkan teks: NFD, buang diakritik, huruf kecil",
+            "Pecah kueri menjadi kata",
+            {
+              "stop": "Simpan proyek yang memuat semua kata",
+              "code": "filterProjects"
+            }
+          ],
+          "examples": [
+            {
+              "given": "kueri 'kedai kopi'",
+              "result": "cocok dengan 'Peluncuran Kedai Kopi'"
+            }
+          ]
+        },
+        {
+          "id": "teks",
+          "name": "Teks waktu dan milestone",
+          "summary": "'Kemarin', '3 hari lalu', '2 bulan lalu'; tanggal milestone dengan tahun bila beda tahun.",
+          "symbols": ["relativeDay", "shortDateFrom", "milestoneText", "localDateOf"],
+          "steps": [
+            {
+              "do": "Ubah waktu simpan (RFC 3339) ke tanggal lokal",
+              "code": "localDateOf"
+            },
+            {
+              "if": "Hari ini atau kemarin?",
+              "then": [
+                {
+                  "stop": "'Hari ini' / 'Kemarin'"
+                }
+              ]
+            },
+            {
+              "stop": "Hari, minggu, bulan, atau tahun yang lalu",
+              "code": "relativeDay"
+            }
+          ],
+          "rules": ["Bila semua tugas selesai, milestone diganti 'Semua tugas selesai'."]
+        },
+        {
+          "id": "kosong",
+          "name": "Tampilan kosong dan membuka proyek",
+          "summary": "Tanpa proyek, ditawarkan impor .gan, buka .rentang, proyek kosong, atau demo; klik baris membuka proyek.",
+          "symbols": ["options", "open"],
+          "steps": [
+            {
+              "if": "Belum ada proyek tersimpan?",
+              "then": [
+                {
+                  "stop": "Tampilkan pilihan: impor, buka, proyek kosong, demo",
+                  "code": "options"
+                }
+              ]
+            },
+            {
+              "stop": "Klik baris atau kartu: store.openProject(id)",
+              "code": "open"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "project-view",
+      "group": "ui-project",
+      "name": "Tampilan proyek dan toolbar",
+      "summary": "Menghubungkan tombol, Gantt, tabel, dan dialog dengan store: setiap aksi menjadi store.edit(label, resep).",
+      "description": "Komponen penghubung terbesar. Ia memegang state tampilan (zoom, kolom, filter, tugas terpilih, dialog yang terbuka) dan menerjemahkan event dari GanttView, TaskTable, dan dialog menjadi resep suntingan. Tidak ada logika penjadwalan di sini.",
+      "files": [
+        "src/ui/project/ProjectView.svelte",
+        "src/ui/project/RenameProjectDialog.svelte",
+        "src/ui/project/DeleteProjectDialog.svelte"
+      ],
+      "tests": ["e2e/app.spec.ts", "src/ui/shell/App.test.ts"],
+      "rules": [
+        "Semua perubahan proyek lewat store.edit, supaya selalu tervalidasi dan bisa diurungkan."
+      ],
+      "algorithms": [
+        {
+          "id": "simpan-tugas",
+          "name": "Menyimpan dialog tugas",
+          "summary": "Tugas baru: addTask atau addSubtask lalu setPredecessors, dalam satu edit. Tugas lama: updateTask, setParent bila induk berubah, setPredecessors.",
+          "symbols": ["submitTask"],
+          "steps": [
+            {
+              "if": "Dialog tugas baru?",
+              "then": [
+                "Buat id baru",
+                {
+                  "if": "Ada induk yang dipilih?",
+                  "then": ["Resep addSubtask"],
+                  "else": ["Resep addTask setelah tugas terpilih"]
+                },
+                "store.edit('Tugas ditambahkan', resep lalu setPredecessors)",
+                {
+                  "if": "Diterapkan?",
+                  "then": ["Pilih tugas baru"]
+                }
+              ],
+              "else": [
+                "store.edit('Tugas diubah', updateTask, setParent bila induk berubah, setPredecessors)"
+              ]
+            },
+            {
+              "stop": "Tutup dialog",
+              "code": "submitTask"
+            }
+          ]
+        },
+        {
+          "id": "struktur",
+          "name": "Toolbar: struktur dan hapus",
+          "summary": "Tombol aktif hanya bila aksinya mungkin; menghapus juga membersihkan pilihan bila tugas terpilih ikut terhapus.",
+          "symbols": [
+            "canIndent",
+            "canOutdent",
+            "canAddSubtask",
+            "restructure",
+            "removeTaskById",
+            "removeTask"
+          ],
+          "steps": [
+            {
+              "do": "Indent mungkin bila ada saudara di atas yang bukan milestone",
+              "code": "canIndent"
+            },
+            {
+              "do": "Jalankan indent atau outdent lewat store.edit",
+              "code": "restructure"
+            },
+            {
+              "if": "Menghapus dan tugas terpilih ada di subpohon yang dihapus?",
+              "then": ["Kosongkan pilihan"]
+            },
+            {
+              "stop": "store.edit('Tugas dihapus', deleteTask(id)); bisa diurungkan dari toast",
+              "code": "removeTaskById"
+            }
+          ]
+        },
+        {
+          "id": "seret",
+          "name": "Menerima hasil seret bar",
+          "summary": "Hasil seret dari Gantt menjadi resep reschedule dengan label sesuai mode.",
+          "symbols": ["moveTask"],
+          "steps": [
+            {
+              "if": "Mode move?",
+              "then": ["Label 'Tugas dipindah'"],
+              "else": ["Label 'Durasi diubah'"]
+            },
+            "store.edit(label, reschedule(id, start, duration))",
+            {
+              "stop": "Pilih tugas yang diseret",
+              "code": "moveTask"
+            }
+          ]
+        },
+        {
+          "id": "zoom",
+          "name": "Zoom dan pilihan induk",
+          "summary": "Zoom bergerak satu tingkat dan disimpan di preferensi; daftar induk untuk dialog tanpa subpohon tugas itu sendiri dan tanpa milestone.",
+          "symbols": ["stepZoom", "setZoom", "parentOptions"],
+          "steps": [
+            {
+              "if": "Sudah di ujung daftar zoom?",
+              "then": [
+                {
+                  "stop": "Tetap"
+                }
+              ]
+            },
+            {
+              "do": "Zoom berikutnya; simpan di preferensi",
+              "code": "setZoom"
+            },
+            {
+              "stop": "parentOptions: telusuri pohon menurut urutan, lewati subpohon sendiri dan milestone",
+              "code": "parentOptions"
+            }
+          ]
+        },
+        {
+          "id": "proyek",
+          "name": "Nama, hapus, simpan ke berkas, dan siklus",
+          "summary": "Aksi tingkat proyek di ujung toolbar, dan bilah peringatan bila ada siklus dependensi.",
+          "symbols": [
+            "renameCurrent",
+            "deleteCurrent",
+            "saveToFile",
+            "showTaskInGantt",
+            "cycle",
+            "submit"
+          ],
+          "steps": [
+            {
+              "do": "Ganti nama: store.edit(renameProject)",
+              "code": "renameCurrent"
+            },
+            {
+              "do": "Hapus proyek: store.deleteProject(id)",
+              "code": "deleteCurrent"
+            },
+            {
+              "do": "Simpan ke berkas: serializeProject lalu saveFile",
+              "code": "saveToFile"
+            },
+            {
+              "if": "Analisis gagal karena siklus?",
+              "then": [
+                {
+                  "stop": "Tampilkan nama tugas di siklus: A → B → A",
+                  "code": "cycle"
+                }
+              ]
+            },
+            {
+              "stop": "Selesai"
+            }
+          ]
+        },
+        {
+          "id": "dokumen",
+          "name": "Tampilan Dokumen dan tautan ke tugas",
+          "summary": "Segmen Dokumen membuka DocumentsView; tautan berjalan dua arah antara dokumen dan Gantt.",
+          "symbols": ["showDocument", "showTaskInGantt"],
+          "steps": [
+            "Tombol 'Dokumen baru' di toolbar menaikkan addDocumentRequest; DocumentsView membuat dokumennya",
+            {
+              "do": "Kartu tugas di samping dokumen → tampilan Gantt dengan tugas itu terpilih",
+              "code": "showTaskInGantt"
+            },
+            {
+              "stop": "'Disebut di' di dialog tugas → tutup dialog, buka dokumen itu",
+              "code": "showDocument"
+            }
+          ],
+          "rules": [
+            "Dokumen yang terbuka diingat selama tab proyek terbuka, tidak disimpan ke berkas."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "task-dialog",
+      "group": "ui-project",
+      "name": "Dialog tugas dan pilihan predecessor",
+      "summary": "Formulir tugas yang selalu diisi ulang saat dibuka, dan daftar predecessor yang tidak akan membuat siklus.",
+      "files": ["src/ui/project/TaskDialog.svelte", "src/ui/project/predecessors.ts"],
+      "tests": ["src/ui/project/predecessors.test.ts", "e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "formulir",
+          "name": "Mengisi dan memvalidasi formulir",
+          "summary": "Setiap kali dibuka, formulir diisi dari tugas (atau nilai bawaan); Simpan aktif hanya bila isiannya sah.",
+          "symbols": ["valid", "submit", "isSummary"],
+          "steps": [
+            "Saat dibuka: isi dari tugas yang disunting, atau tanggal bawaan untuk tugas baru",
+            {
+              "do": "Sah bila nama terisi, mulai tanggal 1970-2100, dan durasi 1-3650 (kecuali milestone)",
+              "code": "valid"
+            },
+            {
+              "if": "Tidak sah?",
+              "then": [
+                {
+                  "stop": "Abaikan submit"
+                }
+              ]
+            },
+            {
+              "stop": "onSubmit(TaskInput, induk, predecessor)",
+              "code": "submit"
+            }
+          ],
+          "pitfalls": [
+            "Catatan diisi dengan noteTextOf, yang mengembalikan '' untuk catatan berbentuk dokumen editor (hasil impor dan demo). Menyimpan dialog lalu menghapus catatan itu."
+          ]
+        },
+        {
+          "id": "predecessor",
+          "name": "Predecessor yang aman",
+          "summary": "Menawarkan setiap tugas kecuali subpohon sendiri dan tugas yang sudah (langsung atau tidak) menunggu tugas ini.",
+          "symbols": ["predecessorOptions", "makesLoop", "predecessorIds"],
+          "steps": [
+            "Hitung subpohon tugas ini",
+            {
+              "loop": "Masih ada tugas di pohon (menurut urutan)?",
+              "body": [
+                {
+                  "if": "Termasuk subpohon sendiri?",
+                  "then": ["Lewati"]
+                },
+                {
+                  "do": "Coba dependensi uji tugas → ini, bangun graf daun",
+                  "code": "makesLoop"
+                },
+                {
+                  "if": "Graf gagal karena siklus?",
+                  "then": ["Jangan tawarkan"],
+                  "else": ["Tawarkan, menjorok sesuai kedalaman"]
+                }
+              ]
+            },
+            {
+              "stop": "Daftar pilihan; yang sudah dipilih dibaca dengan predecessorIds",
+              "code": "predecessorOptions"
+            }
+          ],
+          "complexity": "Satu bangun graf per kandidat: O(n × (V + E)). Cukup untuk ratusan tugas.",
+          "rules": [
+            "Dependensi lama menuju tugas ini diabaikan saat menguji, karena akan diganti oleh pilihan baru."
+          ]
+        }
+      ],
+      "rules": [
+        "Bagian 'Disebut di' menampilkan dokumen yang menyebut tugas (documentsMentioning); klik membuka dokumen itu."
+      ]
+    },
+    {
+      "id": "calendar-dialog",
+      "group": "ui-project",
+      "name": "Dialog kalender kerja",
+      "summary": "Mengatur hari kerja pekanan dan hari libur; setiap perubahan langsung menjadwalkan ulang proyek.",
+      "files": ["src/ui/project/CalendarDialog.svelte"],
+      "tests": ["e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "kalender",
+          "name": "Mengubah kalender dari dialog",
+          "summary": "Pekan ditampilkan mulai Senin; tanggal libur yang sama hanya mengganti nama.",
+          "symbols": ["toggleDay", "add", "WEEK", "taken"],
+          "steps": [
+            {
+              "if": "Mengklik hari pekan?",
+              "then": [
+                {
+                  "do": "Nyalakan atau matikan hari itu: store.edit(setWorkingDays)",
+                  "code": "toggleDay"
+                }
+              ],
+              "else": [
+                {
+                  "if": "Tanggal tidak sah?",
+                  "then": [
+                    {
+                      "stop": "Abaikan"
+                    }
+                  ]
+                },
+                {
+                  "do": "store.edit(addHoliday(tanggal, nama)); fokus kembali ke tanggal",
+                  "code": "add"
+                }
+              ]
+            },
+            {
+              "stop": "Store menjadwalkan ulang semua tugas"
+            }
+          ],
+          "pitfalls": [
+            "Mematikan hari kerja terakhir diabaikan oleh resep (minimal satu hari kerja), jadi tombolnya terlihat tidak berbuat apa-apa."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "people",
+      "group": "ui-resource",
+      "name": "Orang dan penugasan",
+      "summary": "Baris orang untuk tampilan Resource: inisial, nama role, jumlah tugas, dan tugas seseorang urut jadwal.",
+      "files": ["src/ui/resource/people.ts"],
+      "tests": ["src/ui/resource/people.test.ts"],
+      "algorithms": [
+        {
+          "id": "orang",
+          "name": "Baris orang dan pencarian",
+          "summary": "Inisial dari dua kata pertama; pencarian di nama dan role.",
+          "symbols": ["initialsOf", "buildPeople", "filterPeople"],
+          "steps": [
+            {
+              "if": "Nama kosong?",
+              "then": [
+                {
+                  "stop": "'?'"
+                }
+              ]
+            },
+            {
+              "if": "Hanya satu kata?",
+              "then": [
+                {
+                  "stop": "Dua huruf pertama"
+                }
+              ]
+            },
+            {
+              "do": "Huruf pertama dua kata pertama",
+              "code": "initialsOf"
+            },
+            {
+              "do": "Gabungkan dengan nama role dan jumlah penugasan",
+              "code": "buildPeople"
+            },
+            {
+              "stop": "Saring nama + role dengan kueri (huruf kecil)",
+              "code": "filterPeople"
+            }
+          ],
+          "examples": [
+            {
+              "given": "initialsOf('Sari Wulandari')",
+              "result": "'SW'"
+            },
+            {
+              "given": "initialsOf('Dimas')",
+              "result": "'DI'"
+            }
+          ]
+        },
+        {
+          "id": "tugas",
+          "name": "Tugas seseorang",
+          "summary": "Penugasan orang itu dipetakan ke tugas dan tanggal terjadwalnya, urut tanggal mulai.",
+          "symbols": ["tasksOf"],
+          "steps": [
+            "Ambil penugasan milik orang itu",
+            "Cari tugasnya; penugasan ke tugas yang tidak ada dilewati",
+            {
+              "stop": "Urutkan menurut mulai terjadwal (atau mulai diminta)",
+              "code": "tasksOf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "resource-view",
+      "group": "ui-resource",
+      "name": "Tampilan Resource",
+      "summary": "Daftar orang dan rinciannya: menambah orang, menugaskan ke tugas daun, mengelola role.",
+      "files": [
+        "src/ui/resource/ResourceView.svelte",
+        "src/ui/resource/RoleDialog.svelte",
+        "src/ui/resource/Avatar.svelte"
+      ],
+      "tests": ["e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "orang",
+          "name": "Menambah dan menugaskan orang",
+          "summary": "Tombol Orang menambah 'Orang baru' lalu memfokuskan namanya; hanya tugas daun yang belum ditugaskan bisa dipilih.",
+          "symbols": ["addPerson", "assignSelected", "assignable", "current", "rangeOf"],
+          "steps": [
+            {
+              "do": "store.edit(addResource(id, 'Orang baru'))",
+              "code": "addPerson"
+            },
+            {
+              "if": "Diterapkan?",
+              "then": ["Pilih orang itu, fokus dan pilih teks namanya"]
+            },
+            {
+              "do": "Tugas yang bisa ditugaskan: daun yang belum dimiliki orang ini",
+              "code": "assignable"
+            },
+            {
+              "stop": "store.edit(assign(id, tugas, orang))",
+              "code": "assignSelected"
+            }
+          ]
+        },
+        {
+          "id": "role",
+          "name": "Mengelola role",
+          "summary": "Menambah, mengganti nama, dan menghapus role; setiap role menunjukkan berapa orang memakainya.",
+          "symbols": ["add", "usage"],
+          "steps": [
+            {
+              "do": "Hitung pemakai setiap role",
+              "code": "usage"
+            },
+            {
+              "if": "Nama role kosong?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "stop": "store.edit(addRole(id, nama)); fokus kembali ke isian",
+              "code": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "task-rows",
+      "group": "ui-table",
+      "name": "Baris tabel tugas",
+      "summary": "Meratakan pohon tugas menjadi baris berurutan untuk tabel dan Gantt: WBS, tingkat, tanggal, status, kritis.",
+      "description": "Tabel dan Gantt memakai baris yang sama, jadi baris ke-i di tabel selalu sejajar dengan bar ke-i di chart. Subpohon yang diciutkan dan tugas yang tersaring tidak menghasilkan baris.",
+      "files": ["src/ui/table/rows.ts"],
+      "tests": ["src/ui/table/rows.test.ts"],
+      "algorithms": [
+        {
+          "id": "baris",
+          "name": "Membangun baris",
+          "summary": "Telusuri pohon menurut urutan; tugas ringkasan tetap tampil selama ada anak yang lolos filter.",
+          "symbols": ["buildTaskRows", "isShown", "visit"],
+          "input": "project, analysis (boleh null), persen, id yang diciutkan, hari ini, filter.",
+          "output": "TaskRow[] berurutan.",
+          "steps": [
+            "Kelompokkan tugas per induk, urutkan menurut order",
+            "Petakan penugasan ke inisial orang",
+            {
+              "loop": "Masih ada tugas di tingkat ini?",
+              "body": [
+                {
+                  "if": "Tidak lolos filter (dan tidak punya anak yang lolos)?",
+                  "then": ["Lewati"]
+                },
+                "WBS = awalan induk + posisi di daftar penuh saudara",
+                "Tanggal dari analysis; status dari taskStatus (null untuk ringkasan)",
+                {
+                  "if": "Ringkasan yang terbuka?",
+                  "then": [
+                    {
+                      "do": "Kunjungi anak-anaknya, tingkat + 1",
+                      "code": "visit"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stop": "Daftar baris",
+              "code": "buildTaskRows"
+            }
+          ],
+          "examples": [
+            {
+              "given": "Tugas ke-1 di bawah tugas ke-2",
+              "result": "WBS '2.1', level 2"
+            }
+          ],
+          "rules": [
+            "WBS dihitung dari daftar penuh saudara, jadi nomor tugas tidak berubah saat disaring."
+          ]
+        },
+        {
+          "id": "filter",
+          "name": "Tipe dan filter",
+          "summary": "Kunci tipe (atau MS untuk milestone), jumlah per tipe, dan jumlah filter aktif.",
+          "symbols": ["typeKeyOf", "countTypes", "activeFilters"],
+          "steps": [
+            {
+              "if": "Milestone?",
+              "then": [
+                {
+                  "stop": "'MS'"
+                }
+              ]
+            },
+            {
+              "do": "Tipe tugas, atau null",
+              "code": "typeKeyOf"
+            },
+            {
+              "do": "Hitung tugas per kunci untuk menu filter",
+              "code": "countTypes"
+            },
+            {
+              "stop": "Filter aktif = tipe tersembunyi + (sembunyikan selesai ? 1 : 0)",
+              "code": "activeFilters"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "treegrid-keys",
+      "group": "ui-table",
+      "name": "Keyboard treegrid",
+      "summary": "Memetakan tombol ke aksi tabel pohon (pola WAI-ARIA treegrid dengan fokus di baris).",
+      "files": ["src/ui/table/treegrid-keys.ts"],
+      "tests": ["src/ui/table/treegrid-keys.test.ts"],
+      "algorithms": [
+        {
+          "id": "tombol",
+          "name": "Tombol ke aksi",
+          "summary": "Panah, Home/End, Page Up/Down; panah kanan/kiri membuka, menutup, atau naik ke induk.",
+          "symbols": ["treegridAction"],
+          "steps": [
+            {
+              "if": "Panah atas/bawah, Home/End, atau Page?",
+              "then": [
+                {
+                  "stop": "focus(indeks baru, dibatasi)"
+                }
+              ]
+            },
+            {
+              "if": "Panah kanan?",
+              "then": [
+                {
+                  "if": "Bukan ringkasan?",
+                  "then": [
+                    {
+                      "stop": "none"
+                    }
+                  ]
+                },
+                {
+                  "if": "Sudah terbuka?",
+                  "then": [
+                    {
+                      "stop": "focus(baris anak pertama)"
+                    }
+                  ],
+                  "else": [
+                    {
+                      "stop": "expand"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "if": "Panah kiri?",
+              "then": [
+                {
+                  "if": "Ringkasan yang terbuka?",
+                  "then": [
+                    {
+                      "stop": "collapse"
+                    }
+                  ]
+                },
+                {
+                  "stop": "focus(baris induk), atau none di tingkat atas"
+                }
+              ]
+            },
+            {
+              "stop": "none",
+              "code": "treegridAction"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "task-table",
+      "group": "ui-table",
+      "name": "Tabel tugas",
+      "summary": "Treegrid: fokus dan keyboard, seret baris untuk mengurutkan atau menjadikan subtugas, buka dengan Enter atau klik ganda.",
+      "files": ["src/ui/table/TaskTable.svelte", "src/ui/table/TypeChip.svelte"],
+      "tests": ["e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "keyboard",
+          "name": "Keyboard tabel",
+          "summary": "Enter membuka, Delete menghapus, Spasi memilih; tombol lain diputuskan treegridAction.",
+          "symbols": ["onKeydown", "focusRow", "activeIndex"],
+          "steps": [
+            {
+              "if": "Fokus di tombol dalam baris?",
+              "then": [
+                {
+                  "stop": "Abaikan"
+                }
+              ]
+            },
+            {
+              "if": "Enter, Delete, atau Spasi?",
+              "then": [
+                {
+                  "stop": "Buka, hapus, atau pilih tugas"
+                }
+              ]
+            },
+            "action = treegridAction(tombol, baris, indeks aktif)",
+            {
+              "if": "Aksi focus?",
+              "then": [
+                {
+                  "do": "Fokus baris itu dan pilih tugasnya",
+                  "code": "focusRow"
+                }
+              ],
+              "else": ["Buka atau tutup ringkasan"]
+            },
+            {
+              "stop": "Selesai",
+              "code": "onKeydown"
+            }
+          ]
+        },
+        {
+          "id": "seret",
+          "name": "Seret baris",
+          "summary": "Di separuh kiri baris: sebelum atau sesudah (ikut grup baris itu). Di separuh kanan: menjadi subtugas.",
+          "symbols": ["dropPlace", "isInside", "endDrag"],
+          "steps": [
+            "Menekan pegangan baris mengizinkan seret (armedId)",
+            {
+              "if": "Tugas dijatuhkan ke dirinya sendiri?",
+              "then": [
+                {
+                  "stop": "Tolak"
+                }
+              ]
+            },
+            {
+              "if": "Di separuh kiri dan target bukan keturunannya?",
+              "then": [
+                {
+                  "stop": "before atau after menurut setengah tinggi baris → onReorder"
+                }
+              ]
+            },
+            {
+              "if": "Target milestone, keturunannya, atau sudah induknya?",
+              "then": [
+                {
+                  "stop": "Tolak",
+                  "code": "isInside"
+                }
+              ]
+            },
+            {
+              "stop": "inside → onNest (menjadi subtugas)",
+              "code": "dropPlace"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "table-toolbar",
+      "group": "ui-table",
+      "name": "Toolbar tabel, filter, dan kolom",
+      "summary": "Pindah tugas terpilih ke atas/bawah, filter tipe dan tugas selesai, serta kolom yang tampil.",
+      "files": [
+        "src/ui/project/TableToolbar.svelte",
+        "src/ui/project/FilterMenu.svelte",
+        "src/ui/project/ColumnMenu.svelte"
+      ],
+      "tests": ["e2e/app.spec.ts"],
+      "algorithms": [
+        {
+          "id": "filter",
+          "name": "Filter dan kolom",
+          "summary": "Menyalakan atau mematikan tipe; Reset mengosongkan semua filter; kolom Nama selalu tampil.",
+          "symbols": ["toggleType", "KEYS", "options", "arrow"],
+          "steps": [
+            {
+              "do": "Tipe urut seperti desain: kerja dulu, milestone terakhir",
+              "code": "KEYS"
+            },
+            {
+              "do": "Klik tipe: tambahkan atau buang dari hiddenTypes",
+              "code": "toggleType"
+            },
+            "onChange(filter baru) → baris dibangun ulang",
+            {
+              "stop": "Menu kolom: onChange(kolom) dan simpan di preferensi",
+              "code": "options"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "documents-view",
+      "group": "ui-docs",
+      "name": "Tampilan Dokumen",
+      "summary": "Daftar dokumen, halaman dengan editor, dan ringkasan (judul, tugas yang disebut).",
+      "description": "Tiga kolom: daftar dokumen datar di kiri, halaman di tengah (judul, editor), dan ringkasan di kanan. DocumentEditor memuat editor TipTap secara malas, menyimpan ketikan 500 ms setelah berhenti, dan menampilkan perubahan dari luar (undo, redo) tanpa menjadikannya ketikan baru.",
+      "files": ["src/ui/docs/DocumentsView.svelte", "src/ui/docs/DocumentEditor.svelte"],
+      "rules": [
+        "Ketikan disimpan dengan edit quiet dan mergeKey content:<id dokumen>:<kunjungan>, jadi satu kunjungan ke editor = satu langkah undo.",
+        "Ringkasan (judul, tugas yang disebut, jumlah kata) dibaca dari isi yang sedang tampil, bukan menunggu simpan."
+      ],
+      "algorithms": [
+        {
+          "id": "simpan",
+          "name": "Dari ketikan ke proyek",
+          "summary": "Setiap perubahan di editor dilaporkan segera untuk ringkasan, lalu disimpan setelah jeda.",
+          "symbols": ["changed", "flush", "commit", "rename"],
+          "steps": [
+            {
+              "do": "onChange dari editor: laporkan isi untuk ringkasan, tunda simpan 500 ms",
+              "code": "changed"
+            },
+            {
+              "loop": "Masih mengetik dalam 500 ms?",
+              "body": ["Mulai ulang penundaan"]
+            },
+            {
+              "do": "Simpan: setelah jeda, saat editor ditinggalkan, saat pindah dokumen, atau saat tab disembunyikan",
+              "code": "flush"
+            },
+            {
+              "do": "setDocumentContent lewat edit(quiet, mergeKey per kunjungan)",
+              "code": "commit"
+            },
+            {
+              "stop": "Judul: setiap ketikan langsung edit(quiet, mergeKey title:<id>:<kunjungan>)",
+              "code": "rename"
+            }
+          ],
+          "pitfalls": [
+            "Isi disimpan atas nama dokumen saat editor dibuka (ownId), bukan dokumen yang sedang dipilih: saat pindah dokumen, simpan terakhir terjadi ketika dokumen berikutnya sudah tampil."
+          ]
+        },
+        {
+          "id": "luar",
+          "name": "Perubahan dari luar editor",
+          "summary": "Undo, redo, atau suntingan lain mengganti isi editor tanpa menjadi ketikan atau langkah undo di editor.",
+          "symbols": ["known"],
+          "steps": [
+            {
+              "if": "JSON isi tersimpan sama dengan yang terakhir diketahui editor?",
+              "then": [
+                {
+                  "stop": "Tidak ada yang dilakukan"
+                }
+              ]
+            },
+            "Buang ketikan yang belum tersimpan",
+            {
+              "stop": "setContent tanpa riwayat editor dan tanpa onChange; ringkasan ikut isi baru"
+            }
+          ]
+        },
+        {
+          "id": "daftar",
+          "name": "Daftar dokumen",
+          "summary": "Memilih, membuat, menghapus, dan mengurutkan dokumen (seret atau Alt+panah).",
+          "symbols": ["open", "create", "remove", "move", "moveByKey", "dropPlace"],
+          "steps": [
+            {
+              "do": "Dokumen baru: addDocument, pilih, fokus ke judul",
+              "code": "create"
+            },
+            {
+              "do": "Hapus: deleteDocument dengan toast Urungkan, pilih tetangganya",
+              "code": "remove"
+            },
+            {
+              "do": "Seret: separuh atas = sebelum, separuh bawah = sesudah",
+              "code": "dropPlace"
+            },
+            {
+              "stop": "Alt+↑/↓ pada item: pindah melewati tetangga, fokus ikut",
+              "code": "moveByKey"
+            }
+          ]
+        },
+        {
+          "id": "ringkasan",
+          "name": "Ringkasan di samping",
+          "summary": "'Di halaman ini' menggulir ke judul; klik sebutan menyorot kartu tugasnya.",
+          "symbols": ["showHeading", "followScroll", "highlight"],
+          "steps": [
+            {
+              "do": "Klik judul di ringkasan → gulir ke judul ke-n di halaman",
+              "code": "showHeading"
+            },
+            {
+              "do": "Saat menggulir, judul terakhir di atas batas baca menjadi aktif",
+              "code": "followScroll"
+            },
+            {
+              "stop": "Klik sebutan di halaman → sorot kartu tugasnya (klik lagi: lepas)",
+              "code": "highlight"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "document-editor",
+      "group": "ui-docs",
+      "name": "Editor dokumen (TipTap)",
+      "summary": "TipTap dengan judul, daftar, daftar centang, kutipan, sorotan, menu \"/\", dan sebutan tugas \"@\".",
+      "description": "Dimuat malas oleh DocumentEditor, jadi TipTap tidak ikut unduhan pertama. Judul di dalam dokumen disimpan level 1 dan 2 tetapi digambar sebagai h3 dan h4, karena judul dokumen sudah h2. Chip sebutan digambar oleh node view dari tautan tugas terbaru, bukan dari isi dokumen.",
+      "files": ["src/ui/docs/editor.ts"],
+      "rules": [
+        "Isi masuk dan keluar sebagai JSON editor; komponen yang memutuskan kapan menyimpan.",
+        "Isi yang tidak cocok dengan skema editor membuat editor hanya-baca, supaya isi aslinya tidak tertimpa."
+      ],
+      "algorithms": [
+        {
+          "id": "susun",
+          "name": "Menyusun editor",
+          "summary": "StarterKit tanpa heading bawaan, ditambah heading dokumen, sorotan, daftar centang, placeholder, sebutan, menu blok, dan pindah blok.",
+          "symbols": ["createDocumentEditor", "DocumentHeading", "Callout"],
+          "steps": [
+            {
+              "do": "Buat Editor dengan pemeriksaan isi",
+              "code": "createDocumentEditor"
+            },
+            {
+              "if": "Isi tidak cocok dengan skema?",
+              "then": ["Jadikan hanya-baca (readable = false)"]
+            },
+            {
+              "do": "# dan ## di awal baris menjadi Judul 1 dan 2 (h3, h4)",
+              "code": "DocumentHeading"
+            },
+            {
+              "stop": "Sorotan: blok berikon lampu dengan isi inline",
+              "code": "Callout"
+            }
+          ]
+        },
+        {
+          "id": "sebut",
+          "name": "Sebutan tugas",
+          "summary": "Node taskMention yang chip-nya selalu menggambar nama, jenis, dan persen atau tanggal terbaru.",
+          "symbols": ["TaskMention", "showTasks"],
+          "steps": [
+            "Ketik @: menu tugas (findTasks), Enter menyisipkan { id, label }",
+            {
+              "do": "Node view menggambar chip dari tautan tugas; tugas yang hilang tampil dicoret",
+              "code": "TaskMention"
+            },
+            {
+              "stop": "Tautan atau sorotan berubah → semua chip digambar ulang",
+              "code": "showTasks"
+            }
+          ]
+        },
+        {
+          "id": "menu",
+          "name": "Menu \"/\" dan \"@\"",
+          "summary": "Saran TipTap melapor ke komponen; komponen menggambar menu dan menangani panah, Enter, dan Tab.",
+          "symbols": ["menuRenderer", "applyBlock"],
+          "steps": [
+            {
+              "do": "onStart/onUpdate: kirim jenis menu, isi, letak caret, dan fungsi pilih",
+              "code": "menuRenderer"
+            },
+            {
+              "if": "Escape?",
+              "then": [
+                {
+                  "stop": "Saran menutup sendiri (onExit)"
+                }
+              ]
+            },
+            {
+              "stop": "Pilihan blok: hapus \"/kata\" lalu ubah baris menjadi blok itu",
+              "code": "applyBlock"
+            }
+          ]
+        },
+        {
+          "id": "pindah-blok",
+          "name": "Gagang blok dan pindah blok",
+          "summary": "Gagang di kiri blok: + menambah blok di bawahnya, ⋮⋮ diseret untuk memindah; Alt+Shift+panah dari keyboard.",
+          "symbols": ["blockAt", "addBlockAfter", "dragBlock", "endDrag", "MoveBlock"],
+          "steps": [
+            {
+              "do": "Cari blok tingkat atas di bawah penunjuk",
+              "code": "blockAt"
+            },
+            {
+              "do": "+ : paragraf baru di bawahnya berisi \"/\" (menu blok terbuka)",
+              "code": "addBlockAfter"
+            },
+            {
+              "do": "Seret gagang: pilih blok sebagai NodeSelection, ProseMirror memindahkannya saat dilepas",
+              "code": "dragBlock"
+            },
+            {
+              "stop": "Alt+Shift+↑/↓: tukar blok dengan tetangganya, caret ikut",
+              "code": "MoveBlock"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "document-helpers",
+      "group": "ui-docs",
+      "name": "Teks dan tautan dokumen",
+      "summary": "Waktu relatif, judul, tautan tugas untuk chip dan kartu, pencarian \"@\", dan isi menu \"/\".",
+      "files": [
+        "src/ui/docs/document-text.ts",
+        "src/ui/docs/task-links.ts",
+        "src/ui/docs/blocks.ts"
+      ],
+      "tests": [
+        "src/ui/docs/document-text.test.ts",
+        "src/ui/docs/task-links.test.ts",
+        "src/ui/docs/blocks.test.ts"
+      ],
+      "algorithms": [
+        {
+          "id": "waktu",
+          "name": "Waktu ubah dan judul",
+          "summary": "'baru saja', 'N menit lalu', 'N jam lalu', 'kemarin', 'N hari lalu', 'N minggu lalu', lalu tanggal.",
+          "symbols": [
+            "timeAgo",
+            "daysBetween",
+            "capitalized",
+            "documentTitle",
+            "wordsLabel",
+            "titleFromFileName"
+          ],
+          "steps": [
+            {
+              "if": "Kurang dari 1 menit, atau jam komputer tertinggal?",
+              "then": [
+                {
+                  "stop": "'baru saja'"
+                }
+              ]
+            },
+            {
+              "if": "Kurang dari 1 jam?",
+              "then": [
+                {
+                  "stop": "'N menit lalu'"
+                }
+              ]
+            },
+            {
+              "if": "Hari yang sama, atau kurang dari 6 jam?",
+              "then": [
+                {
+                  "stop": "'N jam lalu'"
+                }
+              ]
+            },
+            {
+              "do": "Hitung selisih hari kalender lokal",
+              "code": "daysBetween"
+            },
+            {
+              "stop": "'kemarin', 'N hari lalu', 'N minggu lalu', atau tanggal",
+              "code": "timeAgo"
+            }
+          ],
+          "rules": [
+            "Judul kosong tampil sebagai 'Tanpa judul' (documentTitle).",
+            "Dokumen impor tanpa judul memakai nama berkas tanpa .md, .markdown, atau .mdown (titleFromFileName)."
+          ]
+        },
+        {
+          "id": "tugas",
+          "name": "Tautan tugas",
+          "summary": "Dari baris tugas: nama, jenis, persen atau tanggal milestone, rentang, dan hari terlambat.",
+          "symbols": ["taskLinks", "metaOf", "findTasks"],
+          "steps": [
+            {
+              "do": "Satu tautan per baris tugas, urut outline",
+              "code": "taskLinks"
+            },
+            {
+              "do": "Chip: persen untuk pekerjaan, tanggal untuk milestone",
+              "code": "metaOf"
+            },
+            "Terlambat = selesai sebelum hari ini dan belum 100% (bukan milestone)",
+            {
+              "stop": "@: nama diawali kueri dulu, lalu awal kata, lalu isi; nomor outline juga cocok",
+              "code": "findTasks"
+            }
+          ]
+        },
+        {
+          "id": "blok",
+          "name": "Isi menu \"/\"",
+          "summary": "Jenis blok beserta ikon, keterangan, dan pintasan; disaring per awal kata.",
+          "symbols": ["filterBlocks", "BLOCK_CHOICES"],
+          "steps": [
+            {
+              "if": "Kueri kosong?",
+              "then": [
+                {
+                  "stop": "Semua pilihan"
+                }
+              ]
+            },
+            {
+              "stop": "Pilihan yang kata labelnya atau kata kuncinya diawali kueri",
+              "code": "filterBlocks"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

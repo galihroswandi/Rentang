@@ -133,6 +133,11 @@ export default defineConfig([
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
   },
+  // The algorithm map viewer (tools/peta-algoritma) runs in the browser.
+  {
+    files: ['tools/peta-algoritma/viewer/**/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
   prettier,
   ...svelte.configs.prettier,
 ])

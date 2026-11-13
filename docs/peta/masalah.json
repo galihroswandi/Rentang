@@ -1,0 +1,660 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "symptoms": [
+    {
+      "id": "tanggal-selesai-salah",
+      "category": "jadwal",
+      "title": "Tanggal selesai tugas salah, atau tidak mengikuti hari libur",
+      "checks": [
+        {
+          "module": "schedule",
+          "code": "endOf",
+          "why": "Selesai = mulai + (durasi − 1) hari kerja. Salah hitung satu hari hampir selalu di sini."
+        },
+        {
+          "module": "calendar",
+          "code": "addWorkdays",
+          "why": "Melompati libur dan akhir pekan. Tanggal awal tidak dihitung."
+        },
+        {
+          "module": "calendar",
+          "code": "isWorkday",
+          "why": "Pastikan tanggal libur memang ada di project.calendar.holidays dan hari pekannya benar (0 = Minggu)."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/calendar.test.ts src/core/schedule.test.ts",
+      "tip": "Bandingkan dengan proyek emas Kedai Kopi yang dihitung manual (test-utils/coffee-shop.ts)."
+    },
+    {
+      "id": "mulai-tidak-sesuai-predecessor",
+      "category": "jadwal",
+      "title": "Tugas mulai terlalu awal atau terlalu lambat dibanding predecessor-nya",
+      "checks": [
+        {
+          "module": "schedule",
+          "code": "releaseOf",
+          "why": "Hari predecessor melepas: hari kerja setelah selesai, atau hari yang sama untuk milestone."
+        },
+        {
+          "module": "schedule",
+          "code": "scheduleGraph",
+          "why": "Lag ditambahkan dalam hari kerja dari hari pelepasan, lalu diambil yang paling lambat; mulai yang diminta adalah batas bawah."
+        },
+        {
+          "module": "graph",
+          "code": "leavesOf",
+          "why": "Dependensi ke tugas ringkasan diperluas ke semua daunnya; bisa jadi daun lain yang menahan."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/schedule.test.ts"
+    },
+    {
+      "id": "siklus",
+      "category": "jadwal",
+      "title": "Muncul pesan siklus dependensi, atau Gantt kosong",
+      "checks": [
+        {
+          "module": "graph",
+          "code": "findCycle",
+          "why": "Bilah peringatan menyebut tugas-tugas di siklus. Ingat dependensi ke tugas ringkasan berarti dependensi ke semua daunnya."
+        },
+        {
+          "module": "task-dialog",
+          "code": "makesLoop",
+          "why": "Dialog seharusnya tidak menawarkan predecessor yang membuat siklus. Bila tetap terjadi, periksa jalur lain (impor, setParent)."
+        },
+        {
+          "module": "project-view",
+          "code": "cycle",
+          "why": "Saat analisis gagal, layout Gantt tidak dibangun; tabel tetap tampil."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/schedule.test.ts src/ui/project/predecessors.test.ts"
+    },
+    {
+      "id": "jalur-kritis-aneh",
+      "category": "jadwal",
+      "title": "Jalur kritis tidak sesuai dugaan, atau semua tugas kritis",
+      "checks": [
+        {
+          "module": "critical-path",
+          "code": "backwardPass",
+          "why": "Float = hari kerja dari mulai awal ke mulai terlambat. Periksa lag dan akhir proyek."
+        },
+        {
+          "module": "schedule",
+          "code": "scheduleGraph",
+          "why": "Bila mulai yang diminta menahan tugas di akhir proyek, rantai sebelumnya bisa ikut kritis."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/critical-path.test.ts",
+      "tip": "Tugas ringkasan tidak pernah ditandai kritis; lihat subtugasnya."
+    },
+    {
+      "id": "persen-aneh",
+      "category": "jadwal",
+      "title": "Persen proyek atau tugas ringkasan tidak masuk akal",
+      "checks": [
+        {
+          "module": "summary",
+          "code": "weightedProgress",
+          "why": "Rata-rata ditimbang durasi; milestone tidak berbobot. Tugas panjang mendominasi."
+        },
+        {
+          "module": "summary",
+          "code": "rollUpProgress",
+          "why": "Ringkasan memakai semua daun di bawahnya, bukan anak langsung."
+        },
+        {
+          "module": "gan-map",
+          "code": "mapTasks",
+          "why": "Saat impor, persen ringkasan dari .gan diganti rollup (tercatat di laporan)."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/summary.test.ts"
+    },
+    {
+      "id": "status-terlambat",
+      "category": "jadwal",
+      "title": "Status 'terlambat' salah, atau tidak berubah setelah tengah malam",
+      "checks": [
+        {
+          "module": "summary",
+          "code": "taskStatus",
+          "why": "Terlambat bila selesai sebelum hari ini dan persen < 100."
+        },
+        {
+          "module": "today",
+          "code": "watchDayChange",
+          "why": "Pemicu pergantian hari: timer ke tengah malam, plus pemeriksaan saat tab terlihat lagi atau jendela difokus."
+        },
+        {
+          "module": "app-shell",
+          "code": "currentDay",
+          "why": "Hari ini disimpan sebagai state di App; komponen harus membaca today(), bukan memanggil localToday() sendiri."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/today.test.ts src/core/summary.test.ts"
+    },
+    {
+      "id": "suntingan-ditolak",
+      "category": "jadwal",
+      "title": "Suntingan ditolak dengan pesan 'Perubahan tidak disimpan …'",
+      "checks": [
+        {
+          "module": "app-store",
+          "code": "edit",
+          "why": "Hasil resep divalidasi projectSchema; yang tidak valid ditolak dan proyek lama dipertahankan."
+        },
+        {
+          "module": "model",
+          "code": "findReferenceIssues",
+          "why": "Penyebab umum: induk tidak ada atau milestone, id ganda, dependensi ke tugas yang tidak ada."
+        },
+        {
+          "module": "project-edits",
+          "why": "Resep tidak menjaga validitas sendiri; cari resep yang dipanggil dan bentuk data yang dihasilkannya."
+        }
+      ],
+      "verify": "pnpm vitest run src/app/store/app-store.test.ts src/app/edits/project-edits.test.ts"
+    },
+    {
+      "id": "undo-aneh",
+      "category": "jadwal",
+      "title": "Urungkan mengembalikan terlalu banyak atau terlalu sedikit",
+      "checks": [
+        {
+          "module": "app-store",
+          "code": "edit",
+          "why": "Satu panggilan edit = satu entri undo. Aksi yang memanggil edit dua kali menghasilkan dua langkah."
+        },
+        {
+          "module": "history",
+          "code": "record",
+          "why": "Resep yang tidak mengubah apa pun tidak direkam; edit baru mengosongkan redo."
+        },
+        {
+          "module": "project-view",
+          "code": "submitTask",
+          "why": "Contoh benar: addTask dan setPredecessors digabung dalam satu edit."
+        }
+      ],
+      "verify": "pnpm vitest run src/app/history/history.test.ts src/app/store/app-store.test.ts"
+    },
+    {
+      "id": "catatan-format-hilang",
+      "category": "jadwal",
+      "title": "Format atau sebutan tugas di catatan hilang setelah catatan diubah lewat dialog",
+      "checks": [
+        {
+          "module": "project-edits",
+          "code": "applyTaskInput",
+          "why": "Teks catatan yang berubah disimpan ulang sebagai paragraf biasa (documentFromText)."
+        },
+        {
+          "module": "model",
+          "code": "noteTextOf",
+          "why": "Dialog menampilkan catatan sebagai teks polos."
+        }
+      ],
+      "verify": "Ubah teks catatan tugas yang berisi sebutan, simpan, lalu periksa task.notes: sebutannya menjadi teks.",
+      "tip": "Selama teks catatan tidak diubah, dokumen aslinya tetap tersimpan. Editor kaya untuk catatan tugas belum dibuat."
+    },
+    {
+      "id": "bar-tanggal-salah",
+      "category": "gantt",
+      "title": "Bar mendarat di tanggal yang salah setelah diseret",
+      "checks": [
+        {
+          "module": "gantt-drag",
+          "code": "daysFromPixels",
+          "why": "Piksel ke hari dibulatkan menurut besar geseran; periksa lebar hari zoom yang dipakai."
+        },
+        {
+          "module": "gantt-drag",
+          "code": "resolveDrag",
+          "why": "Mendarat di hari kerja searah tarikan; resize memakai hari terakhir baru."
+        },
+        {
+          "module": "gantt-layout",
+          "code": "xOf",
+          "why": "Bila tanggal tersimpan benar tetapi gambarnya salah, curigai konversi tanggal ke x."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/gantt/drag.test.ts src/ui/gantt/layout.test.ts"
+    },
+    {
+      "id": "bar-di-libur",
+      "category": "gantt",
+      "title": "Bar bisa diseret ke akhir pekan atau hari libur",
+      "checks": [
+        {
+          "module": "gantt-drag",
+          "code": "resolveDrag",
+          "why": "Harus memakai nextWorkday (ke kanan) atau previousWorkday (ke kiri)."
+        },
+        {
+          "module": "calendar",
+          "code": "step",
+          "why": "Pencarian hari kerja terdekat; berhenti di tepi jendela tanggal."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/gantt/drag.test.ts src/core/calendar.test.ts"
+    },
+    {
+      "id": "klik-setelah-seret",
+      "category": "gantt",
+      "title": "Melepas seret ikut memilih atau membuka tugas lain",
+      "checks": [
+        {
+          "module": "gantt-chart",
+          "code": "endDrag",
+          "why": "justDragged menahan klik yang menyusul seret."
+        },
+        {
+          "module": "gantt-chart",
+          "code": "idAt",
+          "why": "Pointer capture membuat klik sampai ke <svg>; id bar diambil dari pressedId."
+        }
+      ],
+      "verify": "pnpm test:e2e (alur seret dan urungkan)"
+    },
+    {
+      "id": "panah-salah",
+      "category": "gantt",
+      "title": "Panah dependensi salah tempat atau tidak muncul",
+      "checks": [
+        {
+          "module": "gantt-layout",
+          "code": "layoutGantt",
+          "why": "Panah dibangun dari titik kait bar. Tugas yang tersaring atau di dalam ringkasan tertutup tidak punya titik kait, jadi panahnya dilewati."
+        },
+        {
+          "module": "task-rows",
+          "code": "buildTaskRows",
+          "why": "Baris yang tampil menentukan indeks y; filter dan ciutan memengaruhinya."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/gantt/layout.test.ts"
+    },
+    {
+      "id": "header-zoom",
+      "category": "gantt",
+      "title": "Header tanggal salah, atau posisi melompat setelah zoom",
+      "checks": [
+        {
+          "module": "gantt-layout",
+          "code": "headerMode",
+          "why": "Bentuk header ditentukan lebar hari: hari, pekan, bulan, atau kuartal."
+        },
+        {
+          "module": "gantt-zoom",
+          "code": "scrollAfterZoom",
+          "why": "Menjaga tanggal di tengah tetap di tengah, sampai pecahan hari."
+        },
+        {
+          "module": "gantt-view",
+          "code": "anchor",
+          "why": "Posisi dicatat di $effect.pre sebelum browser memotong scrollLeft untuk chart yang lebih sempit."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/gantt/zoom.test.ts src/ui/gantt/layout.test.ts"
+    },
+    {
+      "id": "magnet-roda",
+      "category": "gantt",
+      "title": "Gulir samping tidak berhenti di tepi kolom, atau Ctrl + roda tidak zoom",
+      "checks": [
+        {
+          "module": "gantt-view",
+          "code": "onWheel",
+          "why": "Listener roda dipasang manual dan non-pasif; Ctrl/Cmd untuk zoom, Shift atau usap untuk samping."
+        },
+        {
+          "module": "gantt-snap",
+          "code": "nearestSnap",
+          "why": "Titik magnet dari tepi sel header; dipilih 140 ms setelah gulir berhenti."
+        },
+        {
+          "module": "gantt-view",
+          "code": "startPan",
+          "why": "Selama latar diseret magnet ditahan, baru menempel setelah dilepas."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/gantt/snap.test.ts"
+    },
+    {
+      "id": "hari-ini-tidak-tampil",
+      "category": "gantt",
+      "title": "Tombol 'Hari ini' tidak sampai ke kolom hari ini",
+      "checks": [
+        {
+          "module": "gantt-view",
+          "code": "scrollToToday",
+          "why": "Bila chart belum mencapai hari ini, satu tahun ditambah dulu lalu gulir diulang (todayPending)."
+        },
+        {
+          "module": "gantt-view",
+          "code": "canAddYear",
+          "why": "Batas 40 tahun tambahan dan tahun 2100."
+        },
+        {
+          "module": "gantt-layout",
+          "code": "rangeOf",
+          "why": "Rentang chart: tahun penuh yang memuat proyek dan hari ini."
+        }
+      ],
+      "verify": "pnpm test:e2e"
+    },
+    {
+      "id": "baris-hilang",
+      "category": "tabel",
+      "title": "Baris tabel hilang setelah filter, atau nomor WBS berubah",
+      "checks": [
+        {
+          "module": "task-rows",
+          "code": "isShown",
+          "why": "Tugas ringkasan tampil selama ada anak yang lolos filter; daun diuji tipe dan status selesai."
+        },
+        {
+          "module": "task-rows",
+          "code": "buildTaskRows",
+          "why": "WBS dihitung dari daftar penuh saudara, jadi seharusnya tidak berubah karena filter."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/table/rows.test.ts"
+    },
+    {
+      "id": "keyboard-tabel",
+      "category": "tabel",
+      "title": "Panah keyboard di tabel tidak memindah fokus seperti seharusnya",
+      "checks": [
+        {
+          "module": "treegrid-keys",
+          "code": "treegridAction",
+          "why": "Semua keputusan ada di sini; komponen hanya menjalankan hasilnya."
+        },
+        {
+          "module": "task-table",
+          "code": "onKeydown",
+          "why": "Tombol di dalam baris (seperti grip) diabaikan; Enter, Delete, Spasi ditangani sendiri."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/table/treegrid-keys.test.ts"
+    },
+    {
+      "id": "seret-baris",
+      "category": "tabel",
+      "title": "Menyeret baris ke tempat yang salah, atau tidak bisa dijadikan subtugas",
+      "checks": [
+        {
+          "module": "task-table",
+          "code": "dropPlace",
+          "why": "Separuh kiri baris = sebelum/sesudah, separuh kanan = di dalam. Milestone dan keturunan sendiri ditolak."
+        },
+        {
+          "module": "project-edits",
+          "code": "placeTask",
+          "why": "Tugas ikut grup target; subpohon target tidak boleh berisi target."
+        },
+        {
+          "module": "project-edits",
+          "code": "setParent",
+          "why": "Induk baru tidak boleh milestone atau keturunan sendiri."
+        }
+      ],
+      "verify": "pnpm vitest run src/app/edits/project-edits.test.ts"
+    },
+    {
+      "id": "tidak-tersimpan",
+      "category": "berkas",
+      "title": "Perubahan tidak tersimpan, atau data lama menimpa yang baru",
+      "checks": [
+        {
+          "module": "app-store",
+          "code": "persist",
+          "why": "Simpan dirantai per proyek supaya simpan lama tidak mendarat terakhir. Lihat saveState dan notice storage-failed."
+        },
+        {
+          "module": "storage",
+          "code": "save",
+          "why": "Menulis record Dexie; openedAt dipertahankan dari record lama."
+        },
+        {
+          "module": "bootstrap",
+          "code": "store",
+          "why": "Tanpa IndexedDB (sebagian jendela pribadi) dipakai penyimpanan memori: proyek hilang saat halaman ditutup."
+        }
+      ],
+      "verify": "pnpm vitest run src/app/persistence/browser.test.ts src/app/store/app-store.test.ts"
+    },
+    {
+      "id": "rentang-lama",
+      "category": "berkas",
+      "title": "Berkas .rentang lama gagal dibuka",
+      "checks": [
+        {
+          "module": "migrations",
+          "code": "migrations",
+          "why": "Setiap versi butuh satu migrasi ke versi berikutnya; tanpa itu muncul missing-migration."
+        },
+        {
+          "module": "model",
+          "code": "CURRENT_SCHEMA_VERSION",
+          "why": "Versi sekarang; berkas yang lebih baru ditolak (newer-schema-version)."
+        },
+        {
+          "module": "import-report",
+          "code": "describeOpenError",
+          "why": "Kalimat galat menyebut jenis masalahnya."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/migrations.test.ts"
+    },
+    {
+      "id": "impor-gagal",
+      "category": "berkas",
+      "title": "Impor .gan gagal, atau ada data yang hilang",
+      "checks": [
+        {
+          "module": "gan-parse",
+          "code": "parseGan",
+          "why": "XML rusak, bukan proyek, atau struktur tidak dikenali."
+        },
+        {
+          "module": "gan-map",
+          "code": "mapGanToProject",
+          "why": "Yang tidak bisa dibawa dicatat di laporan (changed / skipped), bukan dibuang diam-diam."
+        },
+        {
+          "module": "import-report",
+          "code": "describeReport",
+          "why": "Periksa dialog laporan: setiap baris menyebut tugasnya."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/gan/gan.test.ts"
+    },
+    {
+      "id": "impor-beda",
+      "category": "berkas",
+      "title": "Hasil impor punya tanggal atau dependensi yang berbeda dari GanttProject",
+      "checks": [
+        {
+          "module": "gan-map",
+          "code": "mapDependencies",
+          "why": "Hanya finish-to-start yang didukung; jenis lain diubah, lag yang tidak sah menjadi 0."
+        },
+        {
+          "module": "gan-map",
+          "code": "mapCalendar",
+          "why": "Libur berulang tiap tahun dan jenis hari selain HOLIDAY dilewati."
+        },
+        {
+          "module": "schedule",
+          "code": "scheduleGraph",
+          "why": "Rentang menghitung ulang semua tanggal dari mulai yang diminta; hasilnya bisa berbeda dari tanggal yang tertulis di .gan."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/gan/gan.test.ts"
+    },
+    {
+      "id": "simpan-berkas-gagal",
+      "category": "berkas",
+      "title": "Simpan ke berkas tidak membuka dialog, atau namanya aneh",
+      "checks": [
+        {
+          "module": "file-access",
+          "code": "saveFile",
+          "why": "showSaveFilePicker hanya ada di Chrome dan Edge; selain itu berkas diunduh."
+        },
+        {
+          "module": "project-file",
+          "code": "projectFileName",
+          "why": "Selain huruf dan angka diganti '-'; nama kosong menjadi proyek.rentang."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/project/project-file.test.ts"
+    },
+    {
+      "id": "daftar-kedaluwarsa",
+      "category": "berkas",
+      "title": "Daftar proyek menampilkan persen atau milestone yang kedaluwarsa",
+      "checks": [
+        {
+          "module": "app-store",
+          "code": "persist",
+          "why": "Ringkasan dihitung dan disimpan saat simpan, bukan saat daftar dibuka."
+        },
+        {
+          "module": "summary",
+          "code": "summarizeProject",
+          "why": "Milestone berikutnya = milestone belum selesai yang paling awal."
+        },
+        {
+          "module": "project-list",
+          "code": "milestoneText",
+          "why": "Bila semua tugas selesai, milestone diganti 'Semua tugas selesai'."
+        }
+      ],
+      "verify": "pnpm vitest run src/core/summary.test.ts src/ui/list/list-text.test.ts"
+    },
+    {
+      "id": "tab-hilang",
+      "category": "aplikasi",
+      "title": "Tab yang terbuka hilang setelah memuat ulang halaman",
+      "checks": [
+        {
+          "module": "app-store",
+          "code": "start",
+          "why": "Tab dipulihkan dari memori setelah daftar proyek dimuat; proyek yang sudah dihapus dilewati."
+        },
+        {
+          "module": "app-store",
+          "code": "remember",
+          "why": "Selama pemulihan memori tidak ditulis; kalau ditulis, tab tertimpa daftar kosong."
+        },
+        {
+          "module": "bootstrap",
+          "code": "workspace",
+          "why": "Disimpan di sessionStorage: per tab browser, hilang saat tab browser ditutup."
+        }
+      ],
+      "verify": "pnpm vitest run src/app/store/app-store.test.ts"
+    },
+    {
+      "id": "orang-tugas",
+      "category": "orang",
+      "title": "Orang tidak bisa ditugaskan, atau jumlah tugasnya salah",
+      "checks": [
+        {
+          "module": "resource-view",
+          "code": "assignable",
+          "why": "Hanya tugas daun yang belum dimiliki orang itu yang ditawarkan."
+        },
+        {
+          "module": "project-edits",
+          "code": "assign",
+          "why": "Pasangan tugas-orang yang sama tidak ditambahkan dua kali."
+        },
+        {
+          "module": "people",
+          "code": "buildPeople",
+          "why": "Jumlah tugas = jumlah penugasan orang itu."
+        }
+      ],
+      "verify": "pnpm vitest run src/ui/resource/people.test.ts"
+    },
+    {
+      "id": "tema-berkedip",
+      "category": "aplikasi",
+      "title": "Tema berkedip saat halaman dibuka, atau pilihan tema tidak diingat",
+      "checks": [
+        {
+          "module": "bootstrap",
+          "code": "rootElement",
+          "why": "Tema diterapkan di main.ts sebelum App dipasang."
+        },
+        {
+          "module": "theme",
+          "code": "readTheme",
+          "why": "Bila localStorage diblokir, pilihan kembali ke system."
+        }
+      ],
+      "verify": "Buka di jendela biasa dan jendela pribadi, ganti tema, muat ulang."
+    },
+    {
+      "id": "dokumen-belum-tersimpan",
+      "category": "dokumen",
+      "title": "Ketikan terakhir di dokumen tidak ada setelah memuat ulang",
+      "checks": [
+        {
+          "module": "documents-view",
+          "code": "flush",
+          "why": "Ketikan disimpan 500 ms setelah berhenti, saat editor ditinggalkan, atau saat tab disembunyikan; menutup halaman tepat setelah mengetik bisa mendahuluinya."
+        },
+        {
+          "module": "app-store",
+          "code": "edit",
+          "why": "Suntingan quiet tetap divalidasi dan disimpan otomatis seperti suntingan lain; notice edit-rejected berarti isinya ditolak skema."
+        }
+      ],
+      "verify": "Ketik, tunggu sebentar, lalu muat ulang: teks harus tetap ada."
+    },
+    {
+      "id": "urungkan-dokumen",
+      "category": "dokumen",
+      "title": "Ctrl+Z di luar editor mengurungkan banyak ketikan sekaligus",
+      "checks": [
+        {
+          "module": "history",
+          "code": "joinLast",
+          "why": "Ketikan dalam satu kunjungan ke editor (mergeKey yang sama) menjadi satu langkah."
+        },
+        {
+          "module": "documents-view",
+          "code": "commit",
+          "why": "Kunci gabungan dibuat per dokumen dan per kunjungan."
+        }
+      ],
+      "tip": "Di dalam editor, Ctrl+Z memakai riwayat TipTap sendiri yang lebih rinci."
+    },
+    {
+      "id": "sebutan-usang",
+      "category": "dokumen",
+      "title": "Nama, persen, atau tanggal pada sebutan tugas tidak ikut berubah",
+      "checks": [
+        {
+          "module": "document-editor",
+          "code": "showTasks",
+          "why": "Chip digambar ulang saat tautan tugas berubah."
+        },
+        {
+          "module": "document-helpers",
+          "code": "taskLinks",
+          "why": "Tautan dihitung dari baris tugas (buildTaskRows), jadi mengikuti jadwal dan rollup."
+        }
+      ],
+      "verify": "Ubah persen tugas di Gantt, kembali ke Dokumen: chip dan kartunya harus menunjukkan persen baru."
+    }
+  ]
+}

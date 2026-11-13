@@ -1,0 +1,656 @@
+{
+  "$schema": "../../tools/peta-algoritma/schema.json",
+  "diagrams": [
+    {
+      "id": "model-jadwal",
+      "type": "class",
+      "name": "Model data: proyek dan jadwal",
+      "summary": "Yang disimpan di berkas .rentang dan IndexedDB. Perhatikan: tidak ada tanggal selesai di mana pun.",
+      "nodes": [
+        {
+          "id": "file",
+          "name": "ProjectFile",
+          "col": 1,
+          "row": 1,
+          "attributes": ["schemaVersion: 2", "project: Project"]
+        },
+        {
+          "id": "project",
+          "name": "Project",
+          "col": 2,
+          "row": 1,
+          "attributes": ["id: string", "name: string", "area: work | finance | career"]
+        },
+        {
+          "id": "calendar",
+          "name": "Calendar",
+          "col": 3,
+          "row": 1,
+          "attributes": ["workingDays: (0..6)[]"]
+        },
+        {
+          "id": "holiday",
+          "name": "Holiday",
+          "col": 4,
+          "row": 1,
+          "attributes": ["date: IsoDate", "name?: string"]
+        },
+        {
+          "id": "dependency",
+          "name": "Dependency",
+          "col": 1,
+          "row": 2,
+          "attributes": [
+            "id: string",
+            "from: TaskId",
+            "to: TaskId",
+            "type: finish-to-start",
+            "lag: hari kerja"
+          ]
+        },
+        {
+          "id": "task",
+          "name": "Task",
+          "col": 2,
+          "row": 2,
+          "attributes": [
+            "id: string",
+            "name: string",
+            "type?: IMP | DOC | DSG | BUG | FIX | REV",
+            "start: IsoDate  (yang diminta)",
+            "duration: hari kerja (0 = milestone)",
+            "progress: 0..100",
+            "isMilestone: boolean",
+            "parentId?: TaskId",
+            "order: number",
+            "notes?: teks | dokumen editor",
+            "link?: URL"
+          ]
+        },
+        {
+          "id": "document",
+          "name": "ProjectDocument",
+          "col": 3,
+          "row": 2,
+          "attributes": [
+            "id: string",
+            "title: string",
+            "content: JSON (dokumen editor)",
+            "order: number",
+            "updatedAt?: string (waktu ISO)"
+          ]
+        },
+        {
+          "id": "note",
+          "kind": "note",
+          "col": 2,
+          "row": 3,
+          "text": [
+            "Tanggal selesai tidak disimpan.",
+            "Selalu dihitung schedule.ts dari start,",
+            "duration, dependensi, dan kalender."
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "file",
+          "to": "project",
+          "kind": "composition",
+          "toLabel": "1"
+        },
+        {
+          "from": "project",
+          "to": "calendar",
+          "kind": "composition",
+          "toLabel": "1"
+        },
+        {
+          "from": "calendar",
+          "to": "holiday",
+          "kind": "composition",
+          "toLabel": "0..*",
+          "label": "holidays"
+        },
+        {
+          "from": "project",
+          "to": "task",
+          "kind": "composition",
+          "toLabel": "0..*",
+          "label": "tasks"
+        },
+        {
+          "from": "project",
+          "to": "dependency",
+          "kind": "composition",
+          "toLabel": "0..*",
+          "label": "dependencies"
+        },
+        {
+          "from": "project",
+          "to": "document",
+          "kind": "composition",
+          "toLabel": "0..*",
+          "label": "documents"
+        },
+        {
+          "from": "dependency",
+          "to": "task",
+          "kind": "navigable",
+          "label": "from",
+          "toLabel": "1"
+        },
+        {
+          "from": "dependency",
+          "to": "task",
+          "kind": "navigable",
+          "label": "to",
+          "toLabel": "1"
+        },
+        {
+          "from": "task",
+          "to": "task",
+          "kind": "association",
+          "label": "parentId (0..1)"
+        },
+        {
+          "from": "note",
+          "to": "task",
+          "kind": "anchor"
+        }
+      ]
+    },
+    {
+      "id": "model-orang",
+      "type": "class",
+      "name": "Model data: orang, role, dan penugasan",
+      "summary": "Orang (Resource) boleh punya satu role; penugasan menghubungkan orang dengan tugas.",
+      "nodes": [
+        {
+          "id": "project",
+          "name": "Project",
+          "col": 2,
+          "row": 1,
+          "attributes": ["…"]
+        },
+        {
+          "id": "role",
+          "name": "Role",
+          "col": 1,
+          "row": 2,
+          "attributes": ["id: string", "name: string"]
+        },
+        {
+          "id": "resource",
+          "name": "Resource",
+          "col": 2,
+          "row": 2,
+          "attributes": ["id: string", "name: string", "roleId?: string"]
+        },
+        {
+          "id": "assignment",
+          "name": "Assignment",
+          "col": 3,
+          "row": 2,
+          "attributes": ["id: string", "taskId: string", "resourceId: string"]
+        },
+        {
+          "id": "task",
+          "name": "Task",
+          "col": 4,
+          "row": 2,
+          "attributes": ["id: string", "…"]
+        }
+      ],
+      "edges": [
+        {
+          "from": "project",
+          "to": "role",
+          "kind": "composition",
+          "toLabel": "0..*",
+          "label": "roles"
+        },
+        {
+          "from": "project",
+          "to": "resource",
+          "kind": "composition",
+          "toLabel": "0..*",
+          "label": "resources"
+        },
+        {
+          "from": "project",
+          "to": "assignment",
+          "kind": "composition",
+          "toLabel": "0..*",
+          "label": "assignments"
+        },
+        {
+          "from": "resource",
+          "to": "role",
+          "kind": "navigable",
+          "label": "roleId",
+          "toLabel": "0..1"
+        },
+        {
+          "from": "assignment",
+          "to": "resource",
+          "kind": "navigable",
+          "label": "resourceId",
+          "toLabel": "1"
+        },
+        {
+          "from": "assignment",
+          "to": "task",
+          "kind": "navigable",
+          "label": "taskId",
+          "toLabel": "1"
+        }
+      ]
+    },
+    {
+      "id": "data-turunan",
+      "type": "class",
+      "name": "Data turunan di sesi dan tampilan",
+      "summary": "Semua yang dihitung dari Project dan tidak pernah disimpan: analisis jadwal, riwayat undo, baris tabel, dan geometri Gantt.",
+      "nodes": [
+        {
+          "id": "session",
+          "name": "ProjectSession",
+          "stereotype": "sesi",
+          "col": 1,
+          "row": 1,
+          "attributes": [
+            "project: Project",
+            "origin: demo | gan | rentang | new",
+            "fileName: string | null",
+            "analysis: Result<CriticalPath, CycleError>",
+            "progress: Map<TaskId, number>",
+            "history: History"
+          ]
+        },
+        {
+          "id": "history",
+          "name": "History",
+          "stereotype": "riwayat",
+          "col": 2,
+          "row": 1,
+          "attributes": ["past: HistoryEntry[]", "future: HistoryEntry[]"]
+        },
+        {
+          "id": "entry",
+          "name": "HistoryEntry",
+          "col": 3,
+          "row": 1,
+          "attributes": ["label: string", "patches: Patch[]", "inverse: Patch[]"]
+        },
+        {
+          "id": "critical",
+          "name": "CriticalPath",
+          "stereotype": "dihitung",
+          "col": 1,
+          "row": 2,
+          "attributes": ["critical: Set<TaskId>", "float: Map<TaskId, number>"]
+        },
+        {
+          "id": "schedule",
+          "name": "Schedule",
+          "stereotype": "dihitung",
+          "col": 2,
+          "row": 2,
+          "attributes": ["projectStart: IsoDate | null", "projectEnd: IsoDate | null"]
+        },
+        {
+          "id": "scheduled",
+          "name": "ScheduledTask",
+          "stereotype": "dihitung",
+          "col": 3,
+          "row": 2,
+          "attributes": ["start: IsoDate", "end: IsoDate", "isSummary: boolean"]
+        },
+        {
+          "id": "row",
+          "name": "TaskRow",
+          "stereotype": "tampilan",
+          "col": 2,
+          "row": 3,
+          "attributes": [
+            "wbs: string",
+            "level: number",
+            "start, end: IsoDate | null",
+            "status: TaskStatus | null",
+            "critical: boolean",
+            "expanded: boolean"
+          ]
+        },
+        {
+          "id": "layout",
+          "name": "GanttLayout",
+          "stereotype": "tampilan",
+          "col": 3,
+          "row": 3,
+          "attributes": [
+            "bars: GanttBar[]",
+            "links: GanttLink[]",
+            "top, bottom: HeaderCell[]",
+            "offDays, weekLines",
+            "todayX: number"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "session",
+          "to": "history",
+          "kind": "composition",
+          "toLabel": "1"
+        },
+        {
+          "from": "history",
+          "to": "entry",
+          "kind": "composition",
+          "toLabel": "0..100"
+        },
+        {
+          "from": "session",
+          "to": "critical",
+          "kind": "composition",
+          "toLabel": "0..1",
+          "label": "analysis"
+        },
+        {
+          "from": "critical",
+          "to": "schedule",
+          "kind": "composition",
+          "toLabel": "1"
+        },
+        {
+          "from": "schedule",
+          "to": "scheduled",
+          "kind": "composition",
+          "toLabel": "0..*",
+          "label": "tasks"
+        },
+        {
+          "from": "row",
+          "to": "scheduled",
+          "kind": "dependency",
+          "label": "«use»"
+        },
+        {
+          "from": "layout",
+          "to": "row",
+          "kind": "dependency",
+          "label": "«use»"
+        }
+      ]
+    },
+    {
+      "id": "status-simpan",
+      "type": "state",
+      "name": "Status simpan (saveState)",
+      "summary": "Ikon di header mengikuti status ini. Setiap persist() memulai simpan baru, berurutan per proyek.",
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "initial",
+          "col": 1,
+          "row": 1
+        },
+        {
+          "id": "idle",
+          "name": "idle",
+          "col": 2,
+          "row": 1,
+          "text": ["belum ada simpan"]
+        },
+        {
+          "id": "saving",
+          "name": "saving",
+          "col": 3,
+          "row": 1,
+          "text": ["do / storage.save"]
+        },
+        {
+          "id": "saved",
+          "name": "saved",
+          "col": 4,
+          "row": 1,
+          "text": ["Tersimpan di browser"]
+        },
+        {
+          "id": "failed",
+          "name": "failed",
+          "col": 3,
+          "row": 2,
+          "text": ["notice storage-failed"]
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "idle"
+        },
+        {
+          "from": "idle",
+          "to": "saving",
+          "label": "persist()"
+        },
+        {
+          "from": "saving",
+          "to": "saved",
+          "label": "berhasil / list()"
+        },
+        {
+          "from": "saved",
+          "to": "saving",
+          "label": "persist()"
+        },
+        {
+          "from": "saving",
+          "to": "failed",
+          "label": "gagal"
+        },
+        {
+          "from": "failed",
+          "to": "saving",
+          "label": "persist()"
+        }
+      ]
+    },
+    {
+      "id": "seret-bar",
+      "type": "state",
+      "name": "Seret bar Gantt",
+      "summary": "Klik dan seret dibedakan oleh ambang 4 px; seret yang tidak mengubah apa pun tidak membuat entri undo.",
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "initial",
+          "col": 1,
+          "row": 1
+        },
+        {
+          "id": "idle",
+          "name": "Diam",
+          "col": 2,
+          "row": 1
+        },
+        {
+          "id": "pressed",
+          "name": "Ditekan",
+          "col": 4,
+          "row": 1,
+          "text": ["entry / catat id, mode, x awal", "tangkap pointer"]
+        },
+        {
+          "id": "dragging",
+          "name": "Menyeret",
+          "col": 3,
+          "row": 3,
+          "text": ["do / pratinjau resolveDrag"]
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "idle"
+        },
+        {
+          "from": "idle",
+          "to": "pressed",
+          "label": "pointerdown [bar daun]"
+        },
+        {
+          "from": "pressed",
+          "to": "idle",
+          "label": "pointerup / klik memilih"
+        },
+        {
+          "from": "pressed",
+          "to": "dragging",
+          "label": "pointermove [≥ 4 px]"
+        },
+        {
+          "from": "dragging",
+          "to": "dragging",
+          "label": "pointermove / deltaDays"
+        },
+        {
+          "from": "dragging",
+          "to": "idle",
+          "label": "pointerup / onReschedule bila berubah"
+        },
+        {
+          "from": "dragging",
+          "to": "idle",
+          "label": "Escape, pointercancel / batal"
+        }
+      ]
+    },
+    {
+      "id": "status-tugas",
+      "type": "state",
+      "name": "Status tugas (taskStatus)",
+      "summary": "Status bukan data tersimpan: dihitung setiap kali dari persen, tanggal selesai, dan hari ini. Penjaga diperiksa dari atas ke bawah.",
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "initial",
+          "col": 1,
+          "row": 2
+        },
+        {
+          "id": "choice",
+          "kind": "choice",
+          "col": 2,
+          "row": 2
+        },
+        {
+          "id": "done",
+          "name": "Selesai (done)",
+          "col": 3,
+          "row": 1
+        },
+        {
+          "id": "late",
+          "name": "Terlambat (late)",
+          "col": 3,
+          "row": 2
+        },
+        {
+          "id": "progress",
+          "name": "Berjalan (in-progress)",
+          "col": 3,
+          "row": 3
+        },
+        {
+          "id": "waiting",
+          "name": "Belum mulai (not-started)",
+          "col": 3,
+          "row": 4
+        },
+        {
+          "id": "note",
+          "kind": "note",
+          "col": 1,
+          "row": 4,
+          "text": ["Tugas ringkasan tidak punya status;", "hanya daun."]
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "choice"
+        },
+        {
+          "from": "choice",
+          "to": "done",
+          "label": "[persen ≥ 100]"
+        },
+        {
+          "from": "choice",
+          "to": "late",
+          "label": "[selesai < hari ini]"
+        },
+        {
+          "from": "choice",
+          "to": "progress",
+          "label": "[persen > 0]"
+        },
+        {
+          "from": "choice",
+          "to": "waiting",
+          "label": "[lainnya]"
+        }
+      ]
+    },
+    {
+      "id": "impor-menunggu",
+      "type": "state",
+      "name": "Impor .gan yang menunggu (pendingImport)",
+      "summary": "Hasil impor tidak langsung disimpan: pengguna membaca laporannya dulu.",
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "initial",
+          "col": 1,
+          "row": 1
+        },
+        {
+          "id": "none",
+          "name": "Tidak ada",
+          "col": 2,
+          "row": 1
+        },
+        {
+          "id": "pending",
+          "name": "Menunggu konfirmasi",
+          "col": 3,
+          "row": 1,
+          "text": ["do / dialog laporan impor"]
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "none"
+        },
+        {
+          "from": "none",
+          "to": "pending",
+          "label": "openFile(.gan) [berhasil]"
+        },
+        {
+          "from": "pending",
+          "to": "none",
+          "label": "confirmImport() / saveAndShow"
+        },
+        {
+          "from": "pending",
+          "to": "none",
+          "label": "cancelImport()"
+        }
+      ]
+    }
+  ]
+}

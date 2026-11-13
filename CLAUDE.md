@@ -38,20 +38,26 @@ Sumber kebenaran ruang lingkup: [docs/ruang-lingkup.md](docs/ruang-lingkup.md). 
 
 ## Perintah
 
-| Perintah                | Fungsi                                                           |
-| ----------------------- | ---------------------------------------------------------------- |
-| `pnpm dev`              | Server pengembangan Vite                                         |
-| `pnpm build`            | Typecheck lalu build produksi ke `dist/`                         |
-| `pnpm typecheck`        | `svelte-check` lalu `tsc -b` (core, app, test, config)           |
-| `pnpm lint`             | ESLint, termasuk batas lapisan dan larangan `Date` di core       |
-| `pnpm test`             | Vitest sekali jalan (proyek `core` di Node, `ui` di jsdom)       |
-| `pnpm test:coverage`    | Vitest dengan coverage; gagal bila core di bawah 90%             |
-| `pnpm test:e2e`         | Playwright + axe (butuh `pnpm exec playwright install chromium`) |
-| `pnpm check:data-files` | Gagal bila ada berkas `.gan` atau `.rentang` di luar `fixtures/` |
-| `pnpm format`           | Prettier                                                         |
-| `pnpm check`            | Semua pemeriksaan CI berurutan                                   |
+| Perintah                | Fungsi                                                             |
+| ----------------------- | ------------------------------------------------------------------ |
+| `pnpm dev`              | Server pengembangan Vite                                           |
+| `pnpm build`            | Typecheck lalu build produksi ke `dist/`                           |
+| `pnpm typecheck`        | `svelte-check` lalu `tsc -b` (core, app, test, config)             |
+| `pnpm lint`             | ESLint, termasuk batas lapisan dan larangan `Date` di core         |
+| `pnpm test`             | Vitest sekali jalan (proyek `core` di Node, `ui` di jsdom)         |
+| `pnpm test:coverage`    | Vitest dengan coverage; gagal bila core di bawah 90%               |
+| `pnpm test:e2e`         | Playwright + axe (butuh `pnpm exec playwright install chromium`)   |
+| `pnpm check:data-files` | Gagal bila ada berkas `.gan` atau `.rentang` di luar `fixtures/`   |
+| `pnpm peta`             | Peta algoritma di browser, diperbarui otomatis saat berkas berubah |
+| `pnpm peta:check`       | Gagal bila peta algoritma tidak cocok dengan kode (CI)             |
+| `pnpm peta:build`       | Menulis peta algoritma ke `dist-peta/index.html`                   |
+| `pnpm peta:test`        | Test alat peta (`node --test`)                                     |
+| `pnpm format`           | Prettier                                                           |
+| `pnpm check`            | Semua pemeriksaan CI berurutan                                     |
 
 ## Peta kode
+
+Peta algoritma interaktif dengan diagram UML (use case, urutan, komponen, aktivitas, kelas, status): `pnpm peta`. Isinya di [docs/peta/](docs/peta/), alatnya terpisah di [tools/peta-algoritma/](tools/peta-algoritma/) ([ADR 006](docs/decisions/006-peta-algoritma.md)). Menambah, mengganti nama, atau memindahkan berkas atau fungsi ekspor di `src` berarti memperbarui peta; `pnpm peta:check` (juga di CI) menolak bila tidak.
 
 - `src/core/dates.ts`, `calendar.ts`: tanggal tanpa `Date`, kalender kerja.
 - `src/core/model.ts`: skema Zod dan tipe; `CURRENT_SCHEMA_VERSION`.
@@ -59,16 +65,18 @@ Sumber kebenaran ruang lingkup: [docs/ruang-lingkup.md](docs/ruang-lingkup.md). 
 - `src/core/migrations.ts`: migrasi `.rentang` per versi.
 - `src/core/gan/`: `parse.ts` (XML ke struktur tervalidasi), `map.ts` (ke model + laporan), `report.ts` (tipe laporan).
 - `src/core/summary.ts`: rollup persen, status tugas, ringkasan proyek.
+- `src/core/rich-text.ts`: membaca JSON editor (dokumen, catatan): teks, jumlah kata, judul, tugas yang disebut.
 - `src/core/test-utils/`: proyek emas Kedai Kopi, generator proyek deterministik, dan `toGan` untuk membuat `.gan` besar di test (hanya untuk test; Rentang tidak menulis `.gan`).
 - `src/app/persistence/`: `StorageProvider`, `browser.ts` (Dexie), `memory.ts`.
-- `src/app/edits/`: suntingan sebagai resep Immer murni (tugas, orang, role, penugasan).
-- `src/app/history/`: undo/redo dari patch Immer.
+- `src/app/edits/`: suntingan sebagai resep Immer murni (tugas, orang, role, penugasan, dokumen).
+- `src/app/history/`: undo/redo dari patch Immer; suntingan dengan `mergeKey` sama digabung jadi satu langkah.
 - `src/app/store/app-store.ts`: state aplikasi (Zustand vanilla): daftar proyek, tab, sesi per proyek, impor yang menunggu, status simpan, toast.
 - `src/app/demo/`: proyek demo fiktif, tanggalnya digeser relatif ke hari ini.
 - `src/ui/shell/`: App, header, tab, tema, toast, dialog Proyek baru, `global.css` (Tailwind dipetakan ke token, animasi).
 - `src/ui/list/`: Daftar proyek (tabel atau kartu) dan tampilan kosong.
 - `src/ui/project/`: toolbar proyek, Gantt (tabel + pembatas + chart), menu Kolom, dialog Tugas.
 - `src/ui/resource/`: tampilan Resource, dialog Kelola role.
+- `src/ui/docs/`: tampilan Dokumen (daftar, halaman, ringkasan), editor TipTap yang dimuat malas (`editor.ts`), menu "/" dan "@" ([ADR 007](docs/decisions/007-dokumen-proyek.md)).
 - `src/ui/table/`, `src/ui/gantt/`: baris pohon tugas, tombol treegrid, geometri Gantt murni.
 - `src/ui/icons/Icon.svelte`: nama ikon → komponen `@lucide/svelte`.
 - `src/ui/motion.ts`: transisi Svelte yang mematuhi "reduce motion".
