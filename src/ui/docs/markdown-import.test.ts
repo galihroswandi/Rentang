@@ -122,4 +122,28 @@ describe('tables in the real editor', () => {
     expect(element.querySelector('table')).toBeNull()
     editor.destroy()
   })
+
+  it('turns pasted Markdown table text into a table', () => {
+    const { editor, element } = load('')
+    editor.focus()
+    const paste = (html: string) => {
+      const event = new Event('paste', { bubbles: true, cancelable: true }) as Event & {
+        clipboardData: { getData: (type: string) => string }
+      }
+      event.clipboardData = {
+        getData: (type) =>
+          type === 'text/plain'
+            ? '| a | b |\n|---|---|\n| 1 | 2 |'
+            : type === 'text/html'
+              ? html
+              : '',
+      }
+      element.querySelector('.doc-body')?.dispatchEvent(event)
+    }
+    paste('<p>bukan tabel</p>')
+    expect(element.querySelector('table')).toBeNull()
+    paste('')
+    expect(element.querySelectorAll('table td').length).toBe(2)
+    editor.destroy()
+  })
 })

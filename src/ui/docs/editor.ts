@@ -21,6 +21,7 @@ import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table
 import StarterKit from '@tiptap/starter-kit'
 import Suggestion, { type SuggestionProps } from '@tiptap/suggestion'
 import { mount, unmount } from 'svelte'
+import { documentFromMarkdown } from '../../core/markdown.ts'
 import { TASK_MENTION, type Json } from '../../core/rich-text.ts'
 import Icon from '../icons/Icon.svelte'
 import { filterBlocks, type BlockChoice, type BlockKind } from './blocks.ts'
@@ -431,6 +432,16 @@ export function createDocumentEditor(options: EditorOptions): DocumentEditor {
       MoveBlock,
     ],
     editorProps: {
+      // Plain text holding a Markdown table becomes a table; other pastes are left alone.
+      handlePaste: (_view, event) => {
+        const data = event.clipboardData
+        const text = data?.getData('text/plain') ?? ''
+        if (!data || data.getData('text/html') !== '' || !text.includes('|')) return false
+        const blocks = (documentFromMarkdown(text).content as { content?: object[] }).content ?? []
+        if (!blocks.some((block) => (block as { type?: string }).type === 'table')) return false
+        editor.chain().focus().insertContent(blocks).run()
+        return true
+      },
       attributes: {
         class: 'doc-body',
         role: 'textbox',
