@@ -402,6 +402,7 @@ export function createDocumentEditor(options: EditorOptions): DocumentEditor {
         role: 'textbox',
         'aria-multiline': 'true',
         'aria-label': options.label,
+        spellcheck: 'false',
       },
     },
     onUpdate: ({ editor: current }) => {
